@@ -6,7 +6,7 @@ import { randomBytes } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { watch, mkdirSync } from "node:fs";
 import { dirname, extname, join, sep } from "node:path";
-import { acceptProposal, addNote, boardKey, canvasDir, canvasTabs, discardProposal, dsReport, patchBoard, readCanvas, readHistory, undoBoard, setNoteState, slug, tokensCss, type NoteState } from "./store.js";
+import { acceptProposal, addNote, approve, flow, restoreRev, boardKey, canvasDir, canvasTabs, discardProposal, dsReport, patchBoard, readCanvas, readHistory, undoBoard, setNoteState, slug, tokensCss, type NoteState } from "./store.js";
 import { POINT_SCRIPT, VIEWER } from "./web.js";
 
 const TYPES: Record<string, string> = {
@@ -57,6 +57,16 @@ export async function startServer(o: { root: string; onSend: (text: string) => v
     res.end(data);
   };
 
+  // A board page: design-system variables and the point script added, and no network.
+  const board = (res: ServerResponse, page: string) => {
+    const base = `/${token}`;
+    const origin = `http://127.0.0.1:${(server.address() as any).port}`;
+    const inject = `<link rel="stylesheet" href="${base}/ds/tokens.css"><script>${POINT_SCRIPT}</script>`;
+    const html = /<\/head>/i.test(page) ? page.replace(/<\/head>/i, () => inject + "</head>") : inject + page;
+    const csp = `default-src 'none'; style-src 'unsafe-inline' ${origin}; script-src 'unsafe-inline'; img-src ${origin} data:; font-src ${origin} data:; form-action 'none'`;
+    return reply(res, 200, "text/html", html, { "content-security-policy": csp });
+  };
+
   const route = async (req: IncomingMessage, res: ServerResponse) => {
     const port = (server.address() as any).port;
     if (req.headers.host !== `127.0.0.1:${port}`) return reply(res, 403, "text/plain", "bad host");
@@ -82,6 +92,12 @@ export async function startServer(o: { root: string; onSend: (text: string) => v
         if (b.send) await send(b.canvas, [id]);
         return reply(res, 200, "application/json", JSON.stringify({ id }));
       }
+      if (p[1] === "restore") return reply(res, 200, "application/json", JSON.stringify(await restoreRev(o.root, b.canvas, b.board, b.rev)));
+      if (p[1] === "approve") return reply(res, 200, "application/json", JSON.stringify(await approve(o.root, b.canvas, b.board)));
+      if (p[1] === "addboard") {
+        o.onSend(`Add a board “${String(b.name).slice(0, 40)}” (${slug(String(b.name))}.html) to canvas "${b.canvas}": “${String(b.from).slice(0, 40)}” links to it. Use canvas_create.`);
+        return reply(res, 200, "application/json", "{}");
+      }
       if (p[1] === "edit") return reply(res, 200, "application/json", JSON.stringify(await patchBoard(o.root, b)));
       if (p[1] === "undo") return reply(res, 200, "application/json", JSON.stringify(await undoBoard(o.root, b.canvas, b.board, b.rev)));
       if (p[1] === "custom") {
@@ -105,17 +121,11 @@ export async function startServer(o: { root: string; onSend: (text: string) => v
 
     if (p.length === 2) return reply(res, 200, "text/html", VIEWER.replace("__BASE__", base).replace("__CANVAS__", canvas));
     if (p[2] === "ds.json") return reply(res, 200, "application/json", JSON.stringify(await dsReport(o.root, canvas, ds)));
+    if (p[2] === "flow.json") return reply(res, 200, "application/json", JSON.stringify(await flow(o.root, canvas)));
+    if (p[2] === "history" && /^[\w-]+\.r\d+\.html$/.test(p[3] ?? "")) return board(res, await readFile(join(dir, "history", p[3]), "utf8"));
     if (p[2] === "history.json") return reply(res, 200, "application/json", JSON.stringify(await readHistory(o.root, canvas, url.searchParams.get("board") ?? "")));
     if (p[2] === "canvas.json") return reply(res, 200, "application/json", await readFile(join(dir, "canvas.json")));
-    if (p[2] === "boards" && p[3]) {
-      let html = await readFile(join(dir, boardKey(p[3])), "utf8");
-      const inject = `<link rel="stylesheet" href="${base}/ds/tokens.css"><script>${POINT_SCRIPT}</script>`;
-      html = /<\/head>/i.test(html) ? html.replace(/<\/head>/i, () => inject + "</head>") : inject + html;
-      const origin = `http://127.0.0.1:${port}`;
-      // No network from a board: only this server for images, fonts and the token file.
-      const csp = `default-src 'none'; style-src 'unsafe-inline' ${origin}; script-src 'unsafe-inline'; img-src ${origin} data:; font-src ${origin} data:; form-action 'none'`;
-      return reply(res, 200, "text/html", html, { "content-security-policy": csp });
-    }
+    if (p[2] === "boards" && p[3]) return board(res, await readFile(join(dir, boardKey(p[3])), "utf8"));
     if (p[2] === "assets" && p.length > 3) {
       const name = p.slice(3).join("/");
       if (name.includes("..")) return reply(res, 400, "text/plain", "bad path");

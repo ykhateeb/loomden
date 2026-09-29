@@ -182,3 +182,55 @@ test("Edit mode: change text and token values, undo, history, custom value asks 
   expect(sent[0]).toMatch(/custom value for Gap above/);
   expect((await readCanvas(root, "demo")).boards["boards/cart.html"].rev).toBe(5);
 });
+
+const withLinks = (t: string, link: string) => board(t).replace("</body>", `${link}</body>`);
+
+test("Play: follow links, missing board asks pi, Esc exits", async ({ page }) => {
+  await editBoard(root, { canvas: "demo", board: "cart", baseRev: 1, html: withLinks("Cart", '<a href="pay.html">Go pay</a>') });
+  await editBoard(root, { canvas: "demo", board: "pay", baseRev: 1, html: withLinks("Pay", '<a href="done.html">Finish</a>') });
+  await page.goto(server.url("demo"));
+  await page.getByRole("button", { name: /^Play/ }).click();
+  const play = page.frameLocator("#pl");
+  await expect(play.locator("h1")).toHaveText("Cart");
+  await expect(page.getByText("Links in this flow 2")).toBeVisible();
+
+  await play.getByRole("link", { name: "Go pay" }).click();
+  await expect(play.locator("h1")).toHaveText("Pay");
+  await page.keyboard.press("Backspace"); // focus is inside the frame after the click: the keys still work
+  await expect(play.locator("h1")).toHaveText("Cart");
+  await page.keyboard.press("r");
+  await expect(play.locator("h1")).toHaveText("Cart");
+
+  await play.getByRole("link", { name: "Go pay" }).click();
+  await play.getByRole("link", { name: "Finish" }).click();
+  await expect(page.getByText("No board for “done”").first()).toBeVisible();
+  await page.getByRole("button", { name: "Ask pi to add it" }).click();
+  await expect.poll(() => sent.length).toBe(1);
+  expect(sent[0]).toContain("Add a board “done” (done.html)");
+
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#player")).toBeHidden();
+  await expect(page.locator(".board").first()).toBeVisible();
+});
+
+test("Compare: see changes, restore adds a rev, only a person approves", async ({ page }) => {
+  await editBoard(root, { canvas: "demo", board: "cart", baseRev: 1, edits: [{ find: ">Cart<", replace: ">Cart v2<" }], why: "new title" });
+  await page.goto(server.url("demo"));
+  await page.getByRole("button", { name: "Compare" }).click();
+  await expect(page.getByText("Cart rev 1 → rev 2 · 1 change")).toBeVisible();
+  await expect(page.getByText("rev 2 · pi · new title").first()).toBeVisible();
+  await expect(page.frameLocator("#cmp iframe").first().locator("h1")).toHaveText("Cart");
+  await expect(page.frameLocator("#cmp iframe").nth(1).locator("h1")).toHaveText("Cart v2");
+
+  await page.getByRole("button", { name: "Approve Cart" }).click();
+  await expect(page.getByText("Approved Cart rev 2")).toBeVisible();
+  await expect(page.getByText("Approval 1 of 2 boards")).toBeVisible();
+  await expect(page.getByText("Approve Pay first.")).toBeVisible();
+  expect((await readCanvas(root, "demo")).boards["boards/cart.html"].approved).toBe(2);
+  expect(await readFile(join(root, "demo", "approved", "cart.html"), "utf8")).toContain("Cart v2");
+
+  await page.getByRole("button", { name: "Restore rev 1" }).click();
+  await expect.poll(async () => (await readCanvas(root, "demo")).boards["boards/cart.html"].rev).toBe(3);
+  await expect(page.getByText("Changed since rev 2")).toBeVisible(); // approval stays at rev 2
+  expect(await readFile(join(root, "demo", "approved", "cart.html"), "utf8")).toContain("Cart v2");
+});

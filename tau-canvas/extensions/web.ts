@@ -14,13 +14,17 @@ tag:t.tagName.toLowerCase(),canText:!t.children.length&&!!t.textContent.trim(),f
 const aiming=()=>mode==="point"||mode==="edit";
 addEventListener("mouseover",e=>{if(!aiming())return;const t=tgt(e);if(!t)return;const r=t.getBoundingClientRect();
 Object.assign(box.style,{display:"block",left:r.left+"px",top:r.top+"px",width:r.width+"px",height:r.height+"px"})},true);
-addEventListener("click",e=>{if(!aiming())return;e.preventDefault();e.stopPropagation();const t=tgt(e);if(!t)return;
+addEventListener("click",e=>{const a=e.target.closest&&e.target.closest("a[href]");if(a)e.preventDefault(); // a board never navigates by itself
+if(mode==="play"){if(a)parent.postMessage({type:"go",href:a.getAttribute("href")},"*");return}
+if(!aiming())return;e.preventDefault();e.stopPropagation();const t=tgt(e);if(!t)return;
 const i=info(t);parent.postMessage(mode==="point"?{type:"pick",tid:i.tid,text:i.text,box:i.box}:Object.assign({type:"select"},i),"*")},true);
 addEventListener("dblclick",e=>{if(mode!=="edit")return;const t=tgt(e);if(!t||t.children.length||!t.textContent.trim())return;
 const was=t.textContent;t.contentEditable="true";t.focus();
 const done=()=>{t.removeEventListener("blur",done);t.contentEditable="false";if(t.textContent!==was)parent.postMessage({type:"text",tid:t.dataset.tid,text:t.textContent},"*")};
 t.addEventListener("blur",done);t.addEventListener("keydown",k=>{if(k.key==="Enter"){k.preventDefault();t.blur()}})},true);
 addEventListener("submit",e=>e.preventDefault(),true);
+// the frame owns the keyboard after a click: pass the play keys on
+addEventListener("keydown",e=>{if(mode!=="play"||!["r","Backspace","Escape"].includes(e.key))return;e.preventDefault();parent.postMessage({type:"key",key:e.key},"*")},true);
 const marks=[];
 function show(vars){
 marks.forEach(m=>m.remove());marks.length=0;if(!vars||!vars.length)return;
@@ -69,6 +73,22 @@ main{flex:1;display:flex;min-height:0}
 .board iframe{border:1px solid var(--line);background:#fff;display:block}
 body.move iframe{pointer-events:none}
 body.point #stage,body.edit #stage{cursor:crosshair}
+#player{display:none;position:absolute;inset:0;flex-direction:column;align-items:center;gap:8px;padding:12px;overflow:hidden}
+#player .bar{display:flex;gap:8px;align-items:center;color:var(--mut)}
+#player iframe{border:1px solid var(--line);background:#fff;transform-origin:0 0}
+body.play #world,body.play #hint{display:none}
+body.play #player{display:flex}
+#cmp{display:none;flex:1;overflow:auto;padding:16px;gap:16px}
+body[data-view=compare] #cmp{display:flex}
+body[data-view=compare] #stage,body[data-view=compare] aside,body[data-view=compare] .modes .seg:first-child,body[data-tab=ds] #cmp,body[data-tab=ds] .views{display:none}
+#cmp .pair{display:flex;gap:16px;align-items:flex-start}
+#cmp .col{display:flex;flex-direction:column;gap:6px;color:var(--mut)}
+#cmp .col>div{overflow:hidden;border:1px solid var(--line)}
+#cmp iframe{border:0;background:#fff;transform-origin:0 0;display:block;pointer-events:none}
+#cmp .side{width:300px;display:flex;flex-direction:column;gap:8px;flex:none}
+#cmp .side .row{display:flex;justify-content:space-between;align-items:center;gap:6px}
+.ok{color:#65c38b}.warn{color:#e5b773}.bad{color:#ee9075}
+.linkrow{border:1px solid var(--line);border-radius:8px;padding:6px 8px}
 #toast{position:fixed;left:50%;bottom:48px;transform:translateX(-50%);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 12px;display:none;z-index:20}
 #hist{position:fixed;z-index:10;min-width:240px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px;box-shadow:0 8px 24px #0004;display:none;flex-direction:column;gap:6px}
 .lbl{cursor:pointer}
@@ -99,8 +119,8 @@ body[data-tab=ds] #stage,body[data-tab=ds] aside,body[data-tab=ds] .modes{displa
 </style></head>
 <body class="move">
 <header><nav id="tabs"></nav>
-<span class="modes"><span class="seg"><button id="m-move" class="on">Move <kbd>V</kbd></button><button id="m-point">Point <kbd>P</kbd></button><button id="m-edit">Edit <kbd>E</kbd></button></span> <span id="zoom"></span></span></header>
-<main><div id="stage"><div id="world"></div><div id="hint"><span><b>This is a first draft.</b>Press <kbd>P</kbd> and click anything to ask for a change. Nothing is built until you approve.</span><button id="hint-x" aria-label="Dismiss">×</button></div></div><aside id="side"></aside><section id="ds"></section></main>
+<span class="modes"><span class="seg"><button id="m-move" class="on">Move <kbd>V</kbd></button><button id="m-point">Point <kbd>P</kbd></button><button id="m-edit">Edit <kbd>E</kbd></button><button id="m-play">Play ▶</button></span> <span class="seg views"><button id="v-canvas" class="on">Canvas</button><button id="v-compare">Compare</button></span> <span id="zoom"></span></span></header>
+<main><div id="stage"><div id="world"></div><div id="player"></div><div id="hint"><span><b>This is a first draft.</b>Press <kbd>P</kbd> and click anything to ask for a change. Nothing is built until you approve.</span><button id="hint-x" aria-label="Dismiss">×</button></div></div><aside id="side"></aside><section id="ds"></section><section id="cmp"></section></main>
 <footer id="foot"></footer>
 <div id="pop"></div><div id="hist"></div><div id="toast"></div>
 <script>
@@ -124,8 +144,8 @@ function renderTabs(){
 const ago=iso=>Date.now()-new Date(iso).getTime()<60000;
 let fresh;
 function applyView(){$("#world").style.transform="translate("+view.x+"px,"+view.y+"px) scale("+view.k+")";$("#zoom").textContent=Math.round(view.k*100)+"%"}
-function setMode(m){mode=m;document.body.className=m;for(const k of["move","point","edit"])$("#m-"+k).classList.toggle("on",m===k);
-if(m==="edit"&&!ds)loadDs();if(cv)renderSide(curNotes);
+function setMode(m){mode=m;document.body.className=m;for(const k of["move","point","edit","play"])$("#m-"+k).classList.toggle("on",m===k);
+if(m==="edit"&&!ds)loadDs();if(m==="play")startPlay();if(cv)renderSide(curNotes);
 for(const f of frames.values())f.iframe.contentWindow&&f.iframe.contentWindow.postMessage({type:"mode",mode:m},"*")}
 
 function render(){
@@ -164,6 +184,7 @@ $("#hint-x").onclick=()=>{hintOff=true;$("#hint").style.display="none"};
 function renderSide(notes){
   const side=$("#side");side.replaceChildren();
   if(mode==="edit")return renderEdit(side);
+  if(mode==="play")return renderPlay(side);
   const open=notes.filter(([,n])=>n.state==="open"),done=notes.filter(([,n])=>n.state==="done");
   const chip=(k,label,n)=>h("button",{class:nf===k?"on":"",onclick:()=>{nf=k;renderSide(notes)}},label+" "+n);
   side.append(h("div",{class:"chips"},chip("open","Open",notes.length-done.length),chip("done","Done",done.length),chip("all","All",notes.length)));
@@ -212,9 +233,79 @@ async function showHistory(key,ev){
   p.style.display="flex";p.style.left=Math.min(innerWidth-280,ev.clientX)+"px";p.style.top=(ev.clientY+12)+"px"}
 addEventListener("click",()=>$("#hist").style.display="none");
 
+// play: click through the boards by their links
+let fl=null,stack=[];
+async function startPlay(){
+  fl=await fetch(B+"/c/"+C+"/flow.json").then(r=>r.json());
+  stack=[];const first=fl.boards[0];if(first)playTo(first.key,true);else renderSide(curNotes)}
+function playTo(key,reset){
+  if(reset)stack=[];stack.push(key);
+  const b=cv.boards[key],p=$("#player"),k=Math.min(1,(innerHeight-150)/b.h);
+  let f=$("#pl");
+  if(!f){f=h("iframe",{id:"pl",sandbox:"allow-scripts"});f.addEventListener("load",()=>f.contentWindow.postMessage({type:"mode",mode:"play"},"*"))}
+  p.replaceChildren(h("div",{class:"bar"},h("b",{},"Play "+cv.title),h("span",{},b.title+" rev "+b.rev),
+    h("button",{onclick:()=>startPlay()},"Restart",h("kbd",{},"R")),h("button",{onclick:()=>setMode("move")},"Exit",h("kbd",{},"esc"))),f);
+  f.style.cssText="width:"+b.w+"px;height:"+b.h+"px;transform:scale("+k+");margin-bottom:"+(b.h*(k-1))+"px;margin-right:"+(b.w*(k-1))+"px";
+  f.src=B+"/c/"+C+"/"+key+"?r="+b.rev+"."+bust;renderSide(curNotes)}
+function playKey(k){if(k==="r")startPlay();if(k==="Backspace")playBack();if(k==="Escape")setMode("move")}
+function playBack(){if(stack.length>1){stack.pop();playTo(stack.pop())}}
+function renderPlay(side){
+  side.append(h("b",{},"Boards"));
+  if(!fl)return;
+  for(const b of fl.boards)side.append(h("button",{class:stack[stack.length-1]===b.key?"on":"",onclick:()=>playTo(b.key,true)},b.title+" · rev "+b.rev));
+  const miss=[...new Set(fl.links.filter(l=>!l.to).map(l=>l.name))];
+  for(const m of miss)side.append(h("small",{class:"bad"},m+" · missing"));
+  side.append(h("small",{},"Links between boards come from the HTML: a button with href payment.html goes there."),h("b",{},"Links in this flow "+fl.links.length));
+  for(const l of fl.links){
+    const row=h("div",{class:"linkrow"},h("small",{},l.fromTitle+" · “"+l.text+"”"),h("div",{},l.to?"→ "+cv.boards[l.to].title:"No board for “"+l.name+"”"));
+    if(!l.to)row.append(h("button",{onclick:()=>{post("addboard",{name:l.name,from:l.fromTitle});toast("Asked pi to add it")}},"Ask pi to add it"));
+    side.append(row)}
+  side.append(h("small",{},"While playing: R restarts, ⌫ goes back, Esc exits. Forms and buttons work."))}
+
+// compare, restore, approve
+let view2="canvas",cmp={board:null,base:null};
+function setView(v){view2=v;document.body.dataset.view=v;$("#v-canvas").classList.toggle("on",v==="canvas");$("#v-compare").classList.toggle("on",v==="compare");if(v==="compare")loadCmp()}
+async function loadCmp(){
+  if(!cmp.board||!cv.boards[cmp.board])cmp.board=cv.order[0];
+  const b=cv.boards[cmp.board];if(!b)return;
+  const hist=(await fetch(B+"/c/"+C+"/history.json?board="+encodeURIComponent(cmp.board)).then(r=>r.json())).reverse();
+  if(cmp.base==null||cmp.base>=b.rev)cmp.base=b.approved&&b.approved<b.rev?b.approved:Math.max(1,b.rev-1);
+  renderCmp(b,hist)}
+function renderCmp(b,hist){
+  const el=$("#cmp"),name=cmp.board.slice(7,-5),k=.6;
+  const frame=src=>{const f=h("iframe",{sandbox:"allow-scripts",src});f.style.cssText="width:"+b.w+"px;height:"+b.h+"px;transform:scale("+k+")";const box=h("div",{},f);box.style.cssText="width:"+b.w*k+"px;height:"+b.h*k+"px";return box};
+  const sel=h("select",{"aria-label":"Board"},...cv.order.map(o=>h("option",{value:o},cv.boards[o].title)));sel.value=cmp.board;
+  sel.onchange=()=>{cmp.board=sel.value;cmp.base=null;loadCmp()};
+  const changed=hist.filter(e=>e.rev>cmp.base);
+  const appr=Object.entries(cv.boards).filter(([,x])=>x.approved===x.rev).length,total=Object.keys(cv.boards).length;
+  const pending=Object.values(cv.boards).find(x=>x.approved!==x.rev);
+  const status=x=>x.approved===x.rev?h("span",{class:"ok"},"Approved"):x.approved?h("span",{class:"warn"},"Changed since rev "+x.approved):h("span",{class:"bad"},"Needs review");
+  el.replaceChildren(
+    h("div",{},h("div",{class:"row",style:"display:flex;gap:8px;align-items:center;margin-bottom:8px"},sel,h("b",{},b.title+" rev "+cmp.base+" → rev "+b.rev+" · "+changed.length+" change"+(changed.length===1?"":"s")),
+        h("button",{onclick:()=>post("restore",{board:cmp.board,rev:cmp.base}).then(()=>toast("Restored as a new rev"))},"Restore rev "+cmp.base),
+        h("button",{class:"primary",onclick:()=>post("approve",{board:cmp.board}).then(r=>toast("Approved "+b.title+" rev "+r.approved))},"Approve "+b.title)),
+      h("div",{class:"pair"},h("div",{class:"col"},h("span",{},"rev "+cmp.base+" · before"),frame(B+"/c/"+C+"/history/"+name+".r"+cmp.base+".html")),
+        h("div",{class:"col"},h("span",{},"rev "+b.rev+" · now"),frame(B+"/c/"+C+"/boards/"+name+".html?r="+b.rev+"."+bust)))),
+    h("div",{class:"side"},h("b",{},"What changed"),...changed.map(e=>h("div",{},"rev "+e.rev+" · "+e.by+(e.why?" · "+e.why:""))),
+      h("small",{},"Restoring never deletes: it adds a new rev with the old content."),
+      h("b",{},"Revs"),...hist.map(e=>h("button",{class:e.rev===cmp.base?"on":"",onclick:()=>{cmp.base=e.rev;loadCmp()}},"rev "+e.rev+" "+e.by+(e.why?" · "+e.why:""))),
+      h("b",{},"Approval "+appr+" of "+total+" boards"),
+      ...Object.entries(cv.boards).map(([key,x])=>h("div",{class:"row"},h("span",{},x.title+" rev "+x.rev),status(x))),
+      h("b",{},"Handoff to code"),h("small",{},"When every board is approved, pi gets a pack to build from: the boards at their approved revs, done notes, and the tokens used."),
+      h("button",{disabled:"",title:"Build sessions come with step 9"},"Start build session"),
+      h("small",{},pending?"Approve "+pending.title+" first.":"All boards are approved."),
+      h("small",{},"Saved in the project: .tau/canvases/"+C+"/. Boards, notes and approvals are files, so they go into git.")))}
+
 // point -> note box
 addEventListener("message",e=>{
   const d=e.data;if(!d)return;
+  if(d.type==="go"&&$("#pl")&&e.source===$("#pl").contentWindow){
+    const href=String(d.href);
+    if(/^[a-z][a-z0-9+.-]*:/i.test(href)||href[0]==="#")return; // outside links and anchors stay put
+    const name=href.split("#")[0].split("?")[0].replace(".html","");
+    const to=Object.keys(cv.boards).find(k=>k.slice(7,-5).toLowerCase()===name.toLowerCase());
+    return to?playTo(to):toast("No board for “"+name+"”")}
+  if(d.type==="key"&&$("#pl")&&e.source===$("#pl").contentWindow)return playKey(d.key);
   const key=[...frames.keys()].find(k=>frames.get(k).iframe.contentWindow===e.source);if(!key)return;
   if(d.type==="select"){selected={board:key,...d};return renderSide(curNotes)}
   if(d.type==="text"){selected={style:"",tag:"",canText:true,board:key,...d,full:d.text};return void post("edit",{board:key,tid:d.tid,text:d.text,tell}).then(r=>{lastMine={board:key,rev:r.rev}})}
@@ -242,8 +333,8 @@ stage.addEventListener("wheel",e=>{e.preventDefault();
   else{view.x-=e.deltaX;view.y-=e.deltaY}applyView()},{passive:false});
 addEventListener("keydown",e=>{if(/TEXTAREA|INPUT|SELECT/.test(e.target.tagName))return;
   if((e.metaKey||e.ctrlKey)&&e.key==="z"){e.preventDefault();return void undo()}
-  if(e.key==="v")setMode("move");if(e.key==="p")setMode("point");if(e.key==="e")setMode("edit");if(e.key==="Escape"){$("#pop").style.display="none";showOnBoards(null)}});
-$("#m-move").onclick=()=>setMode("move");$("#m-point").onclick=()=>setMode("point");$("#m-edit").onclick=()=>setMode("edit");
+  if(e.key==="v")setMode("move");if(e.key==="p")setMode("point");if(e.key==="e")setMode("edit");if(mode==="play"&&e.key!=="Escape"){e.preventDefault();playKey(e.key)}if(e.key==="Escape"){$("#pop").style.display="none";showOnBoards(null);if(mode==="play")setMode("move")}});
+$("#m-move").onclick=()=>setMode("move");$("#m-point").onclick=()=>setMode("point");$("#m-edit").onclick=()=>setMode("edit");$("#m-play").onclick=()=>setMode("play");$("#v-canvas").onclick=()=>setView("canvas");$("#v-compare").onclick=()=>setView("compare");
 
 // design system tab (read-only)
 let ds=null,sel=null,tab="canvas";
@@ -282,6 +373,6 @@ function renderDs(){
 
 // live updates
 const es=new EventSource(B+"/events");
-es.onmessage=e=>{const d=JSON.parse(e.data);if(d.type==="tokens-changed")bust++;load();if(tab==="ds")loadDs()};
+es.onmessage=async e=>{const d=JSON.parse(e.data);if(d.type==="tokens-changed")bust++;await load();if(tab==="ds")loadDs();if(view2==="compare")loadCmp()};
 applyView();load();
 </script></body></html>`;

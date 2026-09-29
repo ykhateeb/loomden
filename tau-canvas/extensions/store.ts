@@ -1,5 +1,5 @@
 // Files are the truth. Everything here reads and writes `.tau/canvases/<slug>/`.
-import { appendFile, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { appendFile, copyFile, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
@@ -24,6 +24,8 @@ export const boardKey = (b: string) => `boards/${slug(b.replace(/^boards\//, "")
 const nameOf = (key: string) => key.slice(7, -5);
 export const canvasDir = (root: string, canvas: string) => join(root, slug(canvas));
 export const RAW_BOARD = /\.tau\/canvases\/[^/]+\/boards\/[^/]+\.html$/;
+/** canvas.json (it holds approvals), approved/ and history/ change only through the tools and the viewer. */
+export const RAW_STATE = /\.tau\/canvases\/[^/]+\/(canvas\.json|approved\/.+|history\/.+)$/;
 
 // One read-modify-write at a time per canvas.
 const tails = new Map<string, Promise<unknown>>();
@@ -189,6 +191,51 @@ export async function readHistory(root: string, canvas: string, board: string) {
   const key = boardKey(board);
   const log = await readFile(join(canvasDir(root, canvas), "history", "log.jsonl"), "utf8").catch(() => "");
   return log.split("\n").filter(Boolean).map((l) => JSON.parse(l)).filter((e) => e.board === key).reverse();
+}
+
+/** Restore never deletes: the old content is saved as a new rev by you. */
+export async function restoreRev(root: string, canvas: string, board: string, rev: number) {
+  const dir = canvasDir(root, canvas);
+  return locked(dir, async () => {
+    const c = await readCanvas(root, canvas);
+    const key = boardKey(board);
+    if (!c.boards[key]) throw new Error(`Board ${key} not found`);
+    const html = await readFile(join(dir, "history", `${nameOf(key)}.r${Number(rev)}.html`), "utf8").catch(() => {
+      throw new Error(`Rev ${rev} not found`);
+    });
+    return { rev: await save(dir, c, key, html, "you", `restore rev ${rev}`) };
+  });
+}
+
+/** Only a person approves (the viewer calls this; no pi tool does). The approved rev is copied to approved/. */
+export async function approve(root: string, canvas: string, board: string) {
+  const dir = canvasDir(root, canvas);
+  return locked(dir, async () => {
+    const c = await readCanvas(root, canvas);
+    const key = boardKey(board);
+    const m = c.boards[key];
+    if (!m) throw new Error(`Board ${key} not found`);
+    await mkdir(join(dir, "approved"), { recursive: true });
+    await copyFile(join(dir, key), join(dir, "approved", `${nameOf(key)}.html`));
+    m.approved = m.rev;
+    await writeFile(join(dir, "canvas.json"), JSON.stringify(c, null, 2));
+    return { approved: m.rev };
+  });
+}
+
+/** Links between boards come from the HTML: <a href="payment.html">. */
+export async function flow(root: string, canvas: string) {
+  const c = await readCanvas(root, canvas);
+  const boards = c.order.filter((k) => c.boards[k]).map((k) => ({ key: k, title: c.boards[k].title, rev: c.boards[k].rev, approved: c.boards[k].approved }));
+  const links: { from: string; fromTitle: string; text: string; name: string; to: string | null }[] = [];
+  for (const b of boards) {
+    const html = await readFile(join(canvasDir(root, canvas), b.key), "utf8").catch(() => "");
+    for (const m of html.matchAll(/<a\b[^>]*\bhref=["']([\w-]+)\.html(?:[?#][^"']*)?["'][^>]*>([\s\S]*?)<\/a>/g)) {
+      const to = Object.keys(c.boards).find((k) => nameOf(k).toLowerCase() === m[1].toLowerCase()) ?? null; // Pay.html finds pay
+      links.push({ from: b.key, fromTitle: b.title, text: m[2].replace(/<[^>]+>/g, "").trim(), name: m[1], to });
+    }
+  }
+  return { boards, links };
 }
 
 export async function addNote(root: string, canvas: string, n: { board: string; target: Target; text: string }) {

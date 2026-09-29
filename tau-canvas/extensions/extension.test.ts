@@ -30,6 +30,7 @@ describe("extension", () => {
 
     const blocked = on.tool_call({ toolName: "write", input: { path: ".tau/canvases/c1/boards/cart.html" } }, ctx);
     expect(blocked.block).toBe(true);
+    expect(on.tool_call({ toolName: "write", input: { path: ".tau/canvases/c1/canvas.json" } }, ctx).block).toBe(true); // approvals live there
     expect(on.tool_call({ toolName: "write", input: { path: "src/a.ts" } }, ctx)).toBeUndefined();
 
     expect(on.tool_call({ toolName: "write", input: { path: ".tau/design-system/tokens.json" } }, ctx).block).toBe(true);

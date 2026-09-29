@@ -5,7 +5,7 @@ import { Type } from "typebox";
 import { defineTool, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { startServer, type CanvasServer } from "./server.js";
 import {
-  RAW_BOARD, RAW_TOKENS, createBoard, proposeTokens, editBoard, ensureGitignore, listCanvases, readBoard, readCanvas, setNoteState,
+  RAW_BOARD, RAW_STATE, RAW_TOKENS, createBoard, proposeTokens, editBoard, ensureGitignore, listCanvases, readBoard, readCanvas, setNoteState,
 } from "./store.js";
 
 const text = (t: string) => ({ content: [{ type: "text" as const, text: t }], details: undefined });
@@ -112,6 +112,7 @@ export default function (pi: ExtensionAPI) {
     const p = resolve(ctx.cwd, String((event.input as any).path ?? ""));
     const posix = p.split("\\").join("/");
     if (RAW_TOKENS.test(posix)) return { block: true, reason: "tokens.json changes only when a person accepts a proposal: use design_system_propose" };
+    if (RAW_STATE.test(posix)) return { block: true, reason: "canvas.json, approved/ and history/ change only through the canvas tools. Only a person approves." };
     if (RAW_BOARD.test(posix)) return { block: true, reason: "Board files change only through the tools: use canvas_edit" };
     return undefined;
   });

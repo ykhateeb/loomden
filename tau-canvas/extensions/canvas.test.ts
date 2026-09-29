@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { startServer } from "./server.js";
-import { RAW_BOARD, acceptProposal, addNote, dsReport, patchBoard, proposeTokens, readHistory, undoBoard, createBoard, editBoard, ensureGitignore, readBoard, readCanvas, stamp, tokensCss } from "./store.js";
+import { RAW_BOARD, RAW_STATE, acceptProposal, addNote, approve, flow, restoreRev, dsReport, patchBoard, proposeTokens, readHistory, undoBoard, createBoard, editBoard, ensureGitignore, readBoard, readCanvas, stamp, tokensCss } from "./store.js";
 
 const html = `<html><head><title>x</title></head><body><button>Pay</button><a href="b.html">Next</a></body></html>`;
 const setup = async () => {
@@ -162,5 +162,39 @@ describe("edit mode", () => {
     await patchBoard(root, { canvas: "c1", board: "cart", tid, text: "Quiet", tell: false });
     await undoBoard(root, "c1", "cart", 5);
     expect((await readHistory(root, "c1", "cart"))[0].quiet).toBe(true);
+  });
+});
+
+describe("play, restore, approve", () => {
+  it("reads links, restores as a new rev, approves into approved/", async () => {
+    const { root } = await setup();
+    await createBoard(root, { canvas: "c1", board: "cart", title: "Cart", w: 1, h: 1, html: `<a href="pay.html"><b>Pay</b> now</a><a href="done.html">Done</a><a href="https://x.com">out</a><a href='PAY.html#top'>again</a>` });
+    await createBoard(root, { canvas: "c1", board: "pay", title: "Pay", w: 1, h: 1, html: "<p>pay</p>" });
+    expect((await flow(root, "c1")).links).toEqual([
+      { from: "boards/cart.html", fromTitle: "Cart", text: "Pay now", name: "pay", to: "boards/pay.html" },
+      { from: "boards/cart.html", fromTitle: "Cart", text: "Done", name: "done", to: null },
+      { from: "boards/cart.html", fromTitle: "Cart", text: "again", name: "PAY", to: "boards/pay.html" }, // any case, quotes, a fragment
+    ]);
+
+    await editBoard(root, { canvas: "c1", board: "cart", baseRev: 1, html: "<p>v2</p>" });
+    const r = await restoreRev(root, "c1", "cart", 1);
+    expect(r.rev).toBe(3); // restore adds a rev, it deletes nothing
+    expect((await readBoard(root, "c1", "cart")).html).toContain('href="pay.html"');
+    await expect(restoreRev(root, "c1", "cart", 9)).rejects.toThrow(/not found/);
+
+    expect((await readCanvas(root, "c1")).boards["boards/cart.html"].approved).toBeUndefined();
+    await approve(root, "c1", "cart");
+    expect((await readCanvas(root, "c1")).boards["boards/cart.html"].approved).toBe(3);
+    expect(await readFile(join(root, "c1", "approved", "cart.html"), "utf8")).toContain('href="pay.html"');
+    // a later edit does not move the approval: the board shows as changed since
+    await editBoard(root, { canvas: "c1", board: "cart", baseRev: 3, html: "<p>v4</p>" });
+    const m = (await readCanvas(root, "c1")).boards["boards/cart.html"];
+    expect([m.rev, m.approved]).toEqual([4, 3]);
+    expect(await readFile(join(root, "c1", "approved", "cart.html"), "utf8")).toContain('href="pay.html"');
+  });
+
+  it("guards canvas.json, approved/ and history/ from raw writes", () => {
+    for (const f of ["canvas.json", "approved/cart.html", "history/log.jsonl"]) expect(RAW_STATE.test(`/p/.tau/canvases/c1/${f}`)).toBe(true);
+    expect(RAW_STATE.test("/p/.tau/canvases/c1/assets/a.png")).toBe(false);
   });
 });
