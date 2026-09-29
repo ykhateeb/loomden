@@ -13,53 +13,55 @@
   --color-current: currentColor;
 
   /* surfaces, dark to light */
-  --color-bg: #0e1218;
-  --color-side: #12171e;
-  --color-panel: #171d26;
-  --color-raised: #1d2430;
-  --color-hover: #222b38;
-  --color-code: #0b0f14;
-  --color-field: #0f141b;
-  --color-line: #252d39;
-  --color-line2: #313b4a;
+  --color-bg: #161b22;
+  --color-side: #12171d;
+  --color-panel: #1d232d;
+  --color-raised: #252c38;
+  --color-hover: #2b3340;
+  --color-code: #0f1319;
+  --color-field: #141920;
+  --color-line: #29313d;
+  --color-line2: #36404f;
 
   /* text, strong to weak */
-  --color-fg: #e7eaef;
-  --color-sub: #b3bbc7;
-  --color-muted: #7f8a99;
-  --color-dim: #5b6573;
+  --color-fg: #e9ecf1;
+  --color-sub: #b7bfcb;
+  --color-muted: #8a95a4;
+  --color-dim: #656f7e;
   --color-ink: #0c1420; /* text on accent fills */
   --color-ink-danger: #1d0c07; /* text on danger fills */
 
   /* roles: color, its tint (-bg) and its border (-line) */
-  --color-accent: #7aa8d8;
-  --color-accent2: #9cc0e6;
-  --color-accent-bg: rgba(122, 168, 216, 0.13);
-  --color-accent-line: rgba(122, 168, 216, 0.38);
-  --color-orange: #e8993a;
-  --color-orange-bg: rgba(232, 153, 58, 0.13);
-  --color-ok: #5fbf85;
-  --color-ok-bg: rgba(95, 191, 133, 0.13);
-  --color-ok-line: rgba(95, 191, 133, 0.4);
-  --color-warn: #e3b36e;
-  --color-warn-bg: rgba(227, 179, 110, 0.12);
-  --color-warn-line: rgba(227, 179, 110, 0.4);
-  --color-danger: #ec8a6f;
-  --color-danger-bg: rgba(236, 138, 111, 0.12);
-  --color-danger-line: rgba(236, 138, 111, 0.35);
-  --color-you: #e8704f;
-  --color-you-bg: rgba(232, 112, 79, 0.15);
-  --color-violet: #b39ae6;
-  --color-violet-bg: rgba(179, 154, 230, 0.14);
-  --color-scrim: rgba(6, 9, 13, 0.64);
-  --color-tip: #e7eaef;
-  --color-tip-fg: #12171e;
+  --color-accent: #82aedc;
+  --color-accent2: #a2c6ea;
+  --color-accent-bg: rgba(130, 174, 220, 0.13);
+  --color-accent-line: rgba(130, 174, 220, 0.38);
+  --color-orange: #e99d42;
+  --color-orange-bg: rgba(233, 157, 66, 0.13);
+  --color-ok: #65c38b;
+  --color-ok-bg: rgba(101, 195, 139, 0.13);
+  --color-ok-line: rgba(101, 195, 139, 0.4);
+  --color-warn: #e5b773;
+  --color-warn-bg: rgba(229, 183, 115, 0.12);
+  --color-warn-line: rgba(229, 183, 115, 0.4);
+  --color-danger: #ee9075;
+  --color-danger-bg: rgba(238, 144, 117, 0.12);
+  --color-danger-line: rgba(238, 144, 117, 0.35);
+  --color-you: #eb7755;
+  --color-you-bg: rgba(235, 119, 85, 0.16);
+  --color-violet: #b8a1e9;
+  --color-violet-bg: rgba(184, 161, 233, 0.14);
+  --color-teal: #6fc6c0;
+  --color-teal-bg: rgba(111, 198, 192, 0.13);
+  --color-scrim: rgba(8, 11, 15, 0.6);
+  --color-tip: #e9ecf1;
+  --color-tip-fg: #12171d;
   --color-tip-acc: #2f5d8f;
 
   /* diff lines */
-  --color-add-bg: rgba(95, 191, 133, 0.1);
+  --color-add-bg: rgba(101, 195, 139, 0.1);
   --color-add: #9ad4ae;
-  --color-del-bg: rgba(236, 138, 111, 0.1);
+  --color-del-bg: rgba(238, 144, 117, 0.1);
   --color-del: #eda391;
 
   --font-sans: "Inter Variable", Inter, system-ui, sans-serif;
