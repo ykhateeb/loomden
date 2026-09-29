@@ -1,0 +1,162 @@
+/*
+ * Tau — Modern UI theme for Tailwind. Values come from the design canvas stylesheet (all 17 pi-only boards share it).
+ * Use the utilities (bg-panel, text-muted, border-line, rounded-xl, shadow-menu…) and the components in ui/.
+ */
+@import "tailwindcss";
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/jetbrains-mono";
+
+@theme {
+  /* Only these colors exist in the app. */
+  --color-*: initial;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+
+  /* surfaces, dark to light */
+  --color-bg: #0e1218;
+  --color-side: #12171e;
+  --color-panel: #171d26;
+  --color-raised: #1d2430;
+  --color-hover: #222b38;
+  --color-code: #0b0f14;
+  --color-field: #0f141b;
+  --color-line: #252d39;
+  --color-line2: #313b4a;
+
+  /* text, strong to weak */
+  --color-fg: #e7eaef;
+  --color-sub: #b3bbc7;
+  --color-muted: #7f8a99;
+  --color-dim: #5b6573;
+  --color-ink: #0c1420; /* text on accent fills */
+  --color-ink-danger: #1d0c07; /* text on danger fills */
+
+  /* roles: color, its tint (-bg) and its border (-line) */
+  --color-accent: #7aa8d8;
+  --color-accent2: #9cc0e6;
+  --color-accent-bg: rgba(122, 168, 216, 0.13);
+  --color-accent-line: rgba(122, 168, 216, 0.38);
+  --color-orange: #e8993a;
+  --color-orange-bg: rgba(232, 153, 58, 0.13);
+  --color-ok: #5fbf85;
+  --color-ok-bg: rgba(95, 191, 133, 0.13);
+  --color-ok-line: rgba(95, 191, 133, 0.4);
+  --color-warn: #e3b36e;
+  --color-warn-bg: rgba(227, 179, 110, 0.12);
+  --color-warn-line: rgba(227, 179, 110, 0.4);
+  --color-danger: #ec8a6f;
+  --color-danger-bg: rgba(236, 138, 111, 0.12);
+  --color-danger-line: rgba(236, 138, 111, 0.35);
+  --color-you: #e8704f;
+  --color-you-bg: rgba(232, 112, 79, 0.15);
+  --color-violet: #b39ae6;
+  --color-violet-bg: rgba(179, 154, 230, 0.14);
+  --color-scrim: rgba(6, 9, 13, 0.64);
+  --color-tip: #e7eaef;
+  --color-tip-fg: #12171e;
+  --color-tip-acc: #2f5d8f;
+
+  /* diff lines */
+  --color-add-bg: rgba(95, 191, 133, 0.1);
+  --color-add: #9ad4ae;
+  --color-del-bg: rgba(236, 138, 111, 0.1);
+  --color-del: #eda391;
+
+  --font-sans: "Inter Variable", Inter, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, Menlo, monospace;
+
+  /* the design's type sizes (line height comes from the body: 1.45) */
+  --text-*: initial;
+  --text-label: 11px; /* uppercase labels, key hints */
+  --text-meta: 11.5px; /* times and counts in lists */
+  --text-xs: 12px;
+  --text-sm: 12.5px;
+  --text-base: 13px;
+  --text-body: 13.5px;
+  --text-md: 14px;
+  --text-lg: 15px;
+  --text-xl: 16px;
+
+  --radius-xs: 5px; /* key hints */
+  --radius-sm: 7px; /* menu items, tabs, segments, chips */
+  --radius-md: 8px; /* buttons, inputs */
+  --radius-lg: 10px; /* tool cards, callouts, tab strip */
+  --radius-xl: 12px; /* cards, menus, toasts */
+  --radius-2xl: 16px; /* dialogs */
+
+  --shadow-menu: 0 16px 40px rgba(0, 0, 0, 0.5);
+  --shadow-modal: 0 24px 60px rgba(0, 0, 0, 0.55);
+  --shadow-toast: 0 14px 34px rgba(0, 0, 0, 0.45);
+  --shadow-tip: 0 6px 16px rgba(0, 0, 0, 0.35);
+  --shadow-tab: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-focus: 0 0 0 3px var(--color-accent-bg);
+  --shadow-open: 0 0 0 2px var(--color-accent-line);
+
+  --tracking-label: 0.7px;
+  --animate-spin: spin 0.8s linear infinite;
+}
+
+/* the window title bar is the drag handle; controls in it are not */
+@utility drag {
+  -webkit-app-region: drag;
+}
+@utility no-drag {
+  -webkit-app-region: no-drag;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    background: var(--color-bg);
+    color: var(--color-fg);
+    font: 13.5px/1.45 var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+    color-scheme: dark;
+  }
+  button:not(:disabled) {
+    cursor: pointer;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 1px;
+  }
+  /* code shows the characters as typed: no => to ⇒ ligatures */
+  .font-mono,
+  code,
+  pre {
+    font-variant-ligatures: none;
+  }
+  ::placeholder {
+    color: var(--color-muted);
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-line2);
+    border-radius: 5px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+}
+
+/* Markdown from the model: the HTML has no classes, so style it from its container. */
+@layer components {
+  .md > :first-child { margin-top: 0; }
+  .md > :last-child { margin-bottom: 0; }
+  .md p, .md ul, .md ol { margin: 0 0 8px; }
+  .md ul { list-style: disc; padding-left: 20px; }
+  .md ol { list-style: decimal; padding-left: 20px; }
+  .md a { color: var(--color-accent2); text-decoration: underline; }
+  .md h1, .md h2, .md h3 { font-weight: 600; margin: 12px 0 6px; font-size: var(--text-md); }
+  /* inline code looks like the design's chip */
+  .md code { font: 500 12px var(--font-mono); background: var(--color-orange-bg); color: var(--color-orange); padding: 1px 7px; border-radius: var(--radius-sm); }
+  .md pre { font: 12.5px/1.6 var(--font-mono); padding: 10px 12px; border-radius: var(--radius-md); background: var(--color-code); border: 1px solid var(--color-line); overflow: auto; margin: 0 0 8px; }
+  .md pre code { background: none; padding: 0; color: inherit; font: inherit; }
+}
