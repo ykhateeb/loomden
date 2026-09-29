@@ -1,0 +1,11 @@
+appId: dev.tau.app
+productName: Tau
+directories:
+  output: dist
+files:
+  - out/**
+asarUnpack:
+  # pi reads its own files (themes, export templates) and loads extensions with jiti.
+  - node_modules/@earendil-works/**
+mac:
+  category: public.app-category.developer-tools
