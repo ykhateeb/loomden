@@ -36,6 +36,13 @@ describe("extension", () => {
     await tools.design_system_propose.execute("4", { tokens: { name: "app", color: { tokens: [{ name: "link", value: "#4e6f94" }] } } }, null, null, ctx);
     const before = await on.before_agent_start({}, ctx);
     expect(before.message.content).toContain("Canvas c1: boards/cart.html rev 1");
+    // what you changed in edit mode reaches pi with its next turn, unless you turned "tell pi" off
+    const { patchBoard, readBoard } = await import("./store.js");
+    const tid = (await readBoard(join(cwd, ".tau", "canvases"), "c1", "cart")).html.match(/<button[^>]*data-tid="(\d+)"/)![1];
+    await patchBoard(join(cwd, ".tau", "canvases"), { canvas: "c1", board: "cart", tid, text: "Pay now" });
+    expect((await on.before_agent_start({}, ctx)).message.content).toContain("You changed boards/cart.html (rev 2)");
+    await patchBoard(join(cwd, ".tau", "canvases"), { canvas: "c1", board: "cart", tid, text: "Pay", tell: false });
+    expect((await on.before_agent_start({}, ctx)).message.content).not.toContain("You changed boards/cart.html (rev 3)");
     on.session_shutdown();
     on.session_shutdown();
   });

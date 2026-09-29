@@ -6,7 +6,7 @@ import { randomBytes } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { watch, mkdirSync } from "node:fs";
 import { dirname, extname, join, sep } from "node:path";
-import { acceptProposal, addNote, boardKey, canvasDir, canvasTabs, discardProposal, dsReport, readCanvas, setNoteState, slug, tokensCss, type NoteState } from "./store.js";
+import { acceptProposal, addNote, boardKey, canvasDir, canvasTabs, discardProposal, dsReport, patchBoard, readCanvas, readHistory, undoBoard, setNoteState, slug, tokensCss, type NoteState } from "./store.js";
 import { POINT_SCRIPT, VIEWER } from "./web.js";
 
 const TYPES: Record<string, string> = {
@@ -82,6 +82,13 @@ export async function startServer(o: { root: string; onSend: (text: string) => v
         if (b.send) await send(b.canvas, [id]);
         return reply(res, 200, "application/json", JSON.stringify({ id }));
       }
+      if (p[1] === "edit") return reply(res, 200, "application/json", JSON.stringify(await patchBoard(o.root, b)));
+      if (p[1] === "undo") return reply(res, 200, "application/json", JSON.stringify(await undoBoard(o.root, b.canvas, b.board, b.rev)));
+      if (p[1] === "custom") {
+        const c = await readCanvas(o.root, b.canvas);
+        o.onSend(`On board ${c.boards[boardKey(b.board)]?.title ?? b.board}, element “${String(b.text).slice(0, 60)}” (tid ${Number(b.tid)}): I need a custom value for ${String(b.prop).slice(0, 40)}. Add it to the design system as a token, then use it.`);
+        return reply(res, 200, "application/json", "{}");
+      }
       if (p[1] === "ds" && p[2] === "update") {
         o.onSend("Update the design system from code. Read the theme file (for example src/theme.ts, or the paths in `source` of .tau/design-system/tokens.json), then call design_system_propose with the full tokens.json. Do not write tokens.json yourself: I review your proposal first.");
       } else if (p[1] === "ds" && p[2] === "accept") await acceptProposal(ds);
@@ -98,6 +105,7 @@ export async function startServer(o: { root: string; onSend: (text: string) => v
 
     if (p.length === 2) return reply(res, 200, "text/html", VIEWER.replace("__BASE__", base).replace("__CANVAS__", canvas));
     if (p[2] === "ds.json") return reply(res, 200, "application/json", JSON.stringify(await dsReport(o.root, canvas, ds)));
+    if (p[2] === "history.json") return reply(res, 200, "application/json", JSON.stringify(await readHistory(o.root, canvas, url.searchParams.get("board") ?? "")));
     if (p[2] === "canvas.json") return reply(res, 200, "application/json", await readFile(join(dir, "canvas.json")));
     if (p[2] === "boards" && p[3]) {
       let html = await readFile(join(dir, boardKey(p[3])), "utf8");

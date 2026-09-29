@@ -55,7 +55,7 @@ export async function listCanvases(root: string): Promise<string[]> {
   return dirs.filter((d) => d.isDirectory() && existsSync(join(root, d.name, "canvas.json"))).map((d) => d.name);
 }
 
-async function save(dir: string, c: Canvas, key: string, html: string, by: string, why: string) {
+async function save(dir: string, c: Canvas, key: string, html: string, by: string, why: string, extra: object = {}) {
   const m = c.boards[key];
   const rev = m.rev + 1;
   const out = stamp(html);
@@ -64,7 +64,7 @@ async function save(dir: string, c: Canvas, key: string, html: string, by: strin
   await writeFile(join(dir, key), out);
   await writeFile(join(dir, "history", `${nameOf(key)}.r${rev}.html`), out);
   await appendFile(join(dir, "history", "log.jsonl"),
-    JSON.stringify({ board: key, rev, by, at: new Date().toISOString(), why }) + "\n");
+    JSON.stringify({ board: key, rev, by, at: new Date().toISOString(), why, ...extra }) + "\n");
   Object.assign(m, { rev, by, at: new Date().toISOString() });
   await writeFile(join(dir, "canvas.json"), JSON.stringify(c, null, 2));
   return rev;
@@ -119,6 +119,76 @@ export async function editBoard(root: string, a: {
     }
     return { rev: await save(dir, c, key, html, a.by ?? "pi", a.why ?? "") };
   });
+}
+
+const STYLE_PROPS = new Set(["color", "margin-top", "padding", "font-size", "line-height", "font-weight"]);
+const TOKEN_VALUE = /^var\(--[A-Za-z0-9][\w-]*\)$/;
+const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+/** Your edit in edit mode: the text of one element, or design-system values for its style. Saved as a rev by "you". */
+export async function patchBoard(root: string, a: {
+  canvas: string; board: string; tid: string; text?: string; style?: Record<string, string>; tell?: boolean;
+}) {
+  const dir = canvasDir(root, a.canvas);
+  if (!/^\d+$/.test(a.tid)) throw new Error("Bad tid");
+  for (const [k, v] of Object.entries(a.style ?? {}))
+    if (!STYLE_PROPS.has(k) || !TOKEN_VALUE.test(v)) throw new Error(`Only design-system values: ${k}: ${v}`);
+  if (a.text != null && a.text.length > 500) throw new Error("Text is too long");
+  return locked(dir, async () => {
+    const c = await readCanvas(root, a.canvas);
+    const key = boardKey(a.board);
+    if (!c.boards[key]) throw new Error(`Board ${key} not found`);
+    let html = await readFile(join(dir, key), "utf8");
+    const at = html.indexOf(`data-tid="${a.tid}"`);
+    if (at < 0) throw new Error(`Element ${a.tid} not found: the board changed`);
+    const start = html.lastIndexOf("<", at);
+    const end = html.indexOf(">", at);
+    let tag = html.slice(start, end + 1);
+    let why: string;
+    let rest = html.slice(end + 1);
+    if (a.text != null) {
+      const lead = rest.slice(0, Math.max(0, rest.indexOf("<")));
+      if (tag.endsWith("/>") || !lead.trim()) throw new Error("This element has no text of its own");
+      const ws = lead.match(/^\s*/)![0], tw = lead.match(/\s*$/)![0];
+      why = `text “${lead.trim().slice(0, 30)}” → “${a.text.slice(0, 30)}”`;
+      rest = ws + esc(a.text) + tw + rest.slice(lead.length);
+    } else {
+      const decls = new Map<string, string>();
+      const m = tag.match(/\sstyle="([^"]*)"/);
+      for (const d of (m?.[1] ?? "").split(";")) {
+        const i = d.indexOf(":");
+        if (i > 0) decls.set(d.slice(0, i).trim(), d.slice(i + 1).trim());
+      }
+      for (const [k, v] of Object.entries(a.style ?? {})) decls.set(k, v);
+      const attr = ` style="${[...decls].map(([k, v]) => `${k}: ${v}`).join("; ")}"`;
+      tag = m ? tag.replace(m[0], attr) : tag.replace(/\s*(\/?)>$/, `${attr}$1>`);
+      why = `${Object.keys(a.style ?? {}).join(", ")} of element ${a.tid}`;
+    }
+    html = html.slice(0, start) + tag + rest;
+    return { rev: await save(dir, c, key, html, "you", why, a.tell === false ? { quiet: true } : {}) };
+  });
+}
+
+/** Undo your last edit: the content before it comes back as a new rev. Only while nothing else changed the board. */
+export async function undoBoard(root: string, canvas: string, board: string, rev: number) {
+  const dir = canvasDir(root, canvas);
+  return locked(dir, async () => {
+    const c = await readCanvas(root, canvas);
+    const key = boardKey(board);
+    const m = c.boards[key];
+    if (!m || m.rev !== rev || rev < 2) throw new Error("The board changed since: nothing to undo");
+    const html = await readFile(join(dir, "history", `${nameOf(key)}.r${rev - 1}.html`), "utf8");
+    // pi hears about the undo if it heard about the edit; a quiet edit is undone quietly.
+    const edit = (await readHistory(root, canvas, board)).find((e) => e.rev === rev);
+    return { rev: await save(dir, c, key, html, "you", `undo rev ${rev}`, edit?.quiet ? { quiet: true } : {}) };
+  });
+}
+
+/** The revs of one board, newest first. */
+export async function readHistory(root: string, canvas: string, board: string) {
+  const key = boardKey(board);
+  const log = await readFile(join(canvasDir(root, canvas), "history", "log.jsonl"), "utf8").catch(() => "");
+  return log.split("\n").filter(Boolean).map((l) => JSON.parse(l)).filter((e) => e.board === key).reverse();
 }
 
 export async function addNote(root: string, canvas: string, n: { board: string; target: Target; text: string }) {

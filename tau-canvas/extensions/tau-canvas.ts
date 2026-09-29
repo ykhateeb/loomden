@@ -132,7 +132,7 @@ export default function (pi: ExtensionAPI) {
       const log = await readFile(join(root, name, "history", "log.jsonl"), "utf8").catch(() => "");
       for (const l of log.split("\n").filter(Boolean)) {
         const e = JSON.parse(l);
-        if (e.by === "you" && e.at > since) lines.push(`  You changed ${e.board} (rev ${e.rev})${e.why ? ": " + e.why : ""}`);
+        if (e.by === "you" && !e.quiet && e.at > since) lines.push(`  You changed ${e.board} (rev ${e.rev})${e.why ? ": " + e.why : ""}`);
       }
     }
     if (!lines.length) return undefined;

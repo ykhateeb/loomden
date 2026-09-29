@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { startServer } from "./server.js";
-import { RAW_BOARD, acceptProposal, addNote, dsReport, proposeTokens, createBoard, editBoard, ensureGitignore, readBoard, readCanvas, stamp, tokensCss } from "./store.js";
+import { RAW_BOARD, acceptProposal, addNote, dsReport, patchBoard, proposeTokens, readHistory, undoBoard, createBoard, editBoard, ensureGitignore, readBoard, readCanvas, stamp, tokensCss } from "./store.js";
 
 const html = `<html><head><title>x</title></head><body><button>Pay</button><a href="b.html">Next</a></body></html>`;
 const setup = async () => {
@@ -121,5 +121,46 @@ describe("design system", () => {
     expect((await dsReport(root, "c1", ds)).proposal?.changes).toEqual([{ name: "link", before: "#111111", after: "#222222" }]);
     await acceptProposal(ds);
     expect((await dsReport(root, "c1", ds)).version).toBe(2);
+  });
+});
+
+describe("edit mode", () => {
+  const page = `<body><h1 style="color: red">Total</h1><p>Pay <b>now</b></p><img src="x.png"/></body>`;
+
+  it("patches text and token styles as revs by you, undoes, rejects raw values", async () => {
+    const { root } = await setup();
+    await createBoard(root, { canvas: "c1", board: "cart", title: "Cart", w: 1, h: 1, html: page });
+    const tid = (await readBoard(root, "c1", "cart")).html.match(/<h1[^>]*data-tid="(\d+)"/)![1];
+
+    await patchBoard(root, { canvas: "c1", board: "cart", tid, text: "Total <to> pay" });
+    let b = await readBoard(root, "c1", "cart");
+    expect(b.rev).toBe(2);
+    expect(b.by).toBe("you");
+    expect(b.html).toContain("Total &lt;to&gt; pay</h1>");
+
+    await patchBoard(root, { canvas: "c1", board: "cart", tid, style: { color: "var(--ink)", "margin-top": "var(--space-2)" } });
+    b = await readBoard(root, "c1", "cart");
+    expect(b.html).toContain('style="color: var(--ink); margin-top: var(--space-2)"');
+
+    await expect(patchBoard(root, { canvas: "c1", board: "cart", tid, style: { color: "#ff0000" } })).rejects.toThrow(/Only design-system values/);
+    await expect(patchBoard(root, { canvas: "c1", board: "cart", tid, style: { "background-image": "var(--x)" } })).rejects.toThrow(/Only design-system values/);
+    await expect(patchBoard(root, { canvas: "c1", board: "cart", tid: "999", text: "x" })).rejects.toThrow(/not found/);
+    const img = b.html.match(/<img[^>]*data-tid="(\d+)"/)![1];
+    await expect(patchBoard(root, { canvas: "c1", board: "cart", tid: img, text: "x" })).rejects.toThrow(/no text/);
+
+    // undo brings back the content before your last edit, as a new rev
+    const r = await undoBoard(root, "c1", "cart", 3);
+    expect(r.rev).toBe(4);
+    expect((await readBoard(root, "c1", "cart")).html).toContain("color: red");
+    // not when someone else changed the board since
+    await expect(undoBoard(root, "c1", "cart", 3)).rejects.toThrow(/nothing to undo/);
+
+    const h = await readHistory(root, "c1", "cart");
+    expect(h.map((e) => `${e.rev}:${e.by}`)).toEqual(["4:you", "3:you", "2:you", "1:pi"]);
+    expect(h[0].quiet).toBeUndefined(); // the edit was reported to pi, so its undo is too
+    // a quiet edit is undone quietly
+    await patchBoard(root, { canvas: "c1", board: "cart", tid, text: "Quiet", tell: false });
+    await undoBoard(root, "c1", "cart", 5);
+    expect((await readHistory(root, "c1", "cart"))[0].quiet).toBe(true);
   });
 });

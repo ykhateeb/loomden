@@ -136,3 +136,49 @@ test("canvas tabs, first-draft hint, note keys and filters", async ({ page }) =>
   await page.getByRole("button", { name: "All 2" }).click();
   await expect(page.locator(".note")).toHaveCount(2);
 });
+
+test("Edit mode: change text and token values, undo, history, custom value asks pi", async ({ page }) => {
+  const ds = join(root, "..", "design-system");
+  await proposeTokens(ds, {
+    name: "app",
+    color: { tokens: [{ name: "ink", value: "#1b1f24" }, { name: "link", value: "#4e6f94" }] },
+    spacing: { tokens: [{ name: "space-4", value: "16px" }] },
+  });
+  await (await import("../extensions/store")).acceptProposal(ds);
+  await page.goto(server.url("demo"));
+  await page.keyboard.press("e");
+  const frame = page.frameLocator("iframe").first();
+
+  // double-click text: edit in place, saved as a rev by you
+  await frame.locator("h1").dblclick();
+  await page.keyboard.press("ControlOrMeta+a");
+  await page.keyboard.type("Total to pay");
+  await page.keyboard.press("Enter");
+  await expect(page.locator(".lbl").first()).toContainText("Cart rev 2 · edited by you");
+  await expect(frame.locator("h1")).toHaveText("Total to pay");
+
+  // click an element: the panel offers design-system values only
+  await frame.locator("h1").click();
+  await expect(page.getByText("Edit Cart")).toBeVisible();
+  const color = page.getByLabel("Color");
+  await expect(color.locator("option")).toHaveText(["—", "ink  #1b1f24", "link  #4e6f94", "Custom value…"]);
+  await color.selectOption({ label: "link  #4e6f94" });
+  await expect(page.locator(".lbl").first()).toContainText("Cart rev 3");
+  expect((await readFile(join(root, "demo", "boards", "cart.html"), "utf8"))).toContain("color: var(--link)");
+  await page.getByLabel("Padding").selectOption({ label: "space-4  16px" });
+  await expect(page.locator(".lbl").first()).toContainText("Cart rev 4");
+
+  // undo (a new rev), then history lists every rev
+  await page.getByRole("button", { name: /^Undo/ }).click();
+  await expect(page.locator(".lbl").first()).toContainText("Cart rev 5");
+  expect(await readFile(join(root, "demo", "boards", "cart.html"), "utf8")).not.toContain("padding");
+  await page.locator(".lbl").first().click();
+  await expect(page.locator("#hist")).toContainText("rev 1 · pi");
+  await expect(page.locator("#hist")).toContainText("rev 5 · you · undo rev 4");
+
+  // custom value: nothing is saved, pi is asked
+  await page.getByLabel("Gap above").selectOption({ label: "Custom value…" });
+  await expect.poll(() => sent.length).toBe(1);
+  expect(sent[0]).toMatch(/custom value for Gap above/);
+  expect((await readCanvas(root, "demo")).boards["boards/cart.html"].rev).toBe(5);
+});
