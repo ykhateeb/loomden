@@ -203,7 +203,7 @@ export function Composer({ sessionKey, state }: { sessionKey: string; state: Liv
           aria-label="Message to pi"
           aria-controls={listOpen ? listId : undefined}
           aria-activedescendant={listOpen && rows.length ? `${listId}-${current}` : undefined}
-          placeholder={state.streaming ? "Steer pi…   ⌥↵ queues it for after this run" : "Reply to pi…   @ adds a file · / runs a command"}
+          placeholder={state.streaming ? "Steer pi…   ⌥↵ queues it for after this run" : "Reply to pi…   @ adds a file · / runs a command · drop files to attach"}
           value={text}
           onChange={(e) => {
             setText(e.target.value);

@@ -214,12 +214,13 @@ export type Command =
   | { type: "sessions.list" }
   | { type: "project.add"; cwd: string }
   | { type: "session.open"; cwd: string; path?: string }
+  /** Board 1.2: move an open session to another project folder. The chat stays; pi then works in that folder. */
+  | { type: "session.move"; key: string; cwd: string }
   | { type: "session.prompt"; key: string; text: string; behavior?: "steer" | "followUp"; images?: string[] }
   | { type: "session.commands"; key: string }
   | { type: "session.models"; key: string }
   | { type: "session.model"; key: string; provider: string; id: string }
   | { type: "session.dequeue"; key: string }
-  | { type: "session.preview"; path: string }
   | { type: "sessions.search"; query: string; titlesOnly: boolean; cwd?: string }
   | { type: "session.tree"; key: string }
   | { type: "session.navigate"; key: string; id: string; summarize: boolean }
@@ -257,7 +258,6 @@ export type Request = Command & { rid: number };
 export type AgentOut =
   | { type: "reply"; rid: number; ok: true; data?: unknown }
   | { type: "reply"; rid: number; ok: false; error: string }
-  | { type: "sessions"; projects: Project[]; sessions: SessionRow[] }
   | { type: "state"; state: LiveState }
   | { type: "messages"; key: string; messages: AgentMessage[] }
   | { type: "closed"; key: string }

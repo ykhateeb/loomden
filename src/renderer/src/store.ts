@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 import type { Host } from "../../preload";
-import type { AgentMessage, AgentOut, Command, CustomProvider, FoundModel, GalleryItem, ImportItem, ImportResult, ImportScan, InstalledPackage, LiveState, ModelChoice, ModelSettings, PreviewRow, Project, ProviderRow, SearchResult, SessionRow, SessionTree, SlashCommand, UIRequest } from "../../protocol";
+import type { AgentMessage, AgentOut, Command, CustomProvider, FoundModel, GalleryItem, ImportItem, ImportResult, ImportScan, InstalledPackage, LiveState, ModelChoice, ModelSettings, Project, ProviderRow, SearchResult, SessionRow, SessionTree, SlashCommand, UIRequest } from "../../protocol";
 
 export type ModelsPage = { settings: ModelSettings; global: ModelSettings; providers: ProviderRow[]; models: ModelChoice[]; file: string };
 export type Login = { providerId: string; method: "api_key" | "oauth"; startedAt: number; url?: string; code?: { userCode: string; verificationUri: string }; message?: string };
@@ -21,6 +21,8 @@ export interface Notice {
   id: number;
   message: string;
   level: "info" | "warning" | "error";
+  /** A button in the toast, like Undo. */
+  action?: { label: string; run: () => void };
 }
 
 export type Tab = "sessions" | "packages" | "settings";
@@ -30,6 +32,8 @@ export interface State {
   tab: Tab;
   projects: Project[];
   sessions: SessionRow[];
+  /** The folder of sessions with no project (board 1.1). Not in `projects`. */
+  noProject?: string;
   live: Record<string, LiveState>;
   messages: Record<string, AgentMessage[]>;
   active?: string;
@@ -120,9 +124,9 @@ function call<T = unknown>(cmd: Command): Promise<T> {
   return new Promise<T>((resolve, reject) => waiting.set(rid, { resolve: resolve as (v: unknown) => void, reject }));
 }
 
-function notice(message: string, level: Notice["level"] = "error") {
+function notice(message: string, level: Notice["level"] = "error", action?: Notice["action"]) {
   const id = nextRid++;
-  set((s) => ({ notices: [...s.notices, { id, message, level }] }));
+  set((s) => ({ notices: [...s.notices, { id, message, level, action }] }));
   setTimeout(() => set((s) => ({ notices: s.notices.filter((n) => n.id !== id) })), 6000);
 }
 
@@ -135,8 +139,6 @@ function receive(msg: AgentOut) {
       else w?.reject(new Error(msg.error));
       return;
     }
-    case "sessions":
-      return set({ projects: msg.projects, sessions: msg.sessions });
     case "state": {
       const before = state.live[msg.state.key];
       set((s) => ({ live: { ...s.live, [msg.state.key]: msg.state } }));
@@ -190,10 +192,36 @@ export const actions = {
   setTab: (tab: Tab) => set({ tab }),
   /** Show an open session (from the running menu or "needs you"). */
   focus: (key: string) => set({ tab: "sessions", active: key, mark: undefined }),
-  /** No session picked: the workspace shows the session list (Part 7). */
-  showAll: () => set({ tab: "sessions", active: undefined, mark: undefined }),
+  /** Board 1.1: a chat with no project. Add it to a project later. */
+  newSession: () => state.noProject && actions.open(state.noProject),
+  /** Board 1.2 and 1.3: move a session to a project (or back, for Undo). The chat stays as it is. */
+  move: async (key: string, cwd: string, undo = false) => {
+    const from = state.live[key]?.cwd;
+    try {
+      const moved = await call<string | undefined>({ type: "session.move", key, cwd });
+      if (!moved) return; // the trust dialog was cancelled
+      set({ active: moved, tab: "sessions" });
+      await actions.refresh();
+      if (undo || !from) return;
+      const name = state.projects.find((p) => p.cwd === cwd)?.name ?? cwd.split("/").pop();
+      notice(`Moved to ${name}`, "info", { label: "Undo", run: () => actions.move(moved, from, true) });
+    } catch (e) {
+      report(e as Error);
+    }
+  },
+  /** "Open a folder…" in the Add to project menu: the folder becomes a project, then the session moves there. */
+  moveToFolder: async (key: string) => {
+    const cwd = await window.tau.pickFolder();
+    if (!cwd) return;
+    try {
+      set(await call<Pick<State, "projects" | "sessions" | "noProject">>({ type: "project.add", cwd }));
+      await actions.move(key, cwd);
+    } catch (e) {
+      report(e as Error);
+    }
+  },
   refresh: () =>
-    call<Pick<State, "projects" | "sessions">>({ type: "sessions.list" })
+    call<Pick<State, "projects" | "sessions" | "noProject">>({ type: "sessions.list" })
       .then((r) => {
         set(r);
         // Dev checks without clicks (see main/index.ts): #dev?open=latest|<title part>&view=tree&search=<text>, once.
@@ -343,7 +371,7 @@ export const actions = {
   },
   addProject: async () => {
     const cwd = await window.tau.pickFolder();
-    if (cwd) await call<Pick<State, "projects" | "sessions">>({ type: "project.add", cwd }).then(set).catch(report);
+    if (cwd) await call<Pick<State, "projects" | "sessions" | "noProject">>({ type: "project.add", cwd }).then(set).catch(report);
   },
   /** True when pi accepted it (the run itself may still fail later, as a notice). */
   prompt: (key: string, text: string, behavior?: "steer" | "followUp", images?: string[]) =>
@@ -361,14 +389,13 @@ export const actions = {
       .then(() => notice("Context reloaded", "info"))
       .catch(report),
   setTools: (key: string, names: string[]) => call({ type: "session.tools", key, names }).catch(report),
-  preview: (path: string) => call<PreviewRow[]>({ type: "session.preview", path }).catch((e) => (report(e), [] as PreviewRow[])),
   searchFiles: (cwd: string, query: string) => call<string[]>({ type: "files.search", cwd, query }).catch(() => [] as string[]),
   abort: (key: string) => call({ type: "session.abort", key }).catch(report),
   thinking: (key: string, level: string) => call({ type: "session.thinking", key, level }).catch(report),
   answer: (id: string, value: unknown) => call({ type: "ui.answer", id, value }).catch(report),
 
   rename: (path: string, name: string) =>
-    call<Pick<State, "projects" | "sessions">>({ type: "session.rename", path, name })
+    call<Pick<State, "projects" | "sessions" | "noProject">>({ type: "session.rename", path, name })
       .then((r) => (set(r), notice("Session renamed", "info")))
       .catch(report),
   clone: (cwd: string, path: string) =>
@@ -401,7 +428,7 @@ export const actions = {
   },
   showInFolder: (path: string) => window.tau.showInFolder(path),
   removeProject: (cwd: string) =>
-    call<Pick<State, "projects" | "sessions">>({ type: "project.remove", cwd })
+    call<Pick<State, "projects" | "sessions" | "noProject">>({ type: "project.remove", cwd })
       .then(set)
       .catch(report),
 };

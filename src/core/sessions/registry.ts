@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { readdirSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { promisify } from "node:util";
 import { tmpdir } from "node:os";
@@ -160,6 +160,15 @@ export function createRegistry(send: Send, modelRuntime: ModelRuntime) {
   }
 
   const keyOf = (path: string) => [...live].find(([, { rt }]) => rt.session.sessionFile === path)?.[0];
+
+  async function drop(key: string) {
+    const entry = get(key);
+    entry.unsubscribe?.();
+    live.delete(key);
+    cancelFor(key);
+    await entry.rt.dispose();
+    send({ type: "closed", key });
+  }
 
   function get(key: string) {
     const entry = live.get(key);
@@ -330,6 +339,32 @@ export function createRegistry(send: Send, modelRuntime: ModelRuntime) {
       return back;
     },
 
+    /**
+     * Board 1.2: the session moves to `cwd` with its chat. Its file gets the new folder in its header and goes to that
+     * folder's sessions; pi then works in `cwd` under the same key. undefined = the user cancelled the trust dialog.
+     */
+    async move(key: string, cwd: string): Promise<string | undefined> {
+      const { rt } = get(key);
+      if (rt.session.isStreaming) throw new Error("pi is working. Wait until it is done, then move the session.");
+      if (rt.cwd === cwd) return key;
+      if (!(await ensureTrust(cwd))) return undefined;
+      const from = rt.session.sessionFile;
+      // pi writes the file after pi's first reply: before that there is nothing to move, so start in the project.
+      if (!from || !existsSync(from)) {
+        await drop(key);
+        return this.open(cwd);
+      }
+      const to = copyToFolder(from, SessionManager.create(cwd).getSessionDir(), cwd);
+      const r = await rt.switchSession(to);
+      if (r.cancelled) {
+        rmSync(to);
+        throw new Error("An extension stopped the move.");
+      }
+      rmSync(from);
+      if (wanted.delete(from)) wanted.add(to);
+      return key;
+    },
+
     /** A copy of the whole session, opened. */
     clone(cwd: string, path: string) {
       return this.open(cwd, undefined, () => SessionManager.forkFrom(path, cwd));
@@ -360,13 +395,8 @@ export function createRegistry(send: Send, modelRuntime: ModelRuntime) {
     async close(path: string) {
       const key = keyOf(path);
       if (!key) return;
-      const entry = get(key);
-      entry.unsubscribe?.();
-      live.delete(key);
       wanted.delete(path);
-      cancelFor(key);
-      await entry.rt.dispose();
-      send({ type: "closed", key });
+      await drop(key);
     },
 
     setThinking(key: string, level: string) {
@@ -384,6 +414,14 @@ export function createRegistry(send: Send, modelRuntime: ModelRuntime) {
 
     running: () => [...live.values()].filter(({ rt }) => rt.session.isStreaming).length,
   };
+}
+
+/** A copy of a session file in `dir`, with `cwd` in its header (pi reads the folder to work in from there). Never overwrites. */
+export function copyToFolder(from: string, dir: string, cwd: string) {
+  const to = join(dir, basename(from));
+  const [header, ...rest] = readFileSync(from, "utf8").split("\n");
+  writeFileSync(to, [JSON.stringify({ ...JSON.parse(header), cwd }), ...rest].join("\n"), { flag: "wx" });
+  return to;
 }
 
 /** Board 1's trust dialog: what the project's .pi folder holds. */

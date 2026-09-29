@@ -7,11 +7,11 @@ import { changePackage, listPackages, searchGallery, setTrust, trustList } from 
 import { addCustomProvider, availableModels, cancelLogin, findModels, listProviders, login } from "../core/providers";
 import { readModelSettings, settingsFile, writeModelSettings } from "../core/settings";
 import { addProject, assertProject, listSessions, removeProject } from "../core/projects";
-import { SHARED_AUTH_PATH, sessionFile } from "../core/paths";
+import { mkdirSync } from "node:fs";
+import { NO_PROJECT_DIR, SHARED_AUTH_PATH, sessionFile } from "../core/paths";
 import { answer, resendPending } from "../core/sessions/extension-ui";
 import { createRegistry } from "../core/sessions/registry";
 import { searchSessions } from "../core/sessions/search";
-import { previewRows, readEntries } from "../core/sessions/summary";
 import type { AgentOut, Command, ImportItem, Request } from "../protocol";
 
 type Port = Electron.MessagePortMain;
@@ -34,7 +34,11 @@ async function handle(cmd: Command): Promise<unknown> {
       return listSessions();
     case "session.open":
       await assertProject(cmd.cwd); // a folder becomes a project only through the folder picker
+      if (cmd.cwd === NO_PROJECT_DIR) mkdirSync(NO_PROJECT_DIR, { recursive: true });
       return sessions.open(cmd.cwd, cmd.path && sessionFile(cmd.path));
+    case "session.move":
+      await assertProject(cmd.cwd); // NO_PROJECT_DIR too: Undo moves a session back
+      return sessions.move(cmd.key, cmd.cwd);
     case "session.prompt":
       return sessions.prompt(cmd.key, cmd.text, cmd.behavior, cmd.images);
     case "session.commands":
@@ -47,8 +51,6 @@ async function handle(cmd: Command): Promise<unknown> {
       return sessions.dequeue(cmd.key);
     case "sessions.search":
       return searchSessions((await listSessions()).sessions, cmd.query, cmd.titlesOnly, cmd.cwd);
-    case "session.preview":
-      return previewRows(readEntries(sessionFile(cmd.path)));
     case "session.tree":
       return sessions.tree(cmd.key);
     case "session.navigate":

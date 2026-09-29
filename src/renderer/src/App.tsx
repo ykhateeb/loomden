@@ -4,6 +4,7 @@ import { SearchDialog } from "./sessions/SearchDialog";
 import { TrustDialog } from "./sessions/TrustDialog";
 import { actions, useStore } from "./store";
 import { TitleBar } from "./TitleBar";
+import { LinkButton } from "./ui/base";
 import { Icon } from "./ui/Icon";
 import { Toast } from "./ui/surfaces";
 import { Packages } from "./packages/Packages";
@@ -24,13 +25,15 @@ export function App() {
   const importing = useStore((s) => s.importing);
   useFirstStartImport(useStore((s) => s.agent === "ready"));
 
-  // ⌘K opens the search from anywhere (board 1a).
+  // ⌘K opens the search (board 1a) and ⌘N a new session (board 1.1), from anywhere.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        actions.setSearching(true);
-      }
+      if (!(e.metaKey || e.ctrlKey)) return;
+      const key = e.key.toLowerCase();
+      if (key === "k") actions.setSearching(true);
+      else if (key === "n") actions.newSession();
+      else return;
+      e.preventDefault();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -60,6 +63,7 @@ export function App() {
             icon={<span className={n.level === "info" ? "text-ok" : n.level === "warning" ? "text-warn" : "text-danger"}><Icon name={n.level === "info" ? "check" : "alert"} /></span>}
           >
             {n.message}
+            {n.action && <LinkButton className="ml-1.5 text-sm" onClick={n.action.run}>{n.action.label}</LinkButton>}
           </Toast>
         ))}
       </div>

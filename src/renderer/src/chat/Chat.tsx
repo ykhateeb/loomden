@@ -4,8 +4,9 @@ import type { AgentMessage, LiveState } from "../../../protocol";
 import { actions, useStore } from "../store";
 import { TreeView } from "../tree/TreeView";
 import { Segmented } from "../ui/controls";
-import { Avatar, IconButton, Kbd, Spinner } from "../ui/base";
+import { Avatar, cx, Kbd, Spinner } from "../ui/base";
 import { Icon } from "../ui/Icon";
+import { Menu, type MenuItem } from "../ui/Menu";
 import { Composer } from "./Composer";
 import { dayLabel, time } from "./format";
 import { ToolCard, type ToolResult } from "./ToolCard";
@@ -114,7 +115,40 @@ export function Chat({ sessionKey, state }: { sessionKey: string; state: LiveSta
   const mark = useStore((s) => (s.mark?.key === sessionKey ? s.mark.at : undefined));
   const view = useStore((s) => s.view[sessionKey] ?? "chat");
   const branches = useStore((s) => s.sessions.find((r) => r.path === state.file)?.branches ?? 1);
+  const projects = useStore((s) => s.projects);
+  const inProject = useStore((s) => state.cwd !== s.noProject);
+  const [pickerAt, setPickerAt] = useState<{ x: number; y: number }>();
   const scroller = useRef<HTMLDivElement>(null);
+
+  // Board 2a: T opens the session tree (and goes back to the chat), when you are not typing.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement;
+      if (e.key.toLowerCase() !== "t" || e.metaKey || e.ctrlKey || e.altKey || t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
+      if (document.querySelector("[role=dialog],[role=menu]")) return;
+      actions.setView(sessionKey, view === "tree" ? "chat" : "tree");
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [sessionKey, view]);
+
+  // Board 1.2: the projects to move this session to.
+  const picker: MenuItem[] = [
+    { heading: "Projects" },
+    ...projects
+      .filter((p) => p.cwd !== state.cwd)
+      .map((p): MenuItem => ({
+        id: p.cwd,
+        label: <span className="flex min-w-0 flex-col"><span>{p.name}</span><span className="truncate font-mono text-label opacity-75">{p.cwd.replace(/^\/Users\/[^/]+/, "~")}</span></span>,
+        icon: <Icon name="folder" />,
+        onSelect: () => actions.move(sessionKey, p.cwd),
+      })),
+    "sep",
+    { label: "Open a folder…", icon: <Icon name="plus" />, onSelect: () => actions.moveToFolder(sessionKey) },
+    { label: "Clone from a git URL…", icon: <Icon name="download" />, disabled: true, onSelect: () => {} }, // not built yet
+    "sep",
+    { note: "The chat stays as it is. The session moves under the project, and pi starts working in its folder." },
+  ];
 
   const results = new Map<string, ToolResult>();
   for (const m of messages) if (m.role === "toolResult") results.set(m.toolCallId, m);
@@ -172,7 +206,25 @@ export function Chat({ sessionKey, state }: { sessionKey: string; state: LiveSta
         <div className="flex min-w-0 flex-1 flex-col gap-px">
           <b className="truncate text-lg font-[650]">{state.title}</b>
           <div className="flex items-center gap-2.5 text-xs text-muted">
-            <span className="flex items-center gap-1" title={state.cwd}><Icon name="folder" size={13} />{state.cwd.split("/").pop()}</span>
+            <button
+              aria-haspopup="menu"
+              aria-expanded={!!pickerAt}
+              title={inProject ? `${state.cwd} · move to another project` : "Move this session to a project"}
+              disabled={state.streaming}
+              onMouseDown={(e) => e.stopPropagation()} // else the menu's click-outside closes it and this click opens it again
+              onClick={(e) => {
+                const r = e.currentTarget.getBoundingClientRect();
+                setPickerAt(pickerAt ? undefined : { x: r.left, y: r.bottom + 6 });
+              }}
+              className={cx(
+                "-ml-[5px] flex h-[22px] items-center gap-1 rounded-sm pr-[7px] pl-[5px] font-medium disabled:opacity-50",
+                inProject ? "text-sub enabled:hover:bg-hover" : "bg-accent-bg text-accent2 shadow-[inset_0_0_0_1px_var(--color-accent-line)]",
+              )}
+            >
+              <Icon name={inProject ? "folder" : "plus"} size={13} />
+              {inProject ? state.cwd.split("/").pop() : "Add to project"}
+              <Icon name="chevronDown" size={12} />
+            </button>
             {state.branch && <span className="flex items-center gap-1"><Icon name="branch" size={13} />{state.branch}</span>}
             <span>{count} messages</span>
           </div>
@@ -181,12 +233,9 @@ export function Chat({ sessionKey, state }: { sessionKey: string; state: LiveSta
           label="View"
           value={view}
           onChange={(v) => actions.setView(sessionKey, v)}
-          options={[{ value: "chat", label: "Chat" }, { value: "tree", label: <>Tree <span className="text-muted">{branches}</span></> }]}
+          options={[{ value: "chat", label: "Chat" }, { value: "tree", label: <span title="Session tree (T)">Tree <span className="text-muted">{branches}</span></span> }]}
         />
-        <IconButton label="Export as HTML" disabled={!state.file} onClick={() => state.file && actions.exportHtml(state.cwd, state.file, state.title)}>
-          <Icon name="download" />
-        </IconButton>
-        <IconButton label="Share link (not available yet)" disabled><Icon name="link" /></IconButton>
+        {pickerAt && <Menu at={pickerAt} width={380} label="Add to project" items={picker} onClose={() => setPickerAt(undefined)} />}
       </div>
 
       {view === "tree" && <TreeView sessionKey={sessionKey} state={state} />}

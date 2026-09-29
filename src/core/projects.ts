@@ -4,7 +4,7 @@ import { SessionManager } from "@earendil-works/pi-coding-agent";
 import type { Project, SessionRow } from "../protocol";
 import { assertGranted } from "./grants";
 import { readEntries, summarize } from "./sessions/summary";
-import { TAU_DIR } from "./paths";
+import { NO_PROJECT_DIR, TAU_DIR } from "./paths";
 
 const PROJECTS_FILE = join(TAU_DIR, "projects.json");
 
@@ -64,8 +64,8 @@ export async function removeProject(cwd: string) {
   writeFileSync(PROJECTS_FILE, JSON.stringify(readAdded().filter((c) => c !== cwd), null, 2));
 }
 
-/** Projects = folders you added + folders that have sessions. */
-export async function listSessions(): Promise<{ projects: Project[]; sessions: SessionRow[] }> {
+/** Projects = folders you added + folders that have sessions. Sessions with no project are in NO_PROJECT_DIR, which is not a project. */
+export async function listSessions(): Promise<{ projects: Project[]; sessions: SessionRow[]; noProject: string }> {
   const infos = await SessionManager.listAll();
   const sessions = infos
     .map((i) => ({
@@ -81,7 +81,8 @@ export async function listSessions(): Promise<{ projects: Project[]; sessions: S
     }))
     .sort((a, b) => b.modified - a.modified);
   const cwds = new Set([...readAdded(), ...sessions.map((s) => s.cwd).filter(Boolean)]);
-  known = cwds;
+  cwds.delete(NO_PROJECT_DIR);
+  known = new Set([...cwds, NO_PROJECT_DIR]);
   const projects = [...cwds].map((cwd) => ({ cwd, name: basename(cwd) })).sort((a, b) => a.name.localeCompare(b.name));
-  return { projects, sessions };
+  return { projects, sessions, noProject: NO_PROJECT_DIR };
 }

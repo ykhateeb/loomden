@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Chat } from "./chat/Chat";
-import { AllSessions } from "./sessions/AllSessions";
 import { ContextRail } from "./context/ContextRail";
 import { Sidebar } from "./sessions/Sidebar";
-import { useStore } from "./store";
+import { actions, useStore } from "./store";
+import { Button, Kbd } from "./ui/base";
+import { Icon } from "./ui/Icon";
 
 const WIDTH = { base: 280, min: 220, max: 480 };
 const KEY = "tau.sidebarWidth";
@@ -17,15 +18,12 @@ function savedWidth() {
   }
 }
 
-/** Board 2 and 2b: sessions pane, chat, context rail. Drag the pane border to resize it; double-click resets it. */
+/** Board 1 (Home) and 2b: sessions pane, chat, context rail. Drag the pane border to resize it; double-click resets it. */
 export function Workspace() {
   const active = useStore((s) => s.active);
   const state = useStore((s) => (s.active ? s.live[s.active] : undefined));
   const [width, setWidthRaw] = useState(savedWidth);
   const [dragging, setDragging] = useState(false);
-
-  // Board 1: with no session open, the Sessions tab is the full-width list (no sidebar).
-  if (!active || !state) return <AllSessions />;
 
   const setWidth = (w: number) => {
     const next = Math.round(Math.max(WIDTH.min, Math.min(w, WIDTH.max)));
@@ -40,8 +38,17 @@ export function Workspace() {
   return (
     <div className="relative grid min-h-0 flex-1" style={{ gridTemplateColumns: `${width}px minmax(0,1fr) 320px` }}>
       <Sidebar />
-      <Chat key={active} sessionKey={active} state={state} />
-      <ContextRail state={state} />
+      {active && state ? (
+        <>
+          <Chat key={active} sessionKey={active} state={state} />
+          <ContextRail state={state} />
+        </>
+      ) : (
+        <main className="col-span-2 flex flex-col items-center justify-center gap-3 bg-bg text-muted">
+          <span>Pick a session, or start a new one.</span>
+          <Button variant="primary" onClick={actions.newSession}><Icon name="plus" />New session<Kbd onFill>⌘N</Kbd></Button>
+        </main>
+      )}
 
       <div
         role="separator"

@@ -23,6 +23,7 @@ export function ContextRail({ state }: { state: LiveState }) {
   // Board 2's small tree: the last shared rows and the branches after them. Fetched again with each new message.
   const messages = useStore((s) => s.messages[state.key]); // a new list after each message and each switch
   const stamp = useStore((s) => s.treeStamp); // labels and forks
+  const noProject = useStore((s) => s.noProject);
   const [tree, setTree] = useState<SessionTree>();
   useEffect(() => {
     actions.tree(state.key).then(setTree);
@@ -66,7 +67,12 @@ export function ContextRail({ state }: { state: LiveState }) {
       <Card>
         <CardHeader>Context<LinkButton className="ml-auto" onClick={() => actions.reload(state.key)}>Reload</LinkButton></CardHeader>
         <CardBody className="flex flex-col gap-1.5 text-sm">
-          {state.resources.length === 0 && <span className="text-muted">No context files, skills or extensions</span>}
+          {state.resources.length === 0 &&
+            (state.cwd === noProject ? (
+              <span className="text-muted">No project, so no project files yet. Drop files on the message box, or use <b className="font-semibold text-fg">Add to project</b> under the title.</span>
+            ) : (
+              <span className="text-muted">No context files, skills or extensions</span>
+            ))}
           {state.resources.map((r, i) => (
             <div key={i} className="flex min-w-0 items-center gap-2">
               <span className="text-muted"><Icon name={kinds[r.kind].icon} size={14} /></span>

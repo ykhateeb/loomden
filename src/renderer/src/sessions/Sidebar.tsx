@@ -8,10 +8,11 @@ import { useSessionMenus } from "./menus";
 import { ago } from "./time";
 
 
-/** Board 2, 2a, 2f: projects and their sessions, right-click menus, forked sessions under their parent. */
+/** Board 1, 2a, 2f: New session, projects and their sessions, sessions with no project, right-click menus, forked sessions under their parent. */
 export function Sidebar() {
   const projects = useStore((s) => s.projects);
   const sessions = useStore((s) => s.sessions);
+  const noProject = useStore((s) => s.noProject);
   const live = useStore((s) => s.live);
   const active = useStore((s) => s.active);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -57,9 +58,8 @@ export function Sidebar() {
       </button>
 
       <nav aria-label="Sessions" className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-auto [&>*]:shrink-0">
-        {/* Part 7 opens the All sessions screen here. */}
-        <ListItem meta={sessions.length} onClick={actions.showAll}>
-          <span className="text-muted"><Icon name="list" /></span>All sessions
+        <ListItem className="mb-0.5 border border-line2 bg-panel font-medium text-fg" meta={<Kbd>⌘N</Kbd>} onClick={actions.newSession}>
+          <Icon name="plus" />New session
         </ListItem>
         <div className="flex items-center px-1.5 pt-3 pb-1.5">
           <Label className="flex-1">Projects</Label>
@@ -99,6 +99,14 @@ export function Sidebar() {
           <Icon name="plus" />
           Add project…
         </ListItem>
+
+        {/* Board 1.1: chats you started with New session. "Add to project" in the chat header moves one to a project. */}
+        {sessions.some((s) => s.cwd === noProject) && (
+          <>
+            <div className="px-1.5 pt-3 pb-1.5"><Label>No project</Label></div>
+            {sessions.filter((s) => s.cwd === noProject).map((s) => row(s, 0, liveByFile.get(s.path)))}
+          </>
+        )}
       </nav>
 
       <div className="flex items-center gap-2 border-t border-line px-2 pt-2.5 text-xs text-muted">
