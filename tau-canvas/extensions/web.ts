@@ -374,5 +374,5 @@ function renderDs(){
 // live updates
 const es=new EventSource(B+"/events");
 es.onmessage=async e=>{const d=JSON.parse(e.data);if(d.type==="tokens-changed")bust++;await load();if(tab==="ds")loadDs();if(view2==="compare")loadCmp()};
-applyView();load();
+applyView();load().then(()=>{if(new URLSearchParams(location.search).get("tab")==="ds")setTab("ds")});
 </script></body></html>`;

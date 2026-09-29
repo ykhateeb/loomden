@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Chat } from "./chat/Chat";
 import { CanvasPanel } from "./canvas/CanvasPanel";
+import { DesignPage } from "./design/DesignPage";
 import { ContextRail } from "./context/ContextRail";
 import { Sidebar } from "./sessions/Sidebar";
 import { actions, useStore } from "./store";
@@ -23,6 +24,7 @@ function savedWidth() {
 export function Workspace() {
   const active = useStore((s) => s.active);
   const state = useStore((s) => (s.active ? s.live[s.active] : undefined));
+  const page = useStore((s) => s.designPage);
   const canvas = useStore((s) => (s.active ? s.canvas[s.active] : undefined));
   const [width, setWidthRaw] = useState(savedWidth);
   const [dragging, setDragging] = useState(false);
@@ -40,7 +42,9 @@ export function Workspace() {
   return (
     <div className="relative grid min-h-0 flex-1" style={{ gridTemplateColumns: `${width}px minmax(0,1fr) ${canvas?.open ? "minmax(0,1.5fr)" : "320px"}` }}>
       <Sidebar />
-      {active && state ? (
+      {page ? (
+        <DesignPage key={page.cwd} cwd={page.cwd} canvas={page.canvas} tab={page.tab} />
+      ) : active && state ? (
         <>
           <Chat key={active} sessionKey={active} state={state} />
           {/* Design boards C4 and C6: the canvas takes the place of the context rail, next to the chat. */}

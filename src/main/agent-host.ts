@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { type BrowserWindow, MessageChannelMain, type UtilityProcess, utilityProcess } from "electron";
-import { TAU_AGENT_DIR } from "../core/paths";
+import { TAU_AGENT_DIR, FREE_CANVAS_DIR, NO_PROJECT_DIR } from "../core/paths";
 
 /** Starts the agent process and connects it to the window with a direct port. Main does not relay tokens. */
 export function startAgent(win: BrowserWindow, env: NodeJS.ProcessEnv) {
@@ -25,7 +25,7 @@ export function startAgent(win: BrowserWindow, env: NodeJS.ProcessEnv) {
   const spawn = () => {
     startedAt = Date.now();
     child = utilityProcess.fork(join(import.meta.dirname, "agent.js"), [], {
-      env: { ...env, PI_CODING_AGENT_DIR: TAU_AGENT_DIR, TAU_APP: "1" },
+      env: { ...env, PI_CODING_AGENT_DIR: TAU_AGENT_DIR, TAU_APP: "1", TAU_NO_PROJECT: NO_PROJECT_DIR, TAU_FREE_DIR: FREE_CANVAS_DIR },
       serviceName: "Tau agent",
       stdio: "inherit",
     });

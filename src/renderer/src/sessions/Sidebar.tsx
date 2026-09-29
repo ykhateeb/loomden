@@ -1,5 +1,5 @@
 import { type ReactNode, useState } from "react";
-import type { LiveState, SessionRow } from "../../../protocol";
+import type { DesignCanvas, LiveState, SessionRow } from "../../../protocol";
 import { actions, useStore } from "../store";
 import { Dot, IconButton, Kbd, Label, Spinner } from "../ui/base";
 import { Icon } from "../ui/Icon";
@@ -22,6 +22,19 @@ export function Sidebar() {
   const activeFile = active ? live[active]?.file : undefined;
   const shown = sessions;
   const byPath = new Map(sessions.map((s) => [s.path, s]));
+  const design = useStore((s) => s.design);
+  const page = useStore((s) => s.designPage);
+  const designRows = (cwd: string, canvases: DesignCanvas[]): ReactNode[] => [
+    <ListItem key={`${cwd}#design`} active={page?.cwd === cwd && !page.canvas} onClick={() => actions.openDesign(cwd)} meta={canvases.length}>
+      <span className="ml-[22px] text-muted"><Icon name="palette" size={14} /></span>
+      <span>Design</span>
+    </ListItem>,
+    ...canvases.map((c) => (
+      <ListItem key={`${cwd}#${c.slug}`} active={page?.cwd === cwd && page.canvas === c.slug} style={{ paddingLeft: 44 }} onClick={() => actions.openDesign(cwd, c.slug)} meta={ago(c.updated)}>
+        <span className="truncate">{c.title}</span>
+      </ListItem>
+    )),
+  ];
 
   const toggle = (cwd: string) =>
     setCollapsed((c) => {
@@ -92,6 +105,8 @@ export function Sidebar() {
               <span className="truncate">{p.name}</span>
             </ListItem>,
             ...(open ? roots.flatMap((s) => tree(s, 0)) : []),
+            // Board C1: the project's canvases, from any session.
+            ...(open && design[p.cwd]?.canvases.length ? designRows(p.cwd, design[p.cwd].canvases) : []),
           ];
         })}
 

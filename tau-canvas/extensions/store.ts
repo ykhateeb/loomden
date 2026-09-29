@@ -1,5 +1,5 @@
 // Files are the truth. Everything here reads and writes `.tau/canvases/<slug>/`.
-import { appendFile, copyFile, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { appendFile, copyFile, cp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
@@ -23,9 +23,9 @@ export const slug = (s: string) => {
 export const boardKey = (b: string) => `boards/${slug(b.replace(/^boards\//, "").replace(/\.html$/, ""))}.html`;
 const nameOf = (key: string) => key.slice(7, -5);
 export const canvasDir = (root: string, canvas: string) => join(root, slug(canvas));
-export const RAW_BOARD = /\.tau\/canvases\/[^/]+\/boards\/[^/]+\.html$/;
+export const RAW_BOARD = /(?:\.tau|\/sessions\/[^/]+)\/canvases\/[^/]+\/boards\/[^/]+\.html$/;
 /** canvas.json (it holds approvals), approved/ and history/ change only through the tools and the viewer. */
-export const RAW_STATE = /\.tau\/canvases\/[^/]+\/(canvas\.json|approved\/.+|history\/.+)$/;
+export const RAW_STATE = /(?:\.tau|\/sessions\/[^/]+)\/canvases\/[^/]+\/(canvas\.json|approved\/.+|history\/.+)$/;
 
 // One read-modify-write at a time per canvas.
 const tails = new Map<string, Promise<unknown>>();
@@ -288,7 +288,7 @@ export async function tokensCss(ds: string): Promise<string> {
   return css;
 }
 
-export const RAW_TOKENS = /\.tau\/design-system\/tokens\.json$/;
+export const RAW_TOKENS = /(?:\.tau|\/sessions\/[^/]+)\/design-system\/tokens\.json$/;
 
 /** pi proposes; a person accepts. The proposal is a file next to tokens.json. */
 export async function proposeTokens(ds: string, t: any) {
@@ -346,6 +346,31 @@ export async function canvasTabs(root: string) {
     }
   }));
   return tabs.filter((t) => t !== undefined);
+}
+
+/** Where a session with no project keeps its canvases, until it is added to a project. */
+export const freeRoot = (freeDir: string, sessionId: string) => join(freeDir, slug(sessionId), "canvases");
+
+/** Add to project: move every canvas folder into the project. A taken name gets -2, -3… */
+export async function moveCanvases(fromRoot: string, toRoot: string): Promise<string[]> {
+  const moved: string[] = [];
+  await mkdir(toRoot, { recursive: true });
+  for (const name of await listCanvases(fromRoot)) {
+    let to = name;
+    for (let n = 2; existsSync(join(toRoot, to)); n++) to = `${name}-${n}`;
+    await cp(join(fromRoot, name), join(toRoot, to), { recursive: true });
+    await rm(join(fromRoot, name), { recursive: true });
+    moved.push(to);
+  }
+  return moved;
+}
+
+/** Add to project: the session's design system comes too, unless the project has one already. */
+export async function moveDesignSystem(fromDs: string, toDs: string): Promise<boolean> {
+  if (!existsSync(join(fromDs, "tokens.json")) || existsSync(toDs)) return false;
+  await cp(fromDs, toDs, { recursive: true });
+  await rm(fromDs, { recursive: true });
+  return true;
 }
 
 /** Keep history/ out of git. Returns true when it changed the file. */

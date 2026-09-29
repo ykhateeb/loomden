@@ -6,6 +6,8 @@ export const TAU_DIR = process.env.TAU_DIR ?? join(homedir(), ".tau");
 export const TAU_AGENT_DIR = join(TAU_DIR, "agent");
 /** The folder of sessions with no project (board 1.1). pi needs a folder; this one is empty, so it has no project files. */
 export const NO_PROJECT_DIR = join(TAU_DIR, "no-project");
+/** Canvases of sessions with no project: FREE_CANVAS_DIR/<session id>/canvases. They move into the project on "Add to project". */
+export const FREE_CANVAS_DIR = join(TAU_DIR, "sessions");
 
 /** A path the window sends is only used if it is a session file in Tau's sessions folder. */
 export function sessionFile(path: unknown): string {

@@ -5,7 +5,7 @@ import { Type } from "typebox";
 import { defineTool, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { startServer, type CanvasServer } from "./server.js";
 import {
-  RAW_BOARD, RAW_STATE, RAW_TOKENS, createBoard, proposeTokens, editBoard, ensureGitignore, listCanvases, readBoard, readCanvas, setNoteState,
+  RAW_BOARD, RAW_STATE, RAW_TOKENS, createBoard, freeRoot, proposeTokens, editBoard, ensureGitignore, listCanvases, readBoard, readCanvas, setNoteState,
 } from "./store.js";
 
 const text = (t: string) => ({ content: [{ type: "text" as const, text: t }], details: undefined });
@@ -13,12 +13,16 @@ const text = (t: string) => ({ content: [{ type: "text" as const, text: t }], de
 export default function (pi: ExtensionAPI) {
   let server: CanvasServer | undefined;
   let lastTurn = new Date().toISOString();
-  const rootOf = (dir: string) => join(dir, ".tau", "canvases");
+  // A project keeps its canvases in .tau/. A Tau session with no project keeps them in its own folder until it is added to a project.
+  type Ctx = { cwd: string; sessionManager: { getSessionId(): string } };
+  const isFree = (ctx: Ctx) => !!process.env.TAU_NO_PROJECT && resolve(ctx.cwd) === resolve(process.env.TAU_NO_PROJECT);
+  const rootOf = (ctx: Ctx) => isFree(ctx) ? freeRoot(process.env.TAU_FREE_DIR!, ctx.sessionManager.getSessionId()) : join(ctx.cwd, ".tau", "canvases");
+  const dsOf = (ctx: Ctx) => join(rootOf(ctx), "..", "design-system");
   // Tau shows the canvas in a panel and reads the address from the status. Terminal pi opens the browser.
   const inTau = () => !!process.env.TAU_APP;
   const announced = new Set<string>();
-  const show = async (ctx: { cwd: string; ui: { setStatus(id: string, text: string | undefined): void } }, name: string) => {
-    server ??= await startServer({ root: rootOf(ctx.cwd), onSend: (t) => pi.sendUserMessage(t, { deliverAs: "followUp" }) });
+  const show = async (ctx: Ctx & { ui: { setStatus(id: string, text: string | undefined): void } }, name: string) => {
+    server ??= await startServer({ root: rootOf(ctx), onSend: (t) => pi.sendUserMessage(t, { deliverAs: "followUp" }) });
     announced.add(name);
     ctx.ui.setStatus("tau-canvas", server.url(name));
     return server.url(name);
@@ -39,7 +43,7 @@ export default function (pi: ExtensionAPI) {
         canvasTitle: Type.Optional(Type.String({ description: "Canvas title, for a new canvas" })),
       }),
       async execute(_id, a, _s, _u, ctx) {
-        const r = await createBoard(rootOf(ctx.cwd), a);
+        const r = await createBoard(rootOf(ctx), a);
         const ignored = r.isNew && (await ensureGitignore(ctx.cwd));
         if (inTau() && !announced.has(a.canvas)) await show(ctx, a.canvas); // the panel opens as the first board appears
         return text(`Created ${a.canvas}/${a.board} at rev ${r.rev}.` +
@@ -55,7 +59,7 @@ export default function (pi: ExtensionAPI) {
         board: Type.Optional(Type.String()),
       }),
       async execute(_id, a, _s, _u, ctx) {
-        const root = rootOf(ctx.cwd);
+        const root = rootOf(ctx);
         if (!a.canvas) return text(JSON.stringify(await listCanvases(root)));
         if (a.board) {
           const b = await readBoard(root, a.canvas, a.board);
@@ -77,7 +81,7 @@ export default function (pi: ExtensionAPI) {
         why: Type.Optional(Type.String({ description: "Short reason, kept in the history log" })),
       }),
       async execute(_id, a, _s, _u, ctx) {
-        const r = await editBoard(rootOf(ctx.cwd), a);
+        const r = await editBoard(rootOf(ctx), a);
         return text(`Saved ${a.canvas}/${a.board} at rev ${r.rev}.`);
       },
     }),
@@ -87,7 +91,7 @@ export default function (pi: ExtensionAPI) {
       description: "Mark notes done after you checked the board. You cannot approve boards; only a person does.",
       parameters: Type.Object({ canvas: Type.String(), ids: Type.Array(Type.String()) }),
       async execute(_id, a, _s, _u, ctx) {
-        await setNoteState(rootOf(ctx.cwd), a.canvas, a.ids, "done");
+        await setNoteState(rootOf(ctx), a.canvas, a.ids, "done");
         return text(`Marked ${a.ids.join(", ")} done.`);
       },
     }),
@@ -100,7 +104,7 @@ export default function (pi: ExtensionAPI) {
       tokens: Type.Any({ description: "tokens.json content: { name, version, source, color:{tokens:[{name,value,usage}]}, type:{families,styles}, spacing:{tokens}, radius:{tokens} }" }),
     }),
     async execute(_id, a, _s, _u, ctx) {
-      const n = await proposeTokens(join(ctx.cwd, ".tau", "design-system"), a.tokens);
+      const n = await proposeTokens(dsOf(ctx), a.tokens);
       return text(`Proposed ${n} tokens. Tell the person to review them in the Design system tab of /canvas.`);
     },
   }));
@@ -119,7 +123,7 @@ export default function (pi: ExtensionAPI) {
 
   // Short context for pi: open notes, design system, and what the person changed since the last turn.
   pi.on("before_agent_start", async (_e, ctx) => {
-    const root = rootOf(ctx.cwd);
+    const root = rootOf(ctx);
     const since = lastTurn;
     lastTurn = new Date().toISOString();
     const lines: string[] = [];
@@ -137,7 +141,7 @@ export default function (pi: ExtensionAPI) {
       }
     }
     if (!lines.length) return undefined;
-    const ds = await readFile(join(ctx.cwd, ".tau", "design-system", "tokens.json"), "utf8").then((s) => JSON.parse(s), () => undefined);
+    const ds = await readFile(join(dsOf(ctx), "tokens.json"), "utf8").then((s) => JSON.parse(s), () => undefined);
     if (ds) lines.push(`Design system: ${ds.name}. Use its tokens as var(--name).`);
     return { message: { customType: "tau-canvas", content: lines.join("\n"), display: false } };
   });
@@ -145,9 +149,9 @@ export default function (pi: ExtensionAPI) {
   pi.registerCommand("canvas", {
     description: "Open a design canvas in the browser",
     async handler(args, ctx) {
-      const root = rootOf(ctx.cwd);
+      const root = rootOf(ctx);
       const name = args.trim() || (await listCanvases(root))[0];
-      if (!name) return ctx.ui.notify(`No canvas yet in ${ctx.cwd}. Ask pi to design a screen.`, "info");
+      if (!name) return ctx.ui.notify(`No canvas yet in ${root}. Ask pi to design a screen.`, "info");
       if (inTau()) return void (await show(ctx, name));
       server ??= await startServer({ root, onSend: (t) => pi.sendUserMessage(t, { deliverAs: "followUp" }) });
       const url = server.url(name);

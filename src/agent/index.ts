@@ -6,6 +6,7 @@ import { codeItems, runImport, scanImport } from "../core/import";
 import { changePackage, listPackages, searchGallery, setTrust, trustList } from "../core/packages";
 import { addCustomProvider, availableModels, cancelLogin, findModels, listProviders, login } from "../core/providers";
 import { readModelSettings, settingsFile, writeModelSettings } from "../core/settings";
+import { designList, designOpen } from "../core/design";
 import { addProject, assertProject, listSessions, removeProject } from "../core/projects";
 import { mkdirSync } from "node:fs";
 import { NO_PROJECT_DIR, SHARED_AUTH_PATH, sessionFile } from "../core/paths";
@@ -43,6 +44,12 @@ async function handle(cmd: Command): Promise<unknown> {
       return sessions.prompt(cmd.key, cmd.text, cmd.behavior, cmd.images);
     case "session.canvas":
       return sessions.prompt(cmd.key, "/canvas"); // an extension command: it runs at once, with no model call
+    case "design.list":
+      await assertProject(cmd.cwd);
+      return designList(cmd.cwd);
+    case "design.open":
+      await assertProject(cmd.cwd);
+      return designOpen(cmd.cwd, cmd.canvas, cmd.key, (key, text) => sessions.prompt(key, text), cmd.tab);
     case "session.commands":
       return sessions.commands(cmd.key);
     case "session.models":

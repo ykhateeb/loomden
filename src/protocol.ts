@@ -158,6 +158,19 @@ export interface ImportResult {
   notes?: string[];
 }
 
+/** Board C1: a canvas of a project, for the Design page. */
+export interface DesignCanvas {
+  slug: string;
+  title: string;
+  boards: { title: string; rev: number; approved?: number }[];
+  /** How many saved revs (history/ stays on this computer) and images (assets/). */
+  revs: number;
+  images: number;
+  updated: number;
+  openNotes: number;
+  status: "draft" | "review" | "approved";
+}
+
 /** A row of the / menu (board 2c). */
 export interface SlashCommand {
   name: string;
@@ -220,6 +233,9 @@ export type Command =
   | { type: "session.commands"; key: string }
   /** Open the design canvas panel of a session (it runs the extension's /canvas). */
   | { type: "session.canvas"; key: string }
+  /** Board C1: the canvases of a project, and the address of one canvas (notes go to session `key`). */
+  | { type: "design.list"; cwd: string }
+  | { type: "design.open"; cwd: string; canvas: string; key?: string; tab?: "ds" }
   | { type: "session.models"; key: string }
   | { type: "session.model"; key: string; provider: string; id: string }
   | { type: "session.dequeue"; key: string }

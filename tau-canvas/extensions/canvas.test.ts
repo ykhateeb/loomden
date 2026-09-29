@@ -1,9 +1,9 @@
-import { mkdtemp, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { startServer } from "./server.js";
-import { RAW_BOARD, RAW_STATE, acceptProposal, addNote, approve, flow, restoreRev, dsReport, patchBoard, proposeTokens, readHistory, undoBoard, createBoard, editBoard, ensureGitignore, readBoard, readCanvas, stamp, tokensCss } from "./store.js";
+import { RAW_BOARD, RAW_STATE, RAW_TOKENS, freeRoot, moveCanvases, moveDesignSystem, acceptProposal, addNote, approve, flow, restoreRev, dsReport, patchBoard, proposeTokens, readHistory, undoBoard, createBoard, editBoard, ensureGitignore, readBoard, readCanvas, stamp, tokensCss } from "./store.js";
 
 const html = `<html><head><title>x</title></head><body><button>Pay</button><a href="b.html">Next</a></body></html>`;
 const setup = async () => {
@@ -196,5 +196,55 @@ describe("play, restore, approve", () => {
   it("guards canvas.json, approved/ and history/ from raw writes", () => {
     for (const f of ["canvas.json", "approved/cart.html", "history/log.jsonl"]) expect(RAW_STATE.test(`/p/.tau/canvases/c1/${f}`)).toBe(true);
     expect(RAW_STATE.test("/p/.tau/canvases/c1/assets/a.png")).toBe(false);
+  });
+});
+
+describe("free session canvases", () => {
+  it("moves into the project, keeps both when a name is taken, and is guarded like a project canvas", async () => {
+    const { proj, root } = await setup();
+    const free = freeRoot(join(proj, "free"), "abc123");
+    await createBoard(free, { canvas: "landing", board: "hero", title: "Hero", w: 1, h: 1, html });
+    await createBoard(root, { canvas: "landing", board: "old", title: "Old", w: 1, h: 1, html });
+    expect(await moveCanvases(free, root)).toEqual(["landing-2"]);
+    expect(Object.keys((await readCanvas(root, "landing-2")).boards)).toEqual(["boards/hero.html"]);
+    expect(Object.keys((await readCanvas(root, "landing")).boards)).toEqual(["boards/old.html"]); // the project's own canvas is untouched
+    expect(await readdir(free)).toEqual([]); // nothing is left behind
+    expect(await moveCanvases(free, root)).toEqual([]);
+
+    // the session's design system comes too, but never over the project's own
+    const fromDs = join(free, "..", "design-system"), toDs = join(proj, ".tau", "design-system");
+    await mkdir(fromDs, { recursive: true });
+    await writeFile(join(fromDs, "tokens.json"), "{}");
+    await mkdir(toDs, { recursive: true });
+    expect(await moveDesignSystem(fromDs, toDs)).toBe(false);
+    await rm(toDs, { recursive: true });
+    expect(await moveDesignSystem(fromDs, toDs)).toBe(true);
+    expect(await readFile(join(toDs, "tokens.json"), "utf8")).toBe("{}");
+
+    const guarded = "/h/.tau/sessions/abc123/canvases/landing/boards/hero.html";
+    expect(RAW_BOARD.test("/data/tau-home/sessions/abc123/canvases/landing/boards/hero.html")).toBe(true); // TAU_DIR need not be called .tau
+    expect(RAW_BOARD.test(guarded)).toBe(true);
+    expect(RAW_STATE.test("/h/.tau/sessions/abc123/canvases/landing/canvas.json")).toBe(true);
+    expect(RAW_TOKENS.test("/h/.tau/sessions/abc123/design-system/tokens.json")).toBe(true);
+  });
+});
+
+describe("sending notes", () => {
+  it("keeps a note unsent when pi cannot take it", async () => {
+    const { root } = await setup();
+    await createBoard(root, { canvas: "c1", board: "cart", title: "Cart", w: 1, h: 1, html });
+    const s = await startServer({ root, onSend: async () => { throw new Error("Open a session in this project"); } });
+    try {
+      const base = s.url("c1").replace("/c/c1", "");
+      const res = await fetch(`${base}/api/note`, {
+        method: "POST",
+        body: JSON.stringify({ canvas: "c1", send: true, note: { board: "cart", target: { tid: "2", text: "Pay", box: [0, 0, 1, 1] }, text: "bigger" } }),
+      });
+      expect(res.status).toBe(400);
+      expect(await res.text()).toContain("Open a session");
+      expect((await readCanvas(root, "c1")).notes.n1.state).toBe("open"); // not lost, not marked sent
+    } finally {
+      s.close();
+    }
   });
 });

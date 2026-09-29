@@ -8,6 +8,14 @@ import { createBoard, editBoard, proposeTokens, readCanvas } from "../extensions
 const board = (t: string) =>
   `<html><head><style>html,body{margin:0;width:390px;height:844px}button{margin:20px}</style></head><body><h1>${t}</h1><button>Pay now</button></body></html>`;
 
+// The mode reaches the board by postMessage. Hover until its outline shows, so a click never comes before it.
+const armed = async (frame: ReturnType<Page["frameLocator"]>, target: string) => {
+  await expect(async () => {
+    await frame.locator(target).hover();
+    await expect(frame.locator("html > div[style*='display: block']")).toBeVisible({ timeout: 300 });
+  }).toPass();
+};
+
 let root: string, server: CanvasServer, sent: string[];
 
 test.beforeEach(async () => {
@@ -38,6 +46,7 @@ test("a saved edit shows up without a refresh", async ({ page }) => {
 test("point mode: Send now puts board, element and text in the chat", async ({ page }) => {
   await page.goto(server.url("demo"));
   await page.keyboard.press("p");
+  await armed(page.frameLocator("iframe").first(), "button");
   await page.frameLocator("iframe").first().getByRole("button", { name: "Pay now" }).click();
   await page.getByPlaceholder("What should change?").fill("Make it bigger");
   await page.getByRole("button", { name: "Send to pi", exact: false }).click();
@@ -49,6 +58,7 @@ test("point mode: Send now puts board, element and text in the chat", async ({ p
 test("saved notes show a pin and are sent together", async ({ page }) => {
   await page.goto(server.url("demo"));
   await page.keyboard.press("p");
+  await armed(page.frameLocator("iframe").first(), "button");
   await page.frameLocator("iframe").first().getByRole("button", { name: "Pay now" }).click();
   await page.getByPlaceholder("What should change?").fill("Add a total");
   await page.getByRole("button", { name: "Save note" }).click();
@@ -116,6 +126,7 @@ test("canvas tabs, first-draft hint, note keys and filters", async ({ page }) =>
   await expect(page.getByText("This is a first draft.")).toBeVisible();
 
   await page.keyboard.press("p");
+  await armed(page.frameLocator("iframe").first(), "button");
   const pick = async (text: string) => {
     await page.frameLocator("iframe").first().getByRole("button", { name: "Pay now" }).click();
     await page.getByPlaceholder("What should change?").fill(text);
@@ -148,6 +159,7 @@ test("Edit mode: change text and token values, undo, history, custom value asks 
   await page.goto(server.url("demo"));
   await page.keyboard.press("e");
   const frame = page.frameLocator("iframe").first();
+  await armed(frame, "h1");
 
   // double-click text: edit in place, saved as a rev by you
   await frame.locator("h1").dblclick();

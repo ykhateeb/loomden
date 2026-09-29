@@ -23,8 +23,9 @@ import { ask, cancelFor, uiContextFor } from "./extension-ui";
 import type { Entry as FileEntry } from "./summary";
 import { buildTree } from "./tree";
 import { settingsWithoutMissing } from "../packages";
-import { EXPORT_PREFIX } from "../paths";
+import { EXPORT_PREFIX, FREE_CANVAS_DIR, NO_PROJECT_DIR } from "../paths";
 import tauCanvas from "../../../tau-canvas/extensions/tau-canvas";
+import { ensureGitignore, freeRoot, moveCanvases, moveDesignSystem } from "../../../tau-canvas/extensions/store";
 
 type ThinkingLevel = AgentSessionRuntime["session"]["thinkingLevel"];
 
@@ -361,6 +362,7 @@ export function createRegistry(send: Send, modelRuntime: ModelRuntime) {
         return this.open(cwd);
       }
       const to = copyToFolder(from, SessionManager.create(cwd).getSessionDir(), cwd);
+      const freeId = rt.cwd === NO_PROJECT_DIR ? rt.session.sessionManager.getSessionId() : undefined;
       const r = await rt.switchSession(to);
       if (r.cancelled) {
         rmSync(to);
@@ -368,6 +370,20 @@ export function createRegistry(send: Send, modelRuntime: ModelRuntime) {
       }
       rmSync(from);
       if (wanted.delete(from)) wanted.add(to);
+      // Board C14: the session's canvases move into the project, where the team gets them with git.
+      if (freeId) {
+        const from = freeRoot(FREE_CANVAS_DIR, freeId);
+        try {
+          const moved = await moveCanvases(from, join(cwd, ".tau", "canvases"));
+          await moveDesignSystem(join(from, "..", "design-system"), join(cwd, ".tau", "design-system"));
+          if (moved.length) {
+            await ensureGitignore(cwd);
+            send({ type: "notify", key, level: "info", message: `Canvas moved to ${basename(cwd)}/.tau/canvases/${moved.join(", ")}` });
+          }
+        } catch (e) {
+          send({ type: "notify", key, level: "error", message: `The session moved, but its canvas did not: ${(e as Error).message}. It is still in ${from}` });
+        }
+      }
       return key;
     },
 

@@ -16,7 +16,7 @@ const TYPES: Record<string, string> = {
 
 export type CanvasServer = { url: (canvas: string) => string; close: () => void };
 
-export async function startServer(o: { root: string; onSend: (text: string) => void }): Promise<CanvasServer> {
+export async function startServer(o: { root: string; onSend: (text: string) => void | Promise<void> }): Promise<CanvasServer> {
   const token = randomBytes(16).toString("hex");
   const ds = join(dirname(o.root), "design-system");
   const clients = new Set<ServerResponse>();
@@ -44,8 +44,8 @@ export async function startServer(o: { root: string; onSend: (text: string) => v
       return `On board ${c.boards[n.board]?.title ?? n.board}, element “${n.target.text}” (tid ${n.target.tid}): ${n.text}`;
     });
     if (!lines.length) return;
+    await o.onSend(lines.length > 1 ? `Design notes on canvas "${canvas}":\n${lines.join("\n")}` : lines[0]); // if it fails, the notes stay as they are
     await setNoteState(o.root, canvas, ids, "sent");
-    o.onSend(lines.length > 1 ? `Design notes on canvas "${canvas}":\n${lines.join("\n")}` : lines[0]);
   };
 
   const body = (req: IncomingMessage) => new Promise<any>((ok, no) => {

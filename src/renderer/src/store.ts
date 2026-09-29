@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 import type { Host } from "../../preload";
-import type { AgentMessage, AgentOut, Command, CustomProvider, FoundModel, GalleryItem, ImportItem, ImportResult, ImportScan, InstalledPackage, LiveState, ModelChoice, ModelSettings, Project, ProviderRow, SearchResult, SessionRow, SessionTree, SlashCommand, UIRequest } from "../../protocol";
+import type { AgentMessage, AgentOut, Command, CustomProvider, FoundModel, GalleryItem, ImportItem, ImportResult, ImportScan, InstalledPackage, LiveState, ModelChoice, ModelSettings, Project, ProviderRow, SearchResult, SessionRow, SessionTree, SlashCommand, UIRequest, DesignCanvas } from "../../protocol";
 
 export type ModelsPage = { settings: ModelSettings; global: ModelSettings; providers: ProviderRow[]; models: ModelChoice[]; file: string };
 export type Login = { providerId: string; method: "api_key" | "oauth"; startedAt: number; url?: string; code?: { userCode: string; verificationUri: string }; message?: string };
@@ -67,17 +67,23 @@ export interface State {
   importing: boolean;
   /** The settings page to show (the Packages "Change" link opens Project trust). */
   settingsPage: "models" | "trust";
+  /** Board C1: the canvases of each project folder, and the Design page when it is open. */
+  design: Record<string, { canvases: DesignCanvas[]; system?: string }>;
+  designPage?: { cwd: string; canvas?: string; tab: "canvases" | "system" };
   /** Each session's design canvas: the server address, and whether the panel is open. */
   canvas: Record<string, { url: string; open: boolean }>;
   /** Dev: the text the ⌘K search starts with. */
   devSearch?: string;
 }
 
-let state: State = { agent: "starting", tab: "sessions", projects: [], sessions: [], live: {}, messages: {}, dialogs: [], notices: [], searching: false, view: {}, drafts: {}, treeStamp: 0, packageWork: {}, addingProvider: false, importing: false, settingsPage: "models", canvas: {} };
+let state: State = { agent: "starting", tab: "sessions", projects: [], sessions: [], live: {}, messages: {}, dialogs: [], notices: [], searching: false, view: {}, drafts: {}, treeStamp: 0, packageWork: {}, addingProvider: false, importing: false, settingsPage: "models", canvas: {}, design: {} };
 const listeners = new Set<() => void>();
 
 function set(patch: Partial<State> | ((s: State) => Partial<State>)) {
-  state = { ...state, ...(typeof patch === "function" ? patch(state) : patch) };
+  let next = typeof patch === "function" ? patch(state) : patch;
+  // Showing a session (open, focus, move) takes the Design page away.
+  if (next.active && !("designPage" in next)) next = { ...next, designPage: undefined };
+  state = { ...state, ...next };
   for (const l of listeners) l();
 }
 
@@ -155,8 +161,11 @@ function receive(msg: AgentOut) {
         const { [msg.key]: __, ...messages } = s.messages;
         return { live, messages, dialogs: s.dialogs.filter((d) => d.key !== msg.key), active: s.active === msg.key ? undefined : s.active };
       });
-    case "canvas":
+    case "canvas": {
+      const cwd = state.live[msg.key]?.cwd;
+      if (cwd) actions.loadDesign(cwd); // a new canvas shows in the Design row
       return set((s) => ({ canvas: { ...s.canvas, [msg.key]: { url: msg.url, open: true } } }));
+    }
     case "message":
       return set((s) => {
         const list = s.messages[msg.key] ?? [];
@@ -193,6 +202,18 @@ function receive(msg: AgentOut) {
 const report = (e: Error) => notice(e.message);
 
 export const actions = {
+  /** Board C1: read the canvases of a project folder. */
+  loadDesign: (cwd: string) =>
+    call<{ canvases: DesignCanvas[]; system?: string }>({ type: "design.list", cwd })
+      .then((d) => set((s) => ({ design: { ...s.design, [cwd]: d } })))
+      .catch(() => {}), // a folder that is no project (yet) has no Design row
+  openDesign: (cwd: string, canvas?: string, tab: "canvases" | "system" = "canvases") => {
+    set({ designPage: { cwd, canvas, tab }, tab: "sessions" });
+    actions.loadDesign(cwd);
+  },
+  closeDesign: () => set({ designPage: undefined }),
+  /** The address of a canvas for the Design page. Notes go to the session `key`. */
+  designUrl: (cwd: string, canvas: string, key?: string, tab?: "ds") => call<string>({ type: "design.open", cwd, canvas, key, tab }),
   /** Canvas ⇧C: show or hide the panel. The first time, the extension starts its server and reports the address. */
   canvas: (key: string) => {
     const c = state.canvas[key];
@@ -211,6 +232,13 @@ export const actions = {
       const moved = await call<string | undefined>({ type: "session.move", key, cwd });
       if (!moved) return; // the trust dialog was cancelled
       set({ active: moved, tab: "sessions" });
+      // The canvas moved with the session: its server is new, so ask for the address again.
+      const canvas = state.canvas[moved];
+      if (canvas) {
+        const { [moved]: _, ...rest } = state.canvas;
+        set({ canvas: rest });
+        if (canvas.open) actions.canvas(moved);
+      }
       await actions.refresh();
       if (undo || !from) return;
       const name = state.projects.find((p) => p.cwd === cwd)?.name ?? cwd.split("/").pop();
@@ -234,6 +262,7 @@ export const actions = {
     call<Pick<State, "projects" | "sessions" | "noProject">>({ type: "sessions.list" })
       .then((r) => {
         set(r);
+        for (const p of r.projects) actions.loadDesign(p.cwd);
         // Dev checks without clicks (see main/index.ts): #dev?open=latest|<title part>&view=tree&search=<text>, once.
         if (location.hash.startsWith("#dev?")) {
           const dev = new URLSearchParams(location.hash.slice(5));

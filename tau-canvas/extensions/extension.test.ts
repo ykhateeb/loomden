@@ -48,3 +48,26 @@ describe("extension", () => {
     on.session_shutdown();
   });
 });
+
+describe("free session", () => {
+  it("keeps canvases in the session's own folder, not in no-project", async () => {
+    const tools: Record<string, any> = {};
+    ext({ registerTool: (t: any) => (tools[t.name] = t), registerCommand: () => {}, on: () => {}, sendUserMessage: () => {} } as any);
+    const dir = await mkdtemp(join(tmpdir(), "tau-free-"));
+    process.env.TAU_NO_PROJECT = join(dir, "no-project");
+    process.env.TAU_FREE_DIR = join(dir, "sessions");
+    try {
+      const ctx = { cwd: join(dir, "no-project"), sessionManager: { getSessionId: () => "s1" } };
+      await tools.canvas_create.execute("1", { canvas: "c1", board: "a", title: "A", w: 1, h: 1, html: "<p>x</p>" }, null, null, ctx);
+      const { listCanvases } = await import("./store.js");
+      expect(await listCanvases(join(dir, "sessions", "s1", "canvases"))).toEqual(["c1"]);
+      expect(await listCanvases(join(dir, "no-project", ".tau", "canvases"))).toEqual([]);
+      // another free session does not see it
+      const other = { ...ctx, sessionManager: { getSessionId: () => "s2" } };
+      await expect(tools.canvas_read.execute("2", { canvas: "c1" }, null, null, other)).rejects.toThrow(/not found/);
+    } finally {
+      delete process.env.TAU_NO_PROJECT;
+      delete process.env.TAU_FREE_DIR;
+    }
+  });
+});
