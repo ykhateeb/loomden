@@ -1,9 +1,9 @@
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type Frame, type Page } from "@playwright/test";
 import { startServer, type CanvasServer } from "../extensions/server";
-import { createBoard, editBoard, readCanvas } from "../extensions/store";
+import { createBoard, editBoard, proposeTokens, readCanvas } from "../extensions/store";
 
 const board = (t: string) =>
   `<html><head><style>html,body{margin:0;width:390px;height:844px}button{margin:20px}</style></head><body><h1>${t}</h1><button>Pay now</button></body></html>`;
@@ -70,4 +70,39 @@ test("a board cannot reach the network", async ({ page }) => {
 test("a request without the token fails", async ({ request }) => {
   const origin = new URL(server.url("demo")).origin;
   expect((await request.get(`${origin}/nope/c/demo`)).status()).toBe(404);
+});
+
+test("Design system tab: update from code, review, accept, see uses, show on boards", async ({ page }) => {
+  const ds = join(root, "..", "design-system");
+  await editBoard(root, { canvas: "demo", board: "cart", baseRev: 1, edits: [{ find: "<button", replace: '<button style="color:var(--link)"' }] });
+  await page.goto(server.url("demo"));
+  await page.getByRole("button", { name: "Design system" }).click();
+  await expect(page.getByText("No design system yet")).toBeVisible();
+
+  // "Create from code" asks pi
+  await page.getByRole("button", { name: "Create from code" }).click();
+  await expect.poll(() => sent.length).toBe(1);
+  expect(sent[0]).toContain("design_system_propose");
+
+  // pi proposes: the tab shows it, nothing is saved yet
+  await proposeTokens(ds, { name: "app", color: { tokens: [{ name: "link", value: "#4e6f94", usage: "Links" }] }, spacing: { tokens: [{ name: "space-4", value: "16px" }] } });
+  await expect(page.getByText("pi proposes 2 changes")).toBeVisible();
+  await expect(page.getByText("link: (new) → #4e6f94")).toBeVisible();
+  await page.getByRole("button", { name: "Accept" }).click();
+  await expect(page.getByText("app · v1")).toBeVisible();
+  expect(await readFile(join(ds, "tokens.css"), "utf8")).toContain("--link: #4e6f94;");
+
+  // click a token: where it is used
+  await page.getByRole("button", { name: /^link/ }).click();
+  await expect(page.getByText("Used 1× on Cart (1)")).toBeVisible();
+  await page.getByRole("button", { name: /^space-4/ }).click();
+  await expect(page.getByText("Not used on any board")).toBeVisible();
+
+  // Show on boards: an outline appears on the element that uses the token
+  await page.getByRole("button", { name: /^link/ }).click();
+  await page.getByRole("button", { name: "Show on boards" }).click();
+  const outlined = page.frameLocator("iframe").first().locator("html > div[style*='dashed']");
+  await expect(outlined).toHaveCount(1);
+  await page.keyboard.press("Escape");
+  await expect(outlined).toHaveCount(0);
 });

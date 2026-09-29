@@ -26,6 +26,14 @@ Read `references/format.md` before you write your first board. Read `references/
    3. `canvas_note_done` when the board shows the change.
 5. Never set or claim approval. Only the person approves.
 
+## Update the design system from code
+
+When you get "Update the design system from code":
+1. Read the theme file (`src/theme.ts`, or the paths in `source` of `tokens.json`). Read `references/format.md` for the `tokens.json` shape.
+2. Map each color, font, spacing and radius value to a token. Use short names (`link`, `space-4`) and add `usage` for colors.
+3. Call `design_system_propose` with the full tokens object. Do not write `tokens.json`: it is blocked. A person reviews the changes in the Design system tab and accepts them.
+4. Tell the person to open `/canvas` and check the Design system tab.
+
 ## Rules
 
 - The person may edit a board at any time. **Read right before you edit.** If `canvas_edit` fails with "changed by you at rev N", read the board again and redo your change on their version. Never overwrite it.

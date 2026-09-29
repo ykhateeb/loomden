@@ -5,7 +5,7 @@ import { Type } from "typebox";
 import { defineTool, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { startServer, type CanvasServer } from "./server.js";
 import {
-  RAW_BOARD, createBoard, editBoard, ensureGitignore, listCanvases, readBoard, readCanvas, setNoteState,
+  RAW_BOARD, RAW_TOKENS, createBoard, proposeTokens, editBoard, ensureGitignore, listCanvases, readBoard, readCanvas, setNoteState,
 } from "./store.js";
 
 const text = (t: string) => ({ content: [{ type: "text" as const, text: t }], details: undefined });
@@ -82,13 +82,27 @@ export default function (pi: ExtensionAPI) {
       },
     }),
   ];
+  canvasTools.push(defineTool({
+    name: "design_system_propose",
+    label: "Propose design system",
+    description: "Propose a new .tau/design-system/tokens.json, read from the project's code (for example src/theme.ts). Give the full tokens object. A person reviews it in the canvas and accepts it; you cannot write tokens.json.",
+    parameters: Type.Object({
+      tokens: Type.Any({ description: "tokens.json content: { name, version, source, color:{tokens:[{name,value,usage}]}, type:{families,styles}, spacing:{tokens}, radius:{tokens} }" }),
+    }),
+    async execute(_id, a, _s, _u, ctx) {
+      const n = await proposeTokens(join(ctx.cwd, ".tau", "design-system"), a.tokens);
+      return text(`Proposed ${n} tokens. Tell the person to review them in the Design system tab of /canvas.`);
+    },
+  }));
   canvasTools.forEach((t) => pi.registerTool(t));
 
   // Write guard: board files change only through canvas_edit.
   pi.on("tool_call", (event, ctx) => {
     if (event.toolName !== "write" && event.toolName !== "edit") return undefined;
     const p = resolve(ctx.cwd, String((event.input as any).path ?? ""));
-    if (RAW_BOARD.test(p.split("\\").join("/"))) return { block: true, reason: "Board files change only through the tools: use canvas_edit" };
+    const posix = p.split("\\").join("/");
+    if (RAW_TOKENS.test(posix)) return { block: true, reason: "tokens.json changes only when a person accepts a proposal: use design_system_propose" };
+    if (RAW_BOARD.test(posix)) return { block: true, reason: "Board files change only through the tools: use canvas_edit" };
     return undefined;
   });
 
@@ -122,7 +136,7 @@ export default function (pi: ExtensionAPI) {
     async handler(args, ctx) {
       const root = rootOf(ctx.cwd);
       const name = args.trim() || (await listCanvases(root))[0];
-      if (!name) return ctx.ui.notify("No canvas yet. Ask pi to design a screen.", "info");
+      if (!name) return ctx.ui.notify(`No canvas yet in ${ctx.cwd}. Ask pi to design a screen.`, "info");
       server ??= await startServer({ root, onSend: (t) => pi.sendUserMessage(t, { deliverAs: "followUp" }) });
       const url = server.url(name);
       ctx.ui.notify(`Canvas: ${url}`, "info");

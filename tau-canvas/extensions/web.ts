@@ -15,6 +15,17 @@ const r=t.getBoundingClientRect();
 parent.postMessage({type:"pick",tid:t.dataset.tid,text:(t.innerText||t.getAttribute("aria-label")||t.tagName).trim().slice(0,60),
 box:[r.left,r.top,r.width,r.height].map(Math.round)},"*")},true);
 addEventListener("submit",e=>e.preventDefault(),true);
+const marks=[];
+function show(vars){
+marks.forEach(m=>m.remove());marks.length=0;if(!vars||!vars.length)return;
+const uses=s=>vars.some(v=>s.includes("var(--"+v+")")||s.includes("var(--"+v+","));
+const hit=new Set();
+document.querySelectorAll("[data-tid]").forEach(el=>{if(uses(el.getAttribute("style")||""))hit.add(el)});
+for(const ss of document.styleSheets)try{for(const r of ss.cssRules)if(r.selectorText&&uses(r.cssText))try{document.querySelectorAll(r.selectorText).forEach(el=>hit.add(el))}catch(e){}}catch(e){}
+hit.forEach(el=>{const b=el.getBoundingClientRect(),m=document.createElement("div");
+m.style.cssText="position:fixed;pointer-events:none;border:2px dashed #d9822b;background:rgba(217,130,43,.15);z-index:2147483646;left:"+b.left+"px;top:"+b.top+"px;width:"+b.width+"px;height:"+b.height+"px";
+marks.push(m);document.documentElement.append(m)})}
+addEventListener("message",e=>{if(e.data&&e.data.type==="show")show(e.data.vars)});
 })();`;
 
 /** The canvas viewer. __BASE__ and __CANVAS__ are replaced by the server. */
@@ -44,15 +55,28 @@ aside{width:280px;border-left:1px solid var(--line);background:var(--card);overf
 .note{border:1px solid var(--line);border-radius:8px;padding:8px}
 .note.done{opacity:.55}
 .note small{color:var(--mut);display:block}
+#ds{display:none;flex:1;overflow:auto;padding:16px;max-width:860px}
+body[data-tab=ds] #ds{display:block}
+body[data-tab=ds] #stage,body[data-tab=ds] aside,body[data-tab=ds] .modes{display:none}
+#ds h3{margin:20px 0 8px;color:var(--mut);font-weight:600}
+.dstop{display:flex;gap:8px;align-items:center;justify-content:space-between}
+.tokens{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px}
+.tok{display:flex;gap:8px;align-items:center;text-align:left;padding:8px}
+.tok.sel{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc)}
+.tok small{display:block;color:var(--mut)}
+.sw{width:28px;height:28px;border-radius:6px;border:1px solid var(--line);flex:none;background:var(--bg)}
+.prop,.detail{border:1px solid var(--line);border-radius:8px;padding:10px;margin-top:12px;background:var(--card);display:flex;flex-direction:column;gap:6px}
+.prop{border-color:#d9822b}
+.row{display:flex;gap:6px}
 #pop{position:fixed;z-index:10;width:280px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px;box-shadow:0 8px 24px #0003;display:none;flex-direction:column;gap:8px}
 #pop textarea{width:100%;height:70px;font:inherit;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px}
 #pop div{display:flex;gap:6px}
 </style></head>
 <body class="move">
 <header><b id="title">Canvas</b>
-<button id="m-move" class="on">Move <kbd>V</kbd></button><button id="m-point">Point <kbd>P</kbd></button>
-<span id="zoom"></span></header>
-<main><div id="stage"><div id="world"></div></div><aside id="side"></aside></main>
+<button id="t-canvas" class="on">Canvas</button><button id="t-ds">Design system</button>
+<span class="modes"><button id="m-move" class="on">Move <kbd>V</kbd></button> <button id="m-point">Point <kbd>P</kbd></button> <span id="zoom"></span></span></header>
+<main><div id="stage"><div id="world"></div></div><aside id="side"></aside><section id="ds"></section></main>
 <div id="pop"></div>
 <script>
 const B="__BASE__",C="__CANVAS__";
@@ -130,11 +154,47 @@ stage.addEventListener("wheel",e=>{e.preventDefault();
     view.x=px-(px-view.x)*k/view.k;view.y=py-(py-view.y)*k/view.k;view.k=k}
   else{view.x-=e.deltaX;view.y-=e.deltaY}applyView()},{passive:false});
 addEventListener("keydown",e=>{if(/TEXTAREA|INPUT/.test(e.target.tagName))return;
-  if(e.key==="v")setMode("move");if(e.key==="p")setMode("point");if(e.key==="Escape")$("#pop").style.display="none"});
+  if(e.key==="v")setMode("move");if(e.key==="p")setMode("point");if(e.key==="Escape"){$("#pop").style.display="none";showOnBoards(null)}});
 $("#m-move").onclick=()=>setMode("move");$("#m-point").onclick=()=>setMode("point");
+
+// design system tab (read-only)
+let ds=null,sel=null,tab="canvas";
+const varsOf=i=>i.decls.map(d=>d[0]);
+const showOnBoards=vars=>{for(const f of frames.values())f.iframe.contentWindow&&f.iframe.contentWindow.postMessage({type:"show",vars},"*")};
+async function loadDs(){ds=await(await fetch(B+"/c/"+C+"/ds.json")).json();renderDs()}
+function setTab(t){tab=t;document.body.dataset.tab=t;$("#t-canvas").classList.toggle("on",t==="canvas");$("#t-ds").classList.toggle("on",t==="ds");if(t==="ds"){showOnBoards(null);loadDs()}}
+function renderDs(){
+  const el=$("#ds");el.replaceChildren();
+  el.append(h("div",{class:"dstop"},h("b",{},ds.name?ds.name+" · v"+ds.version:"No design system yet"),
+    h("button",{onclick:()=>post("ds/update",{})},ds.name?"Update from code":"Create from code")));
+  if(ds.proposal){
+    const ch=ds.proposal.changes;
+    el.append(h("div",{class:"prop"},h("b",{},"pi proposes "+ch.length+" change"+(ch.length===1?"":"s")),
+      ...ch.map(c=>h("div",{},c.name+": "+(c.before??"(new)")+" → "+(c.after??"(removed)"))),
+      h("div",{class:"row"},h("button",{class:"primary",onclick:()=>post("ds/accept",{}).then(loadDs)},"Accept"),h("button",{onclick:()=>post("ds/discard",{}).then(loadDs)},"Discard"))))}
+  for(const[g,title]of[["color","Colors"],["type","Type"],["spacing","Spacing"],["radius","Radius"]]){
+    const items=ds.items.filter(i=>i.group===g);if(!items.length)continue;
+    const grid=h("div",{class:"tokens"});
+    for(const i of items){
+      const sw=h("span",{class:"sw"});
+      if(g==="color")sw.style.background=i.value;
+      if(g==="radius")sw.style.borderRadius=i.value;
+      if(g==="spacing"){sw.style.width=i.value;sw.style.minWidth="4px"}
+      const key=g+"/"+i.name;
+      grid.append(h("button",{class:"tok"+(sel===key?" sel":""),onclick:()=>{sel=key;renderDs()}},sw,h("span",{},i.name,h("small",{},i.value))))}
+    el.append(h("h3",{},title),grid)}
+  const it=ds.items.find(i=>i.group+"/"+i.name===sel);
+  if(it){
+    const use=it.used.length?"Used "+it.used.reduce((n,u)=>n+u.count,0)+"× on "+it.used.map(u=>u.board+" ("+u.count+")").join(", "):"Not used on any board";
+    el.append(h("div",{class:"detail"},h("b",{},varsOf(it).map(v=>"--"+v).join(", ")),h("div",{},it.value),it.usage?h("small",{},it.usage):"",h("div",{},use),
+      h("div",{class:"row"},
+        h("button",{onclick:()=>{try{navigator.clipboard.writeText("var(--"+varsOf(it)[0]+")")}catch(e){}}},"Copy name"),
+        h("button",{onclick:()=>{setTab("canvas");showOnBoards(varsOf(it))}},"Show on boards"))))}
+}
+$("#t-canvas").onclick=()=>setTab("canvas");$("#t-ds").onclick=()=>setTab("ds");
 
 // live updates
 const es=new EventSource(B+"/events");
-es.onmessage=e=>{const d=JSON.parse(e.data);if(d.canvas&&d.canvas!==C)return;if(d.type==="tokens-changed")bust++;load()};
+es.onmessage=e=>{const d=JSON.parse(e.data);if(d.canvas&&d.canvas!==C)return;if(d.type==="tokens-changed")bust++;load();if(tab==="ds")loadDs()};
 applyView();load();
 </script></body></html>`;

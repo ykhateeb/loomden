@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { startServer } from "./server.js";
-import { RAW_BOARD, addNote, createBoard, editBoard, ensureGitignore, readBoard, readCanvas, stamp, tokensCss } from "./store.js";
+import { RAW_BOARD, acceptProposal, addNote, dsReport, proposeTokens, createBoard, editBoard, ensureGitignore, readBoard, readCanvas, stamp, tokensCss } from "./store.js";
 
 const html = `<html><head><title>x</title></head><body><button>Pay</button><a href="b.html">Next</a></body></html>`;
 const setup = async () => {
@@ -93,5 +93,33 @@ describe("browser code", () => {
     const { POINT_SCRIPT, VIEWER } = await import("./web.js");
     new Function(POINT_SCRIPT);
     new Function(VIEWER.split("<script>")[1].split("</script>")[0]);
+  });
+});
+
+describe("design system", () => {
+  const tokens = (link: string) => ({
+    name: "app", color: { tokens: [{ name: "link", value: link, usage: "Links" }] },
+    type: { styles: [{ name: "label", fontSize: "12px", lineHeight: "16px", fontWeight: 600 }] },
+  });
+
+  it("proposes, reports changes and usage, accepts", async () => {
+    const { proj, root } = await setup();
+    const ds = join(proj, ".tau", "design-system");
+    await createBoard(root, { canvas: "c1", board: "cart", title: "Cart", w: 1, h: 1, html: `<a style="color:var(--link)">x</a><b style="color:var(--link, red)">y</b>` });
+    await expect(proposeTokens(ds, { name: "app", color: { tokens: [{ name: "bad", value: "red; }" }] } })).rejects.toThrow(/Bad value/);
+    await proposeTokens(ds, tokens("#111111"));
+    let r = await dsReport(root, "c1", ds);
+    expect(r.name).toBeUndefined();
+    expect(r.proposal?.changes.map((c) => c.name)).toEqual(["link", "label"]);
+    await acceptProposal(ds);
+    r = await dsReport(root, "c1", ds);
+    expect(r.version).toBe(1);
+    expect(r.proposal).toBeUndefined();
+    expect(r.items.find((i) => i.name === "link")?.used).toEqual([{ board: "Cart", count: 2 }]);
+    expect(await readFile(join(ds, "tokens.css"), "utf8")).toContain("--label-font-size: 12px;");
+    await proposeTokens(ds, tokens("#222222"));
+    expect((await dsReport(root, "c1", ds)).proposal?.changes).toEqual([{ name: "link", before: "#111111", after: "#222222" }]);
+    await acceptProposal(ds);
+    expect((await dsReport(root, "c1", ds)).version).toBe(2);
   });
 });
