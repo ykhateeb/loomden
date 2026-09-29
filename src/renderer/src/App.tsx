@@ -57,7 +57,7 @@ export function App() {
           <Toast
             key={n.id}
             level={n.level}
-            icon={<span className={n.level === "info" ? "text-ok" : n.level === "warning" ? "text-warn" : "text-danger"}><Icon name={n.level === "info" ? "check" : "warning"} /></span>}
+            icon={<span className={n.level === "info" ? "text-ok" : n.level === "warning" ? "text-warn" : "text-danger"}><Icon name={n.level === "info" ? "check" : "alert"} /></span>}
           >
             {n.message}
           </Toast>

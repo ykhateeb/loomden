@@ -8,8 +8,8 @@ import { Card, CardBody, CardHeader } from "../ui/surfaces";
 
 const k = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n));
 const kinds: Record<LiveState["resources"][number]["kind"], { icon: IconName; tone: PillTone; label: string }> = {
-  file: { icon: "fileText", tone: "dim", label: "file" },
-  system: { icon: "fileText", tone: "dim", label: "system" },
+  file: { icon: "doc", tone: "dim", label: "file" },
+  system: { icon: "doc", tone: "dim", label: "system" },
   skills: { icon: "star", tone: "violet", label: "skills" },
   extension: { icon: "bolt", tone: "orange", label: "extension" },
 };

@@ -167,7 +167,7 @@ function Preview({ s, onMore }: { s: SessionRow; onMore: (e: React.MouseEvent<HT
         <div className="flex items-center gap-2">
           <b className="truncate text-lg font-[650]">{s.title}</b>
           <span className="flex-1" />
-          <IconButton bare size={28} label="More actions" onClick={onMore}><Icon name="more" /></IconButton>
+          <IconButton bare size={28} label="More actions" onClick={onMore}><Icon name="dots" /></IconButton>
         </div>
         <div className="flex items-center gap-2.5 text-xs text-muted">
           <span className="flex items-center gap-1"><Icon name="folder" size={12} />{s.cwd.split("/").pop()}</span>

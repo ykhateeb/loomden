@@ -48,7 +48,7 @@ export function ToolCard({ call, result, running }: { call: ToolCall; result?: T
         <span className="truncate font-mono text-xs text-sub">{summary(call.arguments)}</span>
         <span className="ml-auto flex shrink-0 items-center gap-2">
           {status}
-          {!diff && text && <span className="text-muted"><Icon name={open ? "chevronDown" : "chevronRight"} size={13} /></span>}
+          {!diff && text && <span className="text-muted"><Icon name={open ? "chevronDown" : "chevron"} size={13} /></span>}
         </span>
       </button>
       {diff ? (

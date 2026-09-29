@@ -38,7 +38,7 @@ export function TrustPage() {
           </tbody>
         </Table>
       </Card>
-      <Callout icon={<Icon name="warning" />}>Extensions run code on your computer. Trust only folders you know. Trust does not limit pi’s tools. They can still read and change your files.</Callout>
+      <Callout icon={<Icon name="alert" />}>Extensions run code on your computer. Trust only folders you know. Trust does not limit pi’s tools. They can still read and change your files.</Callout>
     </main>
   );
 }

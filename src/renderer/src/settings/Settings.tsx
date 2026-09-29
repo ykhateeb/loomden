@@ -35,7 +35,7 @@ export function Settings() {
           <span className="text-muted"><Icon name="download" size={14} /></span>Import from pi
         </ListItem>
         <div className="mt-auto flex items-center gap-2.5 border-t border-line px-2 pt-3">
-          <span className="text-muted"><Icon name="package" size={16} /></span>
+          <span className="text-muted"><Icon name="box" size={16} /></span>
           <div className="flex flex-col">
             <b className="text-sm font-semibold">Tau 0.1</b>
             <span className="text-xs text-muted">Unofficial app for pi</span>

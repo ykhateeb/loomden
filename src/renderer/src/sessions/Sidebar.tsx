@@ -87,7 +87,7 @@ export function Sidebar() {
               onContextMenu={(e) => menus.projectMenu(e, p, sessions.filter((s) => s.cwd === p.cwd).length)}
               meta={<>{!open && runningHere && <Dot color="accent" />}{rows.length}</>}
             >
-              <Icon name={open ? "chevronDown" : "chevronRight"} size={14} />
+              <Icon name={open ? "chevronDown" : "chevron"} size={14} />
               <span className="text-muted"><Icon name="folder" /></span>
               <span className="truncate">{p.name}</span>
             </ListItem>,
@@ -102,7 +102,7 @@ export function Sidebar() {
       </nav>
 
       <div className="flex items-center gap-2 border-t border-line px-2 pt-2.5 text-xs text-muted">
-        <Icon name="package" size={14} />
+        <Icon name="box" size={14} />
         <span>Tau 0.1 · pi 0.87</span>
         <span className="flex-1" />
         <span className="text-dim">unofficial</span>

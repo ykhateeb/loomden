@@ -68,7 +68,7 @@ export function ImportDialog() {
               <li key={item.id} className="flex flex-col gap-1">
                 <div className="flex items-center gap-2.5">
                   <span className={cx("flex", !r ? "text-dim" : r.status === "done" ? "text-ok" : r.status === "partial" ? "text-warn" : "text-danger")}>
-                    <Icon name={!r ? "check" : r.status === "done" ? "check" : "warning"} size={15} />
+                    <Icon name={!r ? "check" : r.status === "done" ? "check" : "alert"} size={15} />
                   </span>
                   <span className={r || item.done ? "text-fg" : "text-muted"}>{item.label}</span>
                   <span className="ml-auto text-sm text-muted">{r ? r.detail : item.done ? `${item.action.toLowerCase()} · ${item.detail}` : "not picked"}</span>

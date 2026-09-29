@@ -68,7 +68,7 @@ export function Gallery() {
           <Button variant="dangerFill"><Icon name="trash" size={14} />Delete<Kbd onFill>D</Kbd></Button>
           <Button disabled>Disabled</Button>
           <Button small>Small</Button>
-          <IconButton label="Attach files"><Icon name="paperclip" /></IconButton>
+          <IconButton label="Attach files"><Icon name="clip" /></IconButton>
           <IconButton label="Add project" bare size={24}><Icon name="plus" /></IconButton>
           <Kbd>⌘K</Kbd>
         </Section>
@@ -106,7 +106,7 @@ export function Gallery() {
             <ListItem meta="2h"><span className="truncate">Rate limit upload API</span></ListItem>
           </div>
           <div className="flex w-[340px] flex-col gap-2">
-            <Callout icon={<Icon name="warning" />}>Extensions run code on your computer. Trust only folders you know.</Callout>
+            <Callout icon={<Icon name="alert" />}>Extensions run code on your computer. Trust only folders you know.</Callout>
             <Callout tone="info">Project settings win over global ones.</Callout>
           </div>
         </Section>
@@ -130,7 +130,7 @@ export function Gallery() {
           </Tooltip>
           <Button onClick={() => setModal(true)}>Open dialog</Button>
           <Toast icon={<span className="text-ok"><Icon name="check" /></span>}>Session renamed</Toast>
-          <Toast level="error" icon={<span className="text-danger"><Icon name="warning" /></span>}>prompts/review.md: permission denied</Toast>
+          <Toast level="error" icon={<span className="text-danger"><Icon name="alert" /></span>}>prompts/review.md: permission denied</Toast>
         </Section>
 
         <Section title={`Icons (${iconNames.length})`}>

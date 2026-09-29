@@ -66,14 +66,14 @@ export function Packages() {
     return (
       <section key={title} className="flex shrink-0 flex-col gap-0.5">
         <div className="flex items-center gap-2 px-2.5 pt-2 pb-1 text-sm">
-          <span className="text-muted"><Icon name={title === "Global" ? "sun" : "folder"} size={13} /></span>
+          <span className="text-muted"><Icon name={title === "Global" ? "gear" : "folder"} size={13} /></span>
           <b className="font-semibold">{title}</b>
           <span className="text-muted">{note}</span>
           <span className="ml-auto text-xs text-muted">{rows.length}</span>
         </div>
         {rows.map((p) => (
           <ListItem key={keyOf(p)} active={p === current} onClick={() => setPicked(keyOf(p))} meta={busy(p) ? <Spinner size={10} /> : <span className="font-mono">{p.version ?? p.kind}</span>}>
-            <span className="text-muted"><Icon name="package" size={14} /></span>
+            <span className="text-muted"><Icon name="box" size={14} /></span>
             <span className="truncate">{p.name}</span>
             {!p.installed && <Pill tone="warn" className="h-[18px] text-[10.5px]">missing</Pill>}
           </ListItem>
@@ -115,7 +115,7 @@ export function Packages() {
                 <input aria-label="Package source" placeholder="npm:pi-lint-skills" value={source} onChange={(e) => setSource(e.target.value)} className="min-w-0 flex-1 bg-transparent text-fg outline-none" />
               </label>
               <Button variant="primary" type="submit" disabled={!source.trim() || busy({ source: source.trim() } as InstalledPackage)}>
-                {busy({ source: source.trim() } as InstalledPackage) ? <Spinner size={12} /> : <Icon name="install" size={14} />}Install<Kbd onFill>↵</Kbd>
+                {busy({ source: source.trim() } as InstalledPackage) ? <Spinner size={12} /> : <Icon name="import" size={14} />}Install<Kbd onFill>↵</Kbd>
               </Button>
             </form>
             <div className="flex flex-wrap items-center gap-2">
@@ -154,7 +154,7 @@ export function Packages() {
         {current && (
           <Card className="flex flex-col">
             <div className="flex items-center gap-3 px-3.5 pt-3.5">
-              <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent-bg text-accent"><Icon name="package" size={18} /></span>
+              <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent-bg text-accent"><Icon name="box" size={18} /></span>
               <div className="flex min-w-0 flex-col">
                 <b className="truncate text-lg font-[650]">{current.name}</b>
                 <span className="text-xs text-muted">{current.scope === "global" ? "Global · every project" : `${current.cwd?.split("/").pop()} · this project`}</span>
@@ -168,7 +168,7 @@ export function Packages() {
                 </Button>
               ) : (
                 <Button variant="primary" disabled={busy(current)} title="It is in settings but not installed" onClick={() => actions.changePackage("install", current.source, current.cwd)}>
-                  <Icon name="install" size={14} />Install
+                  <Icon name="import" size={14} />Install
                 </Button>
               )}
             </div>
@@ -199,7 +199,7 @@ export function Packages() {
                   </div>
                 ))}
               </div>
-              <Callout icon={<Icon name="warning" />}>
+              <Callout icon={<Icon name="alert" />}>
                 Extensions run code on your computer with your own permissions.
                 <span className="block text-muted">Changes load after <Chip>/reload</Chip> or a new session.</span>
               </Callout>

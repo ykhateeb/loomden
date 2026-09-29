@@ -235,7 +235,7 @@ export function Composer({ sessionKey, state }: { sessionKey: string; state: Liv
               </button>
             )}
             <IconButton size={28} label="Attach files" onClick={async () => attach(await window.tau.pickFiles())}>
-              <Icon name="paperclip" />
+              <Icon name="clip" />
             </IconButton>
             <span className="flex-1" />
             {state.streaming && (
@@ -251,7 +251,7 @@ export function Composer({ sessionKey, state }: { sessionKey: string; state: Liv
 
         {dragging && (
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-accent bg-accent-bg text-center backdrop-blur-sm">
-            <b className="flex items-center gap-2 text-md text-fg"><Icon name="paperclip" />Drop to attach</b>
+            <b className="flex items-center gap-2 text-md text-fg"><Icon name="clip" />Drop to attach</b>
             <span className="text-sm text-sub">Images go in as pictures · text files as @file references</span>
           </div>
         )}
