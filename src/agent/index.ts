@@ -49,7 +49,7 @@ async function handle(cmd: Command): Promise<unknown> {
       return designList(cmd.cwd);
     case "design.open":
       await assertProject(cmd.cwd);
-      return designOpen(cmd.cwd, cmd.canvas, cmd.key, (key, text) => sessions.prompt(key, text), cmd.tab);
+      return designOpen(cmd.cwd, cmd.canvas, cmd.key, (key, text) => sessions.prompt(key, text), cmd.tab, (cwd, pack) => send({ type: "canvas.build", cwd, ...pack }));
     case "session.commands":
       return sessions.commands(cmd.key);
     case "session.models":

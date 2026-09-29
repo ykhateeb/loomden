@@ -281,6 +281,8 @@ export type AgentOut =
   | { type: "closed"; key: string }
   /** The extension started the canvas server: show it in the panel. */
   | { type: "canvas"; key: string; url: string }
+  /** "Start build session" (board C12): open a new session and send it the design pack. */
+  | { type: "canvas.build"; key?: string; cwd?: string; title: string; text: string }
   | { type: "message"; key: string; message: AgentMessage; push: boolean }
   | { type: "ui.request"; request: UIRequest }
   | { type: "ui.done"; id: string }

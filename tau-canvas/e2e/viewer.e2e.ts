@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type Frame, type Page } from "@playwright/test";
 import { startServer, type CanvasServer } from "../extensions/server";
-import { createBoard, editBoard, proposeTokens, readCanvas } from "../extensions/store";
+import { compareBoard, createBoard, editBoard, proposeTokens, readCanvas } from "../extensions/store";
 
 const board = (t: string) =>
   `<html><head><style>html,body{margin:0;width:390px;height:844px}button{margin:20px}</style></head><body><h1>${t}</h1><button>Pay now</button></body></html>`;
@@ -245,4 +245,45 @@ test("Compare: see changes, restore adds a rev, only a person approves", async (
   await expect.poll(async () => (await readCanvas(root, "demo")).boards["boards/cart.html"].rev).toBe(3);
   await expect(page.getByText("Changed since rev 2")).toBeVisible(); // approval stays at rev 2
   expect(await readFile(join(root, "demo", "approved", "cart.html"), "utf8")).toContain("Cart v2");
+});
+
+test("Build session starts only when every board is approved, and sends the pack", async ({ page }) => {
+  await page.goto(server.url("demo"));
+  await page.getByRole("button", { name: "Compare" }).click();
+  const build = page.getByRole("button", { name: "Start build session" });
+  await expect(build).toBeDisabled();
+  await expect(page.getByText("Approve Cart first.")).toBeVisible();
+  await page.getByRole("button", { name: "Approve Cart" }).click();
+  await page.getByLabel("Board").selectOption({ label: "Pay" });
+  await page.getByRole("button", { name: "Approve Pay" }).click();
+  await expect(build).toBeEnabled();
+  await build.click();
+  await expect.poll(() => sent.length).toBe(1);
+  expect(sent[0]).toContain("demo · design pack");
+  expect(sent[0]).toContain("Boards at their approved revs (2):");
+});
+
+test("App view: differences from design_compare, Fix the code and Board is wrong", async ({ page }) => {
+  const ds = join(root, "..", "design-system");
+  await editBoard(root, { canvas: "demo", board: "cart", baseRev: 1, edits: [{ find: "<h1", replace: '<h1 style="font-weight: var(--label-strong-font-weight)"' }] });
+  await proposeTokens(ds, { name: "app", type: { styles: [{ name: "label-strong", fontSize: "12px", lineHeight: "16px", fontWeight: 650 }] } });
+  await (await import("../extensions/store")).acceptProposal(ds);
+  await page.goto(server.url("demo"));
+  await page.getByRole("button", { name: "App", exact: true }).click();
+  await expect(page.getByText("No comparison for Cart yet")).toBeVisible();
+  await page.getByRole("button", { name: "Ask pi to compare" }).click();
+  await expect.poll(() => sent.length).toBe(1);
+  expect(sent[0]).toContain("using design_compare");
+
+  await compareBoard(root, "demo", ds, { board: "cart", app: [{ text: "Cart", styles: { fontWeight: 400 } }, { text: "Ghost" }] });
+  await page.getByRole("button", { name: /^Cart 3/ }).click();
+  await expect(page.getByText("3 differences")).toBeVisible();
+  await expect(page.getByText("The board uses label-strong-font-weight (650). The app uses 400.")).toBeVisible();
+
+  await page.getByRole("button", { name: "Fix the code" }).first().click();
+  await expect(page.getByText("Sent to pi: fix the code")).toBeVisible();
+  expect(sent[1]).toContain("fix the code. Cart: font-weight differs");
+  await page.getByRole("button", { name: "Board is wrong" }).first().click();
+  await expect(page.getByText("Sent to pi: the board is wrong")).toBeVisible();
+  expect(sent[2]).toContain("the board is wrong.");
 });

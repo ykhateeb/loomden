@@ -161,6 +161,17 @@ function receive(msg: AgentOut) {
         const { [msg.key]: __, ...messages } = s.messages;
         return { live, messages, dialogs: s.dialogs.filter((d) => d.key !== msg.key), active: s.active === msg.key ? undefined : s.active };
       });
+    case "canvas.build": {
+      // The pack starts a new session in the same folder, so this chat stays as it was.
+      const cwd = msg.cwd ?? (msg.key && state.live[msg.key]?.cwd);
+      if (!cwd) return;
+      void actions.open(cwd).then(async (key) => {
+        if (!key) return;
+        notice(`Build session started from “${msg.title}”`, "info");
+        await call({ type: "session.prompt", key, text: msg.text });
+      }).catch(report);
+      return;
+    }
     case "canvas": {
       const cwd = state.live[msg.key]?.cwd;
       if (cwd) actions.loadDesign(cwd); // a new canvas shows in the Design row

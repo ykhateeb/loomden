@@ -53,7 +53,16 @@ export function uiContextFor(key: string, send: Send): ExtensionUIContext {
     notify: (message, level = "info") => send({ type: "notify", key, message, level }),
     onTerminalInput: () => noop,
     // The design canvas extension reports its server address here; the window shows it in a panel.
-    setStatus: (id, text) => id === "tau-canvas" && text && send({ type: "canvas", key, url: text }),
+    setStatus: (id, text) => {
+      if (id === "tau-canvas" && text) send({ type: "canvas", key, url: text });
+      if (id === "tau-canvas-build" && text) {
+        try {
+          send({ type: "canvas.build", key, ...JSON.parse(text) }); // { title, text }
+        } catch {
+          send({ type: "notify", key, level: "error", message: "The design pack could not be read" });
+        }
+      }
+    },
     setWorkingMessage: noop,
     setWorkingVisible: noop,
     setWorkingIndicator: noop,

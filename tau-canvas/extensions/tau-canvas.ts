@@ -5,7 +5,7 @@ import { Type } from "typebox";
 import { defineTool, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { startServer, type CanvasServer } from "./server.js";
 import {
-  RAW_BOARD, RAW_STATE, RAW_TOKENS, createBoard, freeRoot, proposeTokens, editBoard, ensureGitignore, listCanvases, readBoard, readCanvas, setNoteState,
+  RAW_BOARD, RAW_STATE, RAW_TOKENS, compareBoard, createBoard, freeRoot, proposeTokens, editBoard, ensureGitignore, listCanvases, readBoard, readCanvas, setNoteState,
 } from "./store.js";
 
 const text = (t: string) => ({ content: [{ type: "text" as const, text: t }], details: undefined });
@@ -21,8 +21,15 @@ export default function (pi: ExtensionAPI) {
   // Tau shows the canvas in a panel and reads the address from the status. Terminal pi opens the browser.
   const inTau = () => !!process.env.TAU_APP;
   const announced = new Set<string>();
+  let ui: { setStatus(id: string, text: string | undefined): void } | undefined;
   const show = async (ctx: Ctx & { ui: { setStatus(id: string, text: string | undefined): void } }, name: string) => {
-    server ??= await startServer({ root: rootOf(ctx), onSend: (t) => pi.sendUserMessage(t, { deliverAs: "followUp" }) });
+    ui = ctx.ui;
+    server ??= await startServer({
+      root: rootOf(ctx),
+      onSend: (t) => pi.sendUserMessage(t, { deliverAs: "followUp" }),
+      // In Tau, "Start build session" opens a new session with the pack. In a terminal, the pack comes to this session.
+      onBuild: inTau() ? (_c, pack) => ui!.setStatus("tau-canvas-build", JSON.stringify(pack)) : undefined,
+    });
     announced.add(name);
     ctx.ui.setStatus("tau-canvas", server.url(name));
     return server.url(name);
@@ -96,6 +103,26 @@ export default function (pi: ExtensionAPI) {
       },
     }),
   ];
+  canvasTools.push(defineTool({
+    name: "design_compare",
+    label: "Compare with the app",
+    description: "Compare a board (at its approved rev) with the running app. Give what the app shows: each element's text and the style values you read from the code or the simulator. The differences show next to the board, where a person picks Fix the code or Board is wrong.",
+    parameters: Type.Object({
+      canvas: Type.String(),
+      board: Type.String(),
+      app: Type.Array(Type.Object({
+        text: Type.String({ description: "The element's text, as on screen" }),
+        styles: Type.Optional(Type.Record(Type.String(), Type.Union([Type.String(), Type.Number()]), { description: "For example { fontWeight: 400, marginTop: 12 }" })),
+      })),
+      screenshot: Type.Optional(Type.String({ description: "Path of a png, jpg or webp screenshot of the app screen" })),
+    }),
+    async execute(_id, a, _s, _u, ctx) {
+      const r = await compareBoard(rootOf(ctx), a.canvas, dsOf(ctx), { ...a, screenshot: a.screenshot && resolve(ctx.cwd, a.screenshot) });
+      return text(r.differences.length
+        ? `${r.differences.length} difference${r.differences.length === 1 ? "" : "s"} from board ${a.board} (rev ${r.rev}):\n${r.differences.map((d) => `- ${d.title}. ${d.detail}`).join("\n")}\nThe person sees them next to the board.`
+        : `No differences from board ${a.board} (rev ${r.rev}) in what you gave.`);
+    },
+  }));
   canvasTools.push(defineTool({
     name: "design_system_propose",
     label: "Propose design system",

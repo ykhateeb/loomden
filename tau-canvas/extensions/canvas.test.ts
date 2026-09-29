@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { startServer } from "./server.js";
-import { RAW_BOARD, RAW_STATE, RAW_TOKENS, freeRoot, moveCanvases, moveDesignSystem, acceptProposal, addNote, approve, flow, restoreRev, dsReport, patchBoard, proposeTokens, readHistory, undoBoard, createBoard, editBoard, ensureGitignore, readBoard, readCanvas, stamp, tokensCss } from "./store.js";
+import { RAW_BOARD, RAW_STATE, RAW_TOKENS, compareBoard, designPack, readCompares, setDifferenceState, freeRoot, moveCanvases, moveDesignSystem, acceptProposal, addNote, approve, flow, restoreRev, dsReport, patchBoard, proposeTokens, readHistory, undoBoard, createBoard, editBoard, ensureGitignore, readBoard, readCanvas, stamp, tokensCss } from "./store.js";
 
 const html = `<html><head><title>x</title></head><body><button>Pay</button><a href="b.html">Next</a></body></html>`;
 const setup = async () => {
@@ -248,3 +248,118 @@ describe("sending notes", () => {
     }
   });
 });
+
+describe("build pack and compare with the app", () => {
+  const cart = `<body><h1 style="font-weight: var(--label-strong-font-weight); margin-top: var(--space-4)">Total</h1><p style="color: var(--ink)">Pay $48.20</p></body>`;
+  const tokens = { name: "app", color: { tokens: [{ name: "ink", value: "#1b1f24" }, { name: "danger", value: "#c2553d" }] }, spacing: { tokens: [{ name: "space-4", value: "16px" }] },
+    type: { styles: [{ name: "label-strong", fontSize: "12px", lineHeight: "16px", fontWeight: 650 }] } };
+
+  it("makes the pack only when every board is approved", async () => {
+    const { proj, root } = await setup();
+    const ds = join(proj, ".tau", "design-system");
+    await proposeTokens(ds, tokens);
+    await acceptProposal(ds);
+    await createBoard(root, { canvas: "c1", board: "cart", title: "Cart", w: 1, h: 1, html: cart });
+    await createBoard(root, { canvas: "c1", board: "pay", title: "Payment", w: 1, h: 1, html: "<p>pay</p>" });
+    await approve(root, "c1", "cart");
+    await expect(designPack(root, "c1", ds)).rejects.toThrow("Approve Payment first");
+
+    const id = await addNote(root, "c1", { board: "cart", target: { tid: "2", text: "Total", box: [0, 0, 1, 1] }, text: "Make it bold" });
+    await (await import("./store.js")).setNoteState(root, "c1", [id], "done");
+    await approve(root, "c1", "pay");
+    const pack = await designPack(root, "c1", ds);
+    expect(pack.title).toBe("c1");
+    expect(pack.text).toContain(`Cart (rev 1): ${join(root, "c1", "approved", "cart.html")}`);
+    expect(pack.text).toContain("Done notes (1):");
+    expect(pack.text).toContain("Cart › “Total”: Make it bold");
+    expect(pack.text).toContain("label-strong 12px/16px 650 (var(--label-strong-font-size)");
+    expect(pack.text).toContain("space-4 16px");
+    expect(pack.text).toContain("- ink #1b1f24");
+    expect(pack.text).not.toContain("danger"); // no board uses it
+  });
+
+  it("finds differences between the approved board and the app", async () => {
+    const { proj, root } = await setup();
+    const ds = join(proj, ".tau", "design-system");
+    await proposeTokens(ds, tokens);
+    await acceptProposal(ds);
+    await createBoard(root, { canvas: "c1", board: "cart", title: "Cart", w: 1, h: 1, html: cart });
+    await approve(root, "c1", "cart");
+    // the board changes after approval: the comparison still uses the approved rev
+    await editBoard(root, { canvas: "c1", board: "cart", baseRev: 1, edits: [{ find: ">Total<", replace: ">Total v2<" }] });
+    const shot = join(proj, "app.png");
+    await writeFile(shot, "png");
+
+    const r = await compareBoard(root, "c1", ds, {
+      board: "cart",
+      screenshot: shot,
+      app: [
+        { text: "Total", styles: { fontWeight: 400, marginTop: 16 } }, // weight differs, gap matches (16 = 16px)
+        { text: "Pay $48.20", styles: { color: "#1B1F24" } },          // same color, any case
+        { text: "Extra text" },
+      ],
+    });
+    expect(r.rev).toBe(1);
+    expect(r.differences.map((d) => d.title)).toEqual(["Total: font-weight differs", "“Extra text” is not on the board"]);
+    expect(r.differences[0].detail).toBe("The board uses label-strong-font-weight (650). The app uses 400.");
+    expect(r.screenshot).toBe("cart.png");
+    expect(await readFile(join(root, "c1", "compare", "cart.png"), "utf8")).toBe("png");
+
+    await expect(compareBoard(root, "c1", ds, { board: "cart", app: [], screenshot: join(proj, "x.txt") })).rejects.toThrow(/png, jpg or webp/);
+    await setDifferenceState(root, "c1", "cart", "d1", "fix");
+    expect((await readCompares(root, "c1"))["boards/cart.html"].differences[0].state).toBe("fix");
+    await expect(setDifferenceState(root, "c1", "cart", "d9", "fix")).rejects.toThrow(/not found/);
+  });
+
+  it("pairs repeated text in order, ignores line breaks, and keeps decisions when it runs again", async () => {
+    const { proj, root } = await setup();
+    const ds = join(proj, ".tau", "design-system");
+    await proposeTokens(ds, tokens);
+    await acceptProposal(ds);
+    const html2 = `<body><h2 style="font-weight: var(--label-strong-font-weight)">Pay</h2><button style="font-weight: 400">Pay</button><p>Pay
+      now</p></body>`;
+    await createBoard(root, { canvas: "c1", board: "cart", title: "Cart", w: 1, h: 1, html: html2 });
+    const app = [
+      { text: "Pay", styles: { fontWeight: 650 } },   // the heading: matches
+      { text: "Pay", styles: { fontWeight: 700 } },   // the button: differs from 400
+      { text: "Pay now" },
+    ];
+    let r = await compareBoard(root, "c1", ds, { board: "cart", app });
+    expect(r.differences.map((d) => d.title)).toEqual(["Pay: font-weight differs"]);
+    expect(r.differences[0].detail).toBe("The board uses 400. The app uses 700.");
+
+    await setDifferenceState(root, "c1", "cart", "d1", "wrong");
+    r = await compareBoard(root, "c1", ds, { board: "cart", app });
+    expect(r.differences[0].state).toBe("wrong"); // a decision survives a new run
+    r = await compareBoard(root, "c1", ds, { board: "cart", app: [{ text: "Pay", styles: { fontWeight: 650 } }, { text: "Pay", styles: { fontWeight: 500 } }, { text: "Pay now" }] });
+    expect(r.differences[0].state).toBe("open"); // a new difference starts open
+  });
+});
+
+
+describe("server: ask and compare decisions", () => {
+  it("refuses an empty ask, and a decision is sent to pi once", async () => {
+    const { proj, root } = await setup();
+    const ds = join(proj, ".tau", "design-system");
+    await proposeTokens(ds, tokens0);
+    await acceptProposal(ds);
+    await createBoard(root, { canvas: "c1", board: "cart", title: "Cart", w: 1, h: 1, html: `<p style="font-weight: 400">Pay</p>` });
+    await compareBoard(root, "c1", ds, { board: "cart", app: [{ text: "Pay", styles: { fontWeight: 700 } }] });
+    const sent: string[] = [];
+    const s = await startServer({ root, onSend: (t) => void sent.push(t) });
+    try {
+      const base = s.url("c1").replace("/c/c1", "");
+      const post = (path: string, body: object) => fetch(`${base}/api/${path}`, { method: "POST", body: JSON.stringify({ canvas: "c1", ...body }) });
+      expect((await post("ask", {})).status).toBe(400);
+      expect((await post("ask", { text: "  " })).status).toBe(400);
+      expect(sent).toEqual([]);
+      await post("compare", { board: "cart", id: "d1", action: "fix" });
+      await post("compare", { board: "cart", id: "d1", action: "fix" }); // a double click
+      expect(sent).toHaveLength(1);
+      expect((await post("compare", { board: "cart", id: "d1", action: "nope" })).status).toBe(400);
+    } finally {
+      s.close();
+    }
+  });
+});
+const tokens0 = { name: "app", color: { tokens: [{ name: "ink", value: "#111" }] } };

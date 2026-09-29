@@ -18,7 +18,7 @@ describe("extension", () => {
       on: (n: string, f: any) => (on[n] = f),
       sendUserMessage: () => {},
     } as any);
-    expect(Object.keys(tools)).toEqual(["canvas_create", "canvas_read", "canvas_edit", "canvas_note_done", "design_system_propose"]);
+    expect(Object.keys(tools)).toEqual(["canvas_create", "canvas_read", "canvas_edit", "canvas_note_done", "design_compare", "design_system_propose"]);
 
     const cwd = await mkdtemp(join(tmpdir(), "tau-ext-"));
     const ctx = { cwd };
@@ -35,6 +35,8 @@ describe("extension", () => {
 
     expect(on.tool_call({ toolName: "write", input: { path: ".tau/design-system/tokens.json" } }, ctx).block).toBe(true);
     await tools.design_system_propose.execute("4", { tokens: { name: "app", color: { tokens: [{ name: "link", value: "#4e6f94" }] } } }, null, null, ctx);
+    const cmp = await tools.design_compare.execute("5", { canvas: "c1", board: "cart", app: [{ text: "Pay", styles: {} }, { text: "Other" }] }, null, null, ctx);
+    expect(cmp.content[0].text).toContain("“Other” is not on the board");
     const before = await on.before_agent_start({}, ctx);
     expect(before.message.content).toContain("Canvas c1: boards/cart.html rev 1");
     // what you changed in edit mode reaches pi with its next turn, unless you turned "tell pi" off

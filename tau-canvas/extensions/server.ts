@@ -6,7 +6,7 @@ import { randomBytes } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { watch, mkdirSync } from "node:fs";
 import { dirname, extname, join, sep } from "node:path";
-import { acceptProposal, addNote, approve, flow, restoreRev, boardKey, canvasDir, canvasTabs, discardProposal, dsReport, patchBoard, readCanvas, readHistory, undoBoard, setNoteState, slug, tokensCss, type NoteState } from "./store.js";
+import { acceptProposal, addNote, approve, designPack, flow, readCompares, restoreRev, setDifferenceState, boardKey, canvasDir, canvasTabs, discardProposal, dsReport, patchBoard, readCanvas, readHistory, undoBoard, setNoteState, slug, tokensCss, type NoteState } from "./store.js";
 import { POINT_SCRIPT, VIEWER } from "./web.js";
 
 const TYPES: Record<string, string> = {
@@ -16,7 +16,10 @@ const TYPES: Record<string, string> = {
 
 export type CanvasServer = { url: (canvas: string) => string; close: () => void };
 
-export async function startServer(o: { root: string; onSend: (text: string) => void | Promise<void> }): Promise<CanvasServer> {
+export async function startServer(o: { root: string; onSend: (text: string) => void | Promise<void>;
+  /** "Start build session": Tau opens a new session with the pack. Without it, the pack goes to the current session. */
+  onBuild?: (canvas: string, pack: { title: string; text: string }) => void | Promise<void>;
+}): Promise<CanvasServer> {
   const token = randomBytes(16).toString("hex");
   const ds = join(dirname(o.root), "design-system");
   const clients = new Set<ServerResponse>();
@@ -30,6 +33,7 @@ export async function startServer(o: { root: string; onSend: (text: string) => v
     let ev: object | undefined;
     if (p[0] === "canvases" && p[2] === "boards") ev = { type: "board-changed", canvas: p[1], board: `boards/${p[3]}` };
     else if (p[0] === "canvases" && p[2] === "canvas.json") ev = { type: "canvas-changed", canvas: p[1] };
+    else if (p[0] === "canvases" && p[2] === "compare") ev = { type: "canvas-changed", canvas: p[1] }; // a comparison from pi
     else if (p[0] === "design-system" && p[1] === "tokens.json") ev = { type: "tokens-changed" };
     else if (p[0] === "design-system" && p[1] === "tokens.proposed.json") ev = { type: "ds-changed" };
     if (!ev) return; // history/, tokens.css and the rest are ignored
@@ -92,6 +96,35 @@ export async function startServer(o: { root: string; onSend: (text: string) => v
         if (b.send) await send(b.canvas, [id]);
         return reply(res, 200, "application/json", JSON.stringify({ id }));
       }
+      if (p[1] === "build") {
+        const pack = await designPack(o.root, b.canvas, ds);
+        await (o.onBuild ? o.onBuild(b.canvas, pack) : o.onSend(pack.text));
+        return reply(res, 200, "application/json", "{}");
+      }
+      if (p[1] === "ask") {
+        if (typeof b.text !== "string" || !b.text.trim()) return reply(res, 400, "text/plain", "Nothing to ask");
+        await o.onSend(b.text.slice(0, 500));
+        return reply(res, 200, "application/json", "{}");
+      }
+      if (p[1] === "compare") {
+        const state = b.action === "fix" ? "fix" : b.action === "wrong" ? "wrong" : undefined;
+        if (!state) return reply(res, 400, "text/plain", "bad action");
+        const c = await readCanvas(o.root, b.canvas);
+        const title = c.boards[boardKey(b.board)]?.title ?? b.board;
+        const d = (await readCompares(o.root, b.canvas))[boardKey(b.board)]?.differences.find((x) => x.id === b.id);
+        if (!d) return reply(res, 400, "text/plain", "Difference not found");
+        if (d.state !== "open") return reply(res, 200, "application/json", "{}"); // already sent: a second click sends nothing
+        await setDifferenceState(o.root, b.canvas, b.board, b.id, state);
+        try {
+          await o.onSend(state === "fix"
+            ? `Compare with the app, board ${title}: fix the code. ${d.title}. ${d.detail}`
+            : `Compare with the app, board ${title}: the board is wrong. ${d.title}. ${d.detail} Change the board with canvas_edit so it matches the app. A person approves it again.`);
+        } catch (e) {
+          await setDifferenceState(o.root, b.canvas, b.board, b.id, "open"); // pi did not get it: the buttons come back
+          throw e;
+        }
+        return reply(res, 200, "application/json", "{}");
+      }
       if (p[1] === "restore") return reply(res, 200, "application/json", JSON.stringify(await restoreRev(o.root, b.canvas, b.board, b.rev)));
       if (p[1] === "approve") return reply(res, 200, "application/json", JSON.stringify(await approve(o.root, b.canvas, b.board)));
       if (p[1] === "addboard") {
@@ -121,6 +154,9 @@ export async function startServer(o: { root: string; onSend: (text: string) => v
 
     if (p.length === 2) return reply(res, 200, "text/html", VIEWER.replace("__BASE__", base).replace("__CANVAS__", canvas));
     if (p[2] === "ds.json") return reply(res, 200, "application/json", JSON.stringify(await dsReport(o.root, canvas, ds)));
+    if (p[2] === "compare.json") return reply(res, 200, "application/json", JSON.stringify(await readCompares(o.root, canvas)));
+    if (p[2] === "compare" && /^[\w-]+\.(png|jpe?g|webp)$/i.test(p[3] ?? ""))
+      return reply(res, 200, TYPES[extname(p[3]).toLowerCase()] ?? "image/png", await readFile(join(dir, "compare", p[3])));
     if (p[2] === "flow.json") return reply(res, 200, "application/json", JSON.stringify(await flow(o.root, canvas)));
     if (p[2] === "history" && /^[\w-]+\.r\d+\.html$/.test(p[3] ?? "")) return board(res, await readFile(join(dir, "history", p[3]), "utf8"));
     if (p[2] === "history.json") return reply(res, 200, "application/json", JSON.stringify(await readHistory(o.root, canvas, url.searchParams.get("board") ?? "")));

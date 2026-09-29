@@ -80,7 +80,12 @@ body.play #world,body.play #hint{display:none}
 body.play #player{display:flex}
 #cmp{display:none;flex:1;overflow:auto;padding:16px;gap:16px}
 body[data-view=compare] #cmp{display:flex}
-body[data-view=compare] #stage,body[data-view=compare] aside,body[data-view=compare] .modes .seg:first-child,body[data-tab=ds] #cmp,body[data-tab=ds] .views{display:none}
+body[data-view=compare] #stage,body[data-view=compare] aside,body[data-view=compare] .modes .seg:first-child,body[data-view=app] #stage,body[data-view=app] aside,body[data-view=app] .modes .seg:first-child,body[data-tab=ds] #cmp,body[data-tab=ds] .views{display:none}
+#appcmp{display:none;flex:1;overflow:auto;padding:16px;gap:16px}
+body[data-view=app] #appcmp{display:flex}
+#appcmp .tabs{display:flex;gap:4px;margin-bottom:8px}
+#appcmp .shot{border:1px dashed var(--line);display:grid;place-items:center;color:var(--mut)}
+#appcmp img{display:block}
 #cmp .pair{display:flex;gap:16px;align-items:flex-start}
 #cmp .col{display:flex;flex-direction:column;gap:6px;color:var(--mut)}
 #cmp .col>div{overflow:hidden;border:1px solid var(--line)}
@@ -119,8 +124,8 @@ body[data-tab=ds] #stage,body[data-tab=ds] aside,body[data-tab=ds] .modes{displa
 </style></head>
 <body class="move">
 <header><nav id="tabs"></nav>
-<span class="modes"><span class="seg"><button id="m-move" class="on">Move <kbd>V</kbd></button><button id="m-point">Point <kbd>P</kbd></button><button id="m-edit">Edit <kbd>E</kbd></button><button id="m-play">Play ▶</button></span> <span class="seg views"><button id="v-canvas" class="on">Canvas</button><button id="v-compare">Compare</button></span> <span id="zoom"></span></span></header>
-<main><div id="stage"><div id="world"></div><div id="player"></div><div id="hint"><span><b>This is a first draft.</b>Press <kbd>P</kbd> and click anything to ask for a change. Nothing is built until you approve.</span><button id="hint-x" aria-label="Dismiss">×</button></div></div><aside id="side"></aside><section id="ds"></section><section id="cmp"></section></main>
+<span class="modes"><span class="seg"><button id="m-move" class="on">Move <kbd>V</kbd></button><button id="m-point">Point <kbd>P</kbd></button><button id="m-edit">Edit <kbd>E</kbd></button><button id="m-play">Play ▶</button></span> <span class="seg views"><button id="v-canvas" class="on">Canvas</button><button id="v-compare">Compare</button><button id="v-app">App</button></span> <span id="zoom"></span></span></header>
+<main><div id="stage"><div id="world"></div><div id="player"></div><div id="hint"><span><b>This is a first draft.</b>Press <kbd>P</kbd> and click anything to ask for a change. Nothing is built until you approve.</span><button id="hint-x" aria-label="Dismiss">×</button></div></div><aside id="side"></aside><section id="ds"></section><section id="cmp"></section><section id="appcmp"></section></main>
 <footer id="foot"></footer>
 <div id="pop"></div><div id="hist"></div><div id="toast"></div>
 <script>
@@ -264,7 +269,7 @@ function renderPlay(side){
 
 // compare, restore, approve
 let view2="canvas",cmp={board:null,base:null};
-function setView(v){view2=v;document.body.dataset.view=v;$("#v-canvas").classList.toggle("on",v==="canvas");$("#v-compare").classList.toggle("on",v==="compare");if(v==="compare")loadCmp()}
+function setView(v){view2=v;document.body.dataset.view=v;$("#v-canvas").classList.toggle("on",v==="canvas");$("#v-compare").classList.toggle("on",v==="compare");$("#v-app").classList.toggle("on",v==="app");if(v==="compare")loadCmp();if(v==="app")loadApp()}
 async function loadCmp(){
   if(!cmp.board||!cv.boards[cmp.board])cmp.board=cv.order[0];
   const b=cv.boards[cmp.board];if(!b)return;
@@ -292,9 +297,35 @@ function renderCmp(b,hist){
       h("b",{},"Approval "+appr+" of "+total+" boards"),
       ...Object.entries(cv.boards).map(([key,x])=>h("div",{class:"row"},h("span",{},x.title+" rev "+x.rev),status(x))),
       h("b",{},"Handoff to code"),h("small",{},"When every board is approved, pi gets a pack to build from: the boards at their approved revs, done notes, and the tokens used."),
-      h("button",{disabled:"",title:"Build sessions come with step 9"},"Start build session"),
+      h("button",{class:pending?"":"primary",...(pending?{disabled:""}:{}),onclick:e=>{const t=e.currentTarget;t.disabled=true;post("build",{}).then(()=>toast("Design pack sent")).finally(()=>setTimeout(()=>t.disabled=false,3000))}},"Start build session"),
       h("small",{},pending?"Approve "+pending.title+" first.":"All boards are approved."),
       h("small",{},"Saved in the project: .tau/canvases/"+C+"/. Boards, notes and approvals are files, so they go into git.")))}
+
+// compare with the app (board C12): pi runs design_compare; you decide each difference
+let appSeq=0;
+async function loadApp(){
+  const seq=++appSeq;
+  const all2=await fetch(B+"/c/"+C+"/compare.json").then(r=>r.json());
+  if(seq!==appSeq||view2!=="app")return; // a newer load or another view took over
+  if(!cmp.board||!cv.boards[cmp.board])cmp.board=cv.order[0];
+  const el=$("#appcmp"),b=cv.boards[cmp.board],c=all2[cmp.board],k=.6;
+  const tabs=h("div",{class:"tabs"},...cv.order.map(o=>h("button",{class:o===cmp.board?"on":"",onclick:()=>{cmp.board=o;loadApp()}},cv.boards[o].title+(all2[o]?" "+all2[o].differences.filter(d=>d.state==="open").length:""))));
+  if(!c)return el.replaceChildren(h("div",{},tabs,h("p",{},"No comparison for "+b.title+" yet. pi checks a screen of the app against its approved board with design_compare."),
+    h("button",{class:"primary",onclick:()=>{post("ask",{text:"Compare the app with the board “"+b.title+"” of canvas “"+C+"” using design_compare."});toast("Asked pi to compare")}},"Ask pi to compare")));
+  const name=cmp.board.slice(7,-5);
+  const boardBox=h("div",{});const f=h("iframe",{sandbox:"allow-scripts",src:B+"/c/"+C+"/history/"+name+".r"+c.rev+".html"});
+  f.style.cssText="width:"+b.w+"px;height:"+b.h+"px;transform:scale("+k+");transform-origin:0 0;border:0;background:#fff;pointer-events:none";
+  boardBox.style.cssText="width:"+b.w*k+"px;height:"+b.h*k+"px;overflow:hidden;border:1px solid var(--line)";boardBox.append(f);
+  const shot=c.screenshot?h("img",{src:B+"/c/"+C+"/compare/"+c.screenshot,alt:"The app",style:"max-height:"+b.h*k+"px;max-width:"+b.w*k*1.2+"px"}):h("div",{class:"shot"},"No screenshot");
+  if(!c.screenshot)shot.style.cssText="width:"+b.w*k+"px;height:"+b.h*k+"px";
+  el.replaceChildren(h("div",{},tabs,h("div",{class:"pair"},h("div",{class:"col"},h("span",{},"Board · rev "+c.rev),boardBox),h("div",{class:"col"},h("span",{},"App"),shot))),
+    h("div",{class:"side"},h("b",{},c.differences.length+" difference"+(c.differences.length===1?"":"s")),
+      ...(c.differences.length?[]:[h("small",{},"Nothing differs in what pi compared.")]),
+      ...c.differences.map((d,i)=>h("div",{class:"linkrow"},h("b",{},(i+1)+" · "+d.title),h("div",{},d.detail),
+        d.state==="open"?h("div",{class:"row",style:"display:flex;gap:6px;margin-top:6px"},
+          h("button",{class:"primary",onclick:()=>post("compare",{board:cmp.board,id:d.id,action:"fix"}).then(loadApp)},"Fix the code"),
+          h("button",{onclick:()=>post("compare",{board:cmp.board,id:d.id,action:"wrong"}).then(loadApp)},"Board is wrong")):h("small",{},d.state==="fix"?"Sent to pi: fix the code":"Sent to pi: the board is wrong"))),
+      h("small",{},".tau/canvases/"+C+"/compare/ · this computer only")))}
 
 // point -> note box
 addEventListener("message",e=>{
@@ -334,7 +365,7 @@ stage.addEventListener("wheel",e=>{e.preventDefault();
 addEventListener("keydown",e=>{if(/TEXTAREA|INPUT|SELECT/.test(e.target.tagName))return;
   if((e.metaKey||e.ctrlKey)&&e.key==="z"){e.preventDefault();return void undo()}
   if(e.key==="v")setMode("move");if(e.key==="p")setMode("point");if(e.key==="e")setMode("edit");if(mode==="play"&&e.key!=="Escape"){e.preventDefault();playKey(e.key)}if(e.key==="Escape"){$("#pop").style.display="none";showOnBoards(null);if(mode==="play")setMode("move")}});
-$("#m-move").onclick=()=>setMode("move");$("#m-point").onclick=()=>setMode("point");$("#m-edit").onclick=()=>setMode("edit");$("#m-play").onclick=()=>setMode("play");$("#v-canvas").onclick=()=>setView("canvas");$("#v-compare").onclick=()=>setView("compare");
+$("#m-move").onclick=()=>setMode("move");$("#m-point").onclick=()=>setMode("point");$("#m-edit").onclick=()=>setMode("edit");$("#m-play").onclick=()=>setMode("play");$("#v-canvas").onclick=()=>setView("canvas");$("#v-compare").onclick=()=>setView("compare");$("#v-app").onclick=()=>setView("app");
 
 // design system tab (read-only)
 let ds=null,sel=null,tab="canvas";
@@ -373,6 +404,6 @@ function renderDs(){
 
 // live updates
 const es=new EventSource(B+"/events");
-es.onmessage=async e=>{const d=JSON.parse(e.data);if(d.type==="tokens-changed")bust++;await load();if(tab==="ds")loadDs();if(view2==="compare")loadCmp()};
+es.onmessage=async e=>{const d=JSON.parse(e.data);if(d.type==="tokens-changed")bust++;await load();if(tab==="ds")loadDs();if(view2==="compare")loadCmp();if(view2==="app")loadApp()};
 applyView();load().then(()=>{if(new URLSearchParams(location.search).get("tab")==="ds")setTab("ds")});
 </script></body></html>`;

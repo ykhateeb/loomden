@@ -99,3 +99,33 @@ test("Design page lists the project's canvases and opens one", async () => {
     await app.close();
   }
 });
+
+test("Start build session in Tau opens a new session for the design pack", async () => {
+  const tauDir = await mkdtemp(join(tmpdir(), "tau-app-"));
+  const html = "<html><body style='margin:0;width:390px;height:400px'><h1>Cart</h1></body></html>";
+  const app = await electron.launch({ args: ["."], env: { ...process.env, TAU_DIR: tauDir, TAU_PI_DIR: join(tauDir, "pi") } });
+  try {
+    const win = await app.firstWindow();
+    await win.getByText("New session").first().click();
+    const box = win.getByLabel("Message to pi");
+    const run = async () => {
+      await box.fill("/canvas");
+      await box.press("Enter");
+      if (await box.inputValue()) await box.press("Enter");
+    };
+    await run();
+    const empty = win.getByText(/^No canvas yet in /);
+    await expect(empty).toBeVisible();
+    const root = (await empty.textContent())!.match(/in (.*)\. Ask/)![1];
+    await createBoard(root, { canvas: "demo", board: "cart", title: "Cart", w: 390, h: 400, html });
+    await approve(root, "demo", "cart");
+    await run();
+
+    const panel = win.frameLocator('iframe[title="Design canvas"]');
+    await panel.getByRole("button", { name: "Compare" }).click();
+    await panel.getByRole("button", { name: "Start build session" }).click();
+    await expect(win.getByText("Build session started from “demo”")).toBeVisible();
+  } finally {
+    await app.close();
+  }
+});

@@ -43,12 +43,13 @@ export async function designList(cwd: string): Promise<{ canvases: DesignCanvas[
 // One server for each project the Design page opened. Notes go to the session that opened it.
 const servers = new Map<string, { server: CanvasServer; key?: string }>();
 
-export async function designOpen(cwd: string, canvas: string, key: string | undefined, prompt: (key: string, text: string) => Promise<void>, tab?: "ds") {
+export async function designOpen(cwd: string, canvas: string, key: string | undefined, prompt: (key: string, text: string) => Promise<void>, tab: "ds" | undefined, build: (cwd: string, pack: { title: string; text: string }) => void) {
   let s = servers.get(cwd);
   if (!s) {
     const entry: { server: CanvasServer; key?: string } = { key, server: undefined as never };
     entry.server = await startServer({
       root: rootOf(cwd),
+      onBuild: (_c, pack) => build(cwd, pack),
       onSend: (t) => {
         if (!entry.key) throw new Error("Open a session in this project to send notes to pi");
         return prompt(entry.key, t); // a failed prompt reaches the viewer, and the notes stay unsent
