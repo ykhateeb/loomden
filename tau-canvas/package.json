@@ -1,0 +1,15 @@
+{
+  "name": "tau-canvas",
+  "version": "0.1.0",
+  "description": "Design canvas for pi: the tau-design skill and the tau-canvas extension.",
+  "keywords": ["pi-package"],
+  "type": "module",
+  "pi": {
+    "extensions": ["./extensions/tau-canvas.ts"],
+    "skills": ["./skills"]
+  },
+  "peerDependencies": {
+    "typebox": "*",
+    "@earendil-works/pi-coding-agent": "*"
+  }
+}

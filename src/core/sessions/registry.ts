@@ -24,6 +24,7 @@ import type { Entry as FileEntry } from "./summary";
 import { buildTree } from "./tree";
 import { settingsWithoutMissing } from "../packages";
 import { EXPORT_PREFIX } from "../paths";
+import tauCanvas from "../../../tau-canvas/extensions/tau-canvas";
 
 type ThinkingLevel = AgentSessionRuntime["session"]["thinkingLevel"];
 
@@ -64,6 +65,11 @@ export function createRegistry(send: Send, modelRuntime: ModelRuntime) {
       cwd,
       modelRuntime,
       settingsManager,
+      // Tau ships the design canvas itself: no `pi install` needed. Bundle is out/main/agent.js.
+      resourceLoaderOptions: {
+        extensionFactories: [{ name: "tau-canvas", factory: tauCanvas }],
+        additionalSkillPaths: [join(import.meta.dirname, "../../tau-canvas/skills")],
+      },
       resourceLoaderReloadOptions: { resolveProjectTrust: async () => trusted },
     });
     return {
