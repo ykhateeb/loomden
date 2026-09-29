@@ -14,6 +14,15 @@ export default function (pi: ExtensionAPI) {
   let server: CanvasServer | undefined;
   let lastTurn = new Date().toISOString();
   const rootOf = (dir: string) => join(dir, ".tau", "canvases");
+  // Tau shows the canvas in a panel and reads the address from the status. Terminal pi opens the browser.
+  const inTau = () => !!process.env.TAU_APP;
+  const announced = new Set<string>();
+  const show = async (ctx: { cwd: string; ui: { setStatus(id: string, text: string | undefined): void } }, name: string) => {
+    server ??= await startServer({ root: rootOf(ctx.cwd), onSend: (t) => pi.sendUserMessage(t, { deliverAs: "followUp" }) });
+    announced.add(name);
+    ctx.ui.setStatus("tau-canvas", server.url(name));
+    return server.url(name);
+  };
 
   const canvasTools = [
     defineTool({
@@ -32,6 +41,7 @@ export default function (pi: ExtensionAPI) {
       async execute(_id, a, _s, _u, ctx) {
         const r = await createBoard(rootOf(ctx.cwd), a);
         const ignored = r.isNew && (await ensureGitignore(ctx.cwd));
+        if (inTau() && !announced.has(a.canvas)) await show(ctx, a.canvas); // the panel opens as the first board appears
         return text(`Created ${a.canvas}/${a.board} at rev ${r.rev}.` +
           (ignored ? " Added .tau/canvases/*/history/ to .gitignore; show this change in the review." : ""));
       },
@@ -137,6 +147,7 @@ export default function (pi: ExtensionAPI) {
       const root = rootOf(ctx.cwd);
       const name = args.trim() || (await listCanvases(root))[0];
       if (!name) return ctx.ui.notify(`No canvas yet in ${ctx.cwd}. Ask pi to design a screen.`, "info");
+      if (inTau()) return void (await show(ctx, name));
       server ??= await startServer({ root, onSend: (t) => pi.sendUserMessage(t, { deliverAs: "followUp" }) });
       const url = server.url(name);
       ctx.ui.notify(`Canvas: ${url}`, "info");
@@ -148,5 +159,6 @@ export default function (pi: ExtensionAPI) {
   pi.on("session_shutdown", () => {
     server?.close();
     server = undefined;
+    announced.clear();
   });
 }

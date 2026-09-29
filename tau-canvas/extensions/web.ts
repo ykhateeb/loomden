@@ -33,14 +33,13 @@ export const VIEWER = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Canvas</title>
 <style>
-:root{--bg:#f4f4f2;--fg:#1c1c1a;--mut:#75756f;--card:#fff;--line:#d9d9d4;--acc:#4e6f94}
-@media(prefers-color-scheme:dark){:root{--bg:#161615;--fg:#eeeeea;--mut:#9a9a93;--card:#232322;--line:#3a3a37;--acc:#7f9fc4}}
+:root{color-scheme:dark;--bg:#161b22;--fg:#e9ecf1;--mut:#8a95a4;--card:#1d232d;--line:#29313d;--acc:#82aedc;--accfg:#0c1420}
 *{box-sizing:border-box}
 body{margin:0;height:100vh;display:flex;flex-direction:column;background:var(--bg);color:var(--fg);font:13px/1.4 system-ui,sans-serif;overflow:hidden}
 header{display:flex;gap:8px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--card)}
 header b{margin-right:auto}
 button{font:inherit;color:inherit;background:var(--card);border:1px solid var(--line);border-radius:6px;padding:4px 10px;cursor:pointer}
-button.on,button.primary{background:var(--acc);border-color:var(--acc);color:#fff}
+button.on,button.primary{background:var(--acc);border-color:var(--acc);color:var(--accfg);font-weight:600}
 main{flex:1;display:flex;min-height:0}
 #stage{flex:1;position:relative;overflow:hidden;touch-action:none}
 #world{position:absolute;left:0;top:0;transform-origin:0 0}
@@ -49,7 +48,7 @@ main{flex:1;display:flex;min-height:0}
 .board iframe{border:1px solid var(--line);background:#fff;display:block}
 body.move iframe{pointer-events:none}
 body.point #stage{cursor:crosshair}
-.pin{position:absolute;width:20px;height:20px;margin:-10px 0 0 -10px;border-radius:50%;background:var(--acc);color:#fff;font-size:11px;display:grid;place-items:center}
+.pin{position:absolute;width:20px;height:20px;margin:-10px 0 0 -10px;border-radius:50%;background:var(--acc);color:var(--accfg);font-size:11px;display:grid;place-items:center}
 .pin.done{opacity:.4}
 aside{width:280px;border-left:1px solid var(--line);background:var(--card);overflow:auto;padding:12px;display:flex;flex-direction:column;gap:8px}
 .note{border:1px solid var(--line);border-radius:8px;padding:8px}

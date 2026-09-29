@@ -67,11 +67,13 @@ export interface State {
   importing: boolean;
   /** The settings page to show (the Packages "Change" link opens Project trust). */
   settingsPage: "models" | "trust";
+  /** Each session's design canvas: the server address, and whether the panel is open. */
+  canvas: Record<string, { url: string; open: boolean }>;
   /** Dev: the text the ⌘K search starts with. */
   devSearch?: string;
 }
 
-let state: State = { agent: "starting", tab: "sessions", projects: [], sessions: [], live: {}, messages: {}, dialogs: [], notices: [], searching: false, view: {}, drafts: {}, treeStamp: 0, packageWork: {}, addingProvider: false, importing: false, settingsPage: "models" };
+let state: State = { agent: "starting", tab: "sessions", projects: [], sessions: [], live: {}, messages: {}, dialogs: [], notices: [], searching: false, view: {}, drafts: {}, treeStamp: 0, packageWork: {}, addingProvider: false, importing: false, settingsPage: "models", canvas: {} };
 const listeners = new Set<() => void>();
 
 function set(patch: Partial<State> | ((s: State) => Partial<State>)) {
@@ -153,6 +155,8 @@ function receive(msg: AgentOut) {
         const { [msg.key]: __, ...messages } = s.messages;
         return { live, messages, dialogs: s.dialogs.filter((d) => d.key !== msg.key), active: s.active === msg.key ? undefined : s.active };
       });
+    case "canvas":
+      return set((s) => ({ canvas: { ...s.canvas, [msg.key]: { url: msg.url, open: true } } }));
     case "message":
       return set((s) => {
         const list = s.messages[msg.key] ?? [];
@@ -189,6 +193,12 @@ function receive(msg: AgentOut) {
 const report = (e: Error) => notice(e.message);
 
 export const actions = {
+  /** Canvas ⇧C: show or hide the panel. The first time, the extension starts its server and reports the address. */
+  canvas: (key: string) => {
+    const c = state.canvas[key];
+    if (c) set({ canvas: { ...state.canvas, [key]: { ...c, open: !c.open } } });
+    else call({ type: "session.canvas", key }).catch(report);
+  },
   setTab: (tab: Tab) => set({ tab }),
   /** Show an open session (from the running menu or "needs you"). */
   focus: (key: string) => set({ tab: "sessions", active: key, mark: undefined }),

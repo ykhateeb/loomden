@@ -25,7 +25,7 @@ export function startAgent(win: BrowserWindow, env: NodeJS.ProcessEnv) {
   const spawn = () => {
     startedAt = Date.now();
     child = utilityProcess.fork(join(import.meta.dirname, "agent.js"), [], {
-      env: { ...env, PI_CODING_AGENT_DIR: TAU_AGENT_DIR },
+      env: { ...env, PI_CODING_AGENT_DIR: TAU_AGENT_DIR, TAU_APP: "1" },
       serviceName: "Tau agent",
       stdio: "inherit",
     });

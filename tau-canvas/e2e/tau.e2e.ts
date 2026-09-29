@@ -1,11 +1,11 @@
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { _electron as electron, chromium, expect, test } from "@playwright/test";
+import { _electron as electron, expect, test } from "@playwright/test";
 import { createBoard } from "../extensions/store";
 
 // Needs a build first: npm run build
-test("/canvas in Tau opens the canvas of the session's folder", async () => {
+test("/canvas in Tau opens the canvas panel next to the chat", async () => {
   const tauDir = await mkdtemp(join(tmpdir(), "tau-app-"));
   // A session started with "New session" has this folder as its project folder.
   const root = join(tauDir, "no-project", ".tau", "canvases");
@@ -24,18 +24,19 @@ test("/canvas in Tau opens the canvas of the session's folder", async () => {
     await box.press("Enter");
     if (await box.inputValue()) await box.press("Enter"); // the first Enter can pick the command in the menu
 
-    const toast = win.getByText(/^Canvas: http:\/\/127\.0\.0\.1:\d+\/\w+\/c\/demo$/);
-    await expect(toast).toBeVisible();
-    const url = (await toast.textContent())!.replace("Canvas: ", "");
+    // The canvas opens in a panel next to the chat, not in a browser window.
+    const panel = win.frameLocator('iframe[title="Design canvas"]');
+    await expect(panel.locator(".lbl")).toHaveText("Cart · rev 1 · by pi");
+    await expect(panel.frameLocator("iframe").first().locator("h1")).toHaveText("Cart"); // the board itself shows
+    await expect(win.getByLabel("Message to pi")).toBeVisible();
 
-    const browser = await chromium.launch();
-    try {
-      const page = await browser.newPage();
-      await page.goto(url);
-      await expect(page.locator(".lbl")).toHaveText("Cart · rev 1 · by pi");
-    } finally {
-      await browser.close();
-    }
+    // The Canvas button (and ⇧C) hides and shows it.
+    const button = win.getByRole("button", { name: /^Canvas/ });
+    await button.click();
+    await expect(win.locator('iframe[title="Design canvas"]')).toHaveCount(0);
+    await win.locator("main b").first().click(); // focus outside the message box
+    await win.keyboard.press("Shift+C");
+    await expect(panel.locator(".lbl")).toHaveText("Cart · rev 1 · by pi");
   } finally {
     await app.close();
   }

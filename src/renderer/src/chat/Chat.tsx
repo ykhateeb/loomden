@@ -4,7 +4,7 @@ import type { AgentMessage, LiveState } from "../../../protocol";
 import { actions, useStore } from "../store";
 import { TreeView } from "../tree/TreeView";
 import { Segmented } from "../ui/controls";
-import { Avatar, cx, Kbd, Spinner } from "../ui/base";
+import { Avatar, Button, cx, Kbd, Spinner } from "../ui/base";
 import { Icon } from "../ui/Icon";
 import { Menu, type MenuItem } from "../ui/Menu";
 import { Composer } from "./Composer";
@@ -116,6 +116,7 @@ export function Chat({ sessionKey, state }: { sessionKey: string; state: LiveSta
   const view = useStore((s) => s.view[sessionKey] ?? "chat");
   const branches = useStore((s) => s.sessions.find((r) => r.path === state.file)?.branches ?? 1);
   const projects = useStore((s) => s.projects);
+  const canvasOpen = useStore((s) => !!s.canvas[sessionKey]?.open);
   const inProject = useStore((s) => state.cwd !== s.noProject);
   const [pickerAt, setPickerAt] = useState<{ x: number; y: number }>();
   const scroller = useRef<HTMLDivElement>(null);
@@ -217,7 +218,7 @@ export function Chat({ sessionKey, state }: { sessionKey: string; state: LiveSta
                 setPickerAt(pickerAt ? undefined : { x: r.left, y: r.bottom + 6 });
               }}
               className={cx(
-                "-ml-[5px] flex h-[22px] items-center gap-1 rounded-sm pr-[7px] pl-[5px] font-medium disabled:opacity-50",
+                "-ml-[5px] flex h-[22px] items-center gap-1 rounded-sm whitespace-nowrap pr-[7px] pl-[5px] font-medium disabled:opacity-50",
                 inProject ? "text-sub enabled:hover:bg-hover" : "bg-accent-bg text-accent2 shadow-[inset_0_0_0_1px_var(--color-accent-line)]",
               )}
             >
@@ -226,9 +227,12 @@ export function Chat({ sessionKey, state }: { sessionKey: string; state: LiveSta
               <Icon name="chevronDown" size={12} />
             </button>
             {state.branch && <span className="flex items-center gap-1"><Icon name="branch" size={13} />{state.branch}</span>}
-            <span>{count} messages</span>
+            <span className="whitespace-nowrap">{count} messages</span>
           </div>
         </div>
+        <Button small variant={canvasOpen ? "primary" : "default"} aria-pressed={canvasOpen} title="Design canvas (⇧C)" onClick={() => actions.canvas(sessionKey)}>
+          Canvas<Kbd onFill={canvasOpen}>⇧C</Kbd>
+        </Button>
         <Segmented
           label="View"
           value={view}

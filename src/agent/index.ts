@@ -41,6 +41,8 @@ async function handle(cmd: Command): Promise<unknown> {
       return sessions.move(cmd.key, cmd.cwd);
     case "session.prompt":
       return sessions.prompt(cmd.key, cmd.text, cmd.behavior, cmd.images);
+    case "session.canvas":
+      return sessions.prompt(cmd.key, "/canvas"); // an extension command: it runs at once, with no model call
     case "session.commands":
       return sessions.commands(cmd.key);
     case "session.models":

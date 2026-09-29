@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Chat } from "./chat/Chat";
+import { CanvasPanel } from "./canvas/CanvasPanel";
 import { ContextRail } from "./context/ContextRail";
 import { Sidebar } from "./sessions/Sidebar";
 import { actions, useStore } from "./store";
@@ -22,6 +23,7 @@ function savedWidth() {
 export function Workspace() {
   const active = useStore((s) => s.active);
   const state = useStore((s) => (s.active ? s.live[s.active] : undefined));
+  const canvas = useStore((s) => (s.active ? s.canvas[s.active] : undefined));
   const [width, setWidthRaw] = useState(savedWidth);
   const [dragging, setDragging] = useState(false);
 
@@ -36,12 +38,13 @@ export function Workspace() {
   };
 
   return (
-    <div className="relative grid min-h-0 flex-1" style={{ gridTemplateColumns: `${width}px minmax(0,1fr) 320px` }}>
+    <div className="relative grid min-h-0 flex-1" style={{ gridTemplateColumns: `${width}px minmax(0,1fr) ${canvas?.open ? "minmax(0,1.5fr)" : "320px"}` }}>
       <Sidebar />
       {active && state ? (
         <>
           <Chat key={active} sessionKey={active} state={state} />
-          <ContextRail state={state} />
+          {/* Design boards C4 and C6: the canvas takes the place of the context rail, next to the chat. */}
+          {canvas?.open ? <CanvasPanel url={canvas.url} /> : <ContextRail state={state} />}
         </>
       ) : (
         <main className="col-span-2 flex flex-col items-center justify-center gap-3 bg-bg text-muted">

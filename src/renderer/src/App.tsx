@@ -28,6 +28,11 @@ export function App() {
   // ⌘K opens the search (board 1a) and ⌘N a new session (board 1.1), from anywhere.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement;
+      // ⇧C: the design canvas of the open session, when you are not typing.
+      if (e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey && e.key.toLowerCase() === "c" && !t.isContentEditable && !/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) {
+        return void (active && (e.preventDefault(), actions.canvas(active)));
+      }
       if (!(e.metaKey || e.ctrlKey)) return;
       const key = e.key.toLowerCase();
       if (key === "k") actions.setSearching(true);
@@ -37,7 +42,7 @@ export function App() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [active]);
 
   // Trust has no session yet, so it always shows. An extension dialog shows only with its session;
   // other sessions wait, and the title bar says "needs you".

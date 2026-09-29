@@ -52,7 +52,8 @@ export function uiContextFor(key: string, send: Send): ExtensionUIContext {
     editor: (title, prefill) => ask(send, { key, method: "editor", title, placeholder: prefill }, undefined),
     notify: (message, level = "info") => send({ type: "notify", key, message, level }),
     onTerminalInput: () => noop,
-    setStatus: noop,
+    // The design canvas extension reports its server address here; the window shows it in a panel.
+    setStatus: (id, text) => id === "tau-canvas" && text && send({ type: "canvas", key, url: text }),
     setWorkingMessage: noop,
     setWorkingVisible: noop,
     setWorkingIndicator: noop,

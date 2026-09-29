@@ -218,6 +218,8 @@ export type Command =
   | { type: "session.move"; key: string; cwd: string }
   | { type: "session.prompt"; key: string; text: string; behavior?: "steer" | "followUp"; images?: string[] }
   | { type: "session.commands"; key: string }
+  /** Open the design canvas panel of a session (it runs the extension's /canvas). */
+  | { type: "session.canvas"; key: string }
   | { type: "session.models"; key: string }
   | { type: "session.model"; key: string; provider: string; id: string }
   | { type: "session.dequeue"; key: string }
@@ -261,6 +263,8 @@ export type AgentOut =
   | { type: "state"; state: LiveState }
   | { type: "messages"; key: string; messages: AgentMessage[] }
   | { type: "closed"; key: string }
+  /** The extension started the canvas server: show it in the panel. */
+  | { type: "canvas"; key: string; url: string }
   | { type: "message"; key: string; message: AgentMessage; push: boolean }
   | { type: "ui.request"; request: UIRequest }
   | { type: "ui.done"; id: string }
