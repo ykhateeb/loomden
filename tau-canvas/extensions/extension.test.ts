@@ -18,7 +18,7 @@ describe("extension", () => {
       on: (n: string, f: any) => (on[n] = f),
       sendUserMessage: () => {},
     } as any);
-    expect(Object.keys(tools)).toEqual(["canvas_create", "canvas_read", "canvas_edit", "canvas_note_done", "design_compare", "design_system_propose"]);
+    expect(Object.keys(tools)).toEqual(["canvas_create", "canvas_read", "canvas_edit", "canvas_note_done", "canvas_plan", "design_compare", "design_system_propose"]);
 
     const cwd = await mkdtemp(join(tmpdir(), "tau-ext-"));
     const ctx = { cwd };
@@ -28,12 +28,12 @@ describe("extension", () => {
     expect(read.content[0].text).toContain("rev 1");
     await expect(tools.canvas_edit.execute("3", { canvas: "c1", board: "cart", baseRev: 0, html }, null, null, ctx)).rejects.toThrow(/Read it again/);
 
-    const blocked = on.tool_call({ toolName: "write", input: { path: ".tau/canvases/c1/boards/cart.html" } }, ctx);
+    const blocked = await on.tool_call({ toolName: "write", input: { path: ".tau/canvases/c1/boards/cart.html" } }, ctx);
     expect(blocked.block).toBe(true);
-    expect(on.tool_call({ toolName: "write", input: { path: ".tau/canvases/c1/canvas.json" } }, ctx).block).toBe(true); // approvals live there
-    expect(on.tool_call({ toolName: "write", input: { path: "src/a.ts" } }, ctx)).toBeUndefined();
+    expect((await on.tool_call({ toolName: "write", input: { path: ".tau/canvases/c1/canvas.json" } }, ctx)).block).toBe(true); // approvals live there
+    expect(await on.tool_call({ toolName: "write", input: { path: "src/a.ts" } }, ctx)).toBeUndefined();
 
-    expect(on.tool_call({ toolName: "write", input: { path: ".tau/design-system/tokens.json" } }, ctx).block).toBe(true);
+    expect((await on.tool_call({ toolName: "write", input: { path: ".tau/design-system/tokens.json" } }, ctx)).block).toBe(true);
     await tools.design_system_propose.execute("4", { tokens: { name: "app", color: { tokens: [{ name: "link", value: "#4e6f94" }] } } }, null, null, ctx);
     const cmp = await tools.design_compare.execute("5", { canvas: "c1", board: "cart", app: [{ text: "Pay", styles: {} }, { text: "Other" }] }, null, null, ctx);
     expect(cmp.content[0].text).toContain("“Other” is not on the board");
@@ -71,5 +71,57 @@ describe("free session", () => {
       delete process.env.TAU_NO_PROJECT;
       delete process.env.TAU_FREE_DIR;
     }
+  });
+});
+
+describe("first draft", () => {
+  it("plans boards, marks the board pi works on, and /canvas new makes a canvas and asks pi", async () => {
+    const tools: Record<string, any> = {}, on: Record<string, any> = {}, cmds: Record<string, any> = {}, said: string[] = [];
+    ext({ registerTool: (t: any) => (tools[t.name] = t), registerCommand: (n: string, o: any) => (cmds[n] = o), on: (n: string, f: any) => (on[n] = f), sendUserMessage: (t: string) => said.push(t) } as any);
+    const cwd = await mkdtemp(join(tmpdir(), "tau-draft-"));
+    const notes: string[] = [];
+    const ctx = { cwd, sessionManager: { getSessionId: () => "s" }, ui: { notify: (m: string) => notes.push(m), setStatus: () => {} } };
+    const { readCanvas } = await import("./store.js");
+    const root = join(cwd, ".tau", "canvases");
+
+    // /canvas new: an empty canvas named for the title, then a message to pi
+    process.env.TAU_NO_OPEN = "1";
+    await cmds.canvas.handler("new Checkout redesign", ctx);
+    expect((await readCanvas(root, "checkout-redesign")).boards).toEqual({});
+    expect(said[0]).toContain("Created the canvas “Checkout redesign”");
+    expect(said[0]).toContain("canvas_plan");
+    await cmds.canvas.handler("auto Checkout redesign", ctx); // it exists: opens it, makes no second one
+    expect((await (await import("./store.js")).listCanvases(root))).toEqual(["checkout-redesign"]);
+    expect(said).toHaveLength(1);
+    await cmds.canvas.handler("new Checkout redesign", ctx);
+    expect((await (await import("./store.js")).listCanvases(root)).sort()).toEqual(["checkout-redesign", "checkout-redesign-2"]);
+
+    // canvas_plan, then a board being written is marked, and cleared when the tool ends
+    await tools.canvas_plan.execute("1", { canvas: "checkout-redesign", boards: [{ board: "cart", title: "Cart" }, { board: "pay", title: "Payment" }] }, null, null, ctx);
+    expect((await readCanvas(root, "checkout-redesign")).plan?.map((p) => p.key)).toEqual(["boards/cart.html", "boards/pay.html"]);
+    await on.tool_call({ toolName: "canvas_create", toolCallId: "t1", input: { canvas: "checkout-redesign", board: "cart" } }, ctx);
+    expect((await readCanvas(root, "checkout-redesign")).editing).toEqual(["boards/cart.html"]);
+    await tools.canvas_create.execute("t1", { canvas: "checkout-redesign", board: "cart", title: "Cart", w: 390, h: 844, html: "<p>x</p>" }, null, null, ctx);
+    await on.tool_result({ toolCallId: "t1" });
+    const c = await readCanvas(root, "checkout-redesign");
+    expect(c.editing).toEqual([]);
+    expect(c.plan?.map((p) => p.key)).toEqual(["boards/pay.html"]); // Cart exists now: only Payment is still planned
+
+    // a run that ends early: the boards it never made are no longer planned
+    await on.agent_end();
+    expect((await readCanvas(root, "checkout-redesign")).plan).toEqual([]);
+
+    // a crash left a board marked: the next session starts clean
+    await on.tool_call({ toolName: "canvas_edit", toolCallId: "t3", input: { canvas: "checkout-redesign", board: "cart" } }, ctx);
+    expect((await readCanvas(root, "checkout-redesign")).editing).toEqual(["boards/cart.html"]);
+    await on.session_start({}, ctx);
+    expect((await readCanvas(root, "checkout-redesign")).editing).toEqual([]);
+
+    // a run that stops leaves nothing marked
+    await on.tool_call({ toolName: "canvas_edit", toolCallId: "t2", input: { canvas: "checkout-redesign", board: "cart" } }, ctx);
+    expect((await readCanvas(root, "checkout-redesign")).editing).toEqual(["boards/cart.html"]);
+    await on.agent_end();
+    expect((await readCanvas(root, "checkout-redesign")).editing).toEqual([]);
+    delete process.env.TAU_NO_OPEN;
   });
 });

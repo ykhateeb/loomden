@@ -1,3 +1,4 @@
+import { readdirSync } from "node:fs";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -125,6 +126,28 @@ test("Start build session in Tau opens a new session for the design pack", async
     await panel.getByRole("button", { name: "Compare" }).click();
     await panel.getByRole("button", { name: "Start build session" }).click();
     await expect(win.getByText("Build session started from “demo”")).toBeVisible();
+  } finally {
+    await app.close();
+  }
+});
+
+test("+ Canvas starts a canvas from the session header", async () => {
+  const tauDir = await mkdtemp(join(tmpdir(), "tau-app-"));
+  const app = await electron.launch({ args: ["."], env: { ...process.env, TAU_DIR: tauDir, TAU_PI_DIR: join(tauDir, "pi") } });
+  try {
+    const win = await app.firstWindow();
+    await win.getByText("New session").first().click();
+    await expect(win.getByText("no canvas yet")).toBeVisible();
+    await win.getByRole("button", { name: /^\+ Canvas/ }).click();
+
+    // an empty canvas opens in the panel, and pi is asked to draft it
+    const panel = win.frameLocator('iframe[title="Design canvas"]');
+    await expect(panel.getByText("No boards yet")).toBeVisible();
+    await expect(win.getByText("no canvas yet")).toBeHidden();
+    await expect(win.getByRole("button", { name: /^Canvas/ })).toBeVisible();
+    const sessions = join(tauDir, "sessions");
+    const [id] = readdirSync(sessions);
+    expect(readdirSync(join(sessions, id, "canvases"))).toEqual(["new-session"]); // named for the session
   } finally {
     await app.close();
   }

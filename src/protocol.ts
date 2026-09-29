@@ -232,7 +232,7 @@ export type Command =
   | { type: "session.prompt"; key: string; text: string; behavior?: "steer" | "followUp"; images?: string[] }
   | { type: "session.commands"; key: string }
   /** Open the design canvas panel of a session (it runs the extension's /canvas). */
-  | { type: "session.canvas"; key: string }
+  | { type: "session.canvas"; key: string; title?: string }
   /** Board C1: the canvases of a project, and the address of one canvas (notes go to session `key`). */
   | { type: "design.list"; cwd: string }
   | { type: "design.open"; cwd: string; canvas: string; key?: string; tab?: "ds" }

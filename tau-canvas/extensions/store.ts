@@ -12,6 +12,10 @@ export type BoardMeta = {
 export type Canvas = {
   v: 1; title: string; designSystem: string;
   boards: Record<string, BoardMeta>; order: string[]; notes: Record<string, Note>;
+  /** Boards pi says it will make (board C4): the canvas shows a place for each until it exists. */
+  plan?: { key: string; title: string; w: number; h: number }[];
+  /** Boards pi is writing or editing right now. */
+  editing?: string[];
 };
 
 const NAME = /^[A-Za-z0-9][\w-]*$/;
@@ -85,6 +89,8 @@ export async function createBoard(root: string, a: {
     const x = Object.values(c.boards).reduce((m, b) => Math.max(m, b.x + b.w + 80), 0);
     c.boards[key] = { title: a.title, x, y: 0, w: a.w, h: a.h, rev: 0, by: "pi" };
     c.order.push(key);
+    c.plan = c.plan?.filter((p) => p.key !== key); // it exists now
+    c.editing = c.editing?.filter((k) => k !== key);
     return { rev: await save(dir, c, key, a.html, "pi", "created"), isNew };
   });
 }
@@ -191,6 +197,59 @@ export async function readHistory(root: string, canvas: string, board: string) {
   const key = boardKey(board);
   const log = await readFile(join(canvasDir(root, canvas), "history", "log.jsonl"), "utf8").catch(() => "");
   return log.split("\n").filter(Boolean).map((l) => JSON.parse(l)).filter((e) => e.board === key).reverse();
+}
+
+/** Board C3: an empty canvas, named for what you are designing. A taken name gets -2, -3… */
+export async function createCanvas(root: string, title: string): Promise<string> {
+  const base = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "canvas";
+  let slugName = base;
+  for (let n = 2; existsSync(join(root, slugName)); n++) slugName = `${base}-${n}`;
+  return locked(canvasDir(root, slugName), async () => {
+    await mkdir(join(root, slugName), { recursive: true });
+    const c: Canvas = { v: 1, title, designSystem: "../../design-system", boards: {}, order: [], notes: {} };
+    await writeFile(join(root, slugName, "canvas.json"), JSON.stringify(c, null, 2));
+    return slugName;
+  });
+}
+
+/** Board C4: pi lists the boards it will make, so the canvas shows a place for each. Makes the canvas if needed. */
+export async function planBoards(root: string, canvas: string, boards: { board: string; title: string; w?: number; h?: number }[], title?: string) {
+  const dir = canvasDir(root, canvas);
+  return locked(dir, async () => {
+    const isNew = !existsSync(join(dir, "canvas.json"));
+    const c: Canvas = isNew ? { v: 1, title: title ?? canvas, designSystem: "../../design-system", boards: {}, order: [], notes: {} } : await readCanvas(root, canvas);
+    c.plan = boards.map((b) => ({ key: boardKey(b.board), title: b.title, w: b.w ?? 390, h: b.h ?? 844 })).filter((p) => !c.boards[p.key]);
+    await mkdir(dir, { recursive: true });
+    await writeFile(join(dir, "canvas.json"), JSON.stringify(c, null, 2));
+    return { isNew, planned: c.plan.length };
+  });
+}
+
+/** Board C6: "pi is writing" and "pi is editing" on a board while a tool works on it. */
+export async function setEditing(root: string, canvas: string, board: string, on: boolean) {
+  const dir = canvasDir(root, canvas);
+  if (!existsSync(join(dir, "canvas.json"))) return;
+  return locked(dir, async () => {
+    const c = await readCanvas(root, canvas);
+    const key = boardKey(board);
+    const now = new Set(c.editing ?? []);
+    if (on) now.add(key); else now.delete(key);
+    c.editing = [...now];
+    await writeFile(join(dir, "canvas.json"), JSON.stringify(c, null, 2));
+  });
+}
+
+/** After a crash or a stopped run: nothing is being written, and the boards pi never made are no longer planned. */
+export async function clearDraftState(root: string, canvas: string, o: { editing?: boolean; plan?: boolean }) {
+  const dir = canvasDir(root, canvas);
+  if (!existsSync(join(dir, "canvas.json"))) return;
+  return locked(dir, async () => {
+    const c = await readCanvas(root, canvas);
+    if (!(o.editing && c.editing?.length) && !(o.plan && c.plan?.length)) return; // nothing to change: no write, no event
+    if (o.editing) c.editing = [];
+    if (o.plan) c.plan = [];
+    await writeFile(join(dir, "canvas.json"), JSON.stringify(c, null, 2));
+  });
 }
 
 /** Restore never deletes: the old content is saved as a new rev by you. */

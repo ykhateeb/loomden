@@ -5,7 +5,7 @@ import { Type } from "typebox";
 import { defineTool, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { startServer, type CanvasServer } from "./server.js";
 import {
-  RAW_BOARD, RAW_STATE, RAW_TOKENS, compareBoard, createBoard, freeRoot, proposeTokens, editBoard, ensureGitignore, listCanvases, readBoard, readCanvas, setNoteState,
+  RAW_BOARD, RAW_STATE, RAW_TOKENS, compareBoard, createBoard, clearDraftState, createCanvas, freeRoot, planBoards, setEditing, proposeTokens, editBoard, ensureGitignore, listCanvases, readBoard, readCanvas, setNoteState,
 } from "./store.js";
 
 const text = (t: string) => ({ content: [{ type: "text" as const, text: t }], details: undefined });
@@ -104,6 +104,24 @@ export default function (pi: ExtensionAPI) {
     }),
   ];
   canvasTools.push(defineTool({
+    name: "canvas_plan",
+    label: "Plan boards",
+    description: "Before you make several boards, list them all. The canvas shows a place for each, marked writing or waiting, until you create it. Call this once, then canvas_create for each board in order.",
+    parameters: Type.Object({
+      canvas: Type.String({ description: "Canvas slug" }),
+      boards: Type.Array(Type.Object({ board: Type.String(), title: Type.String(), w: Type.Optional(Type.Number()), h: Type.Optional(Type.Number()) })),
+      canvasTitle: Type.Optional(Type.String()),
+    }),
+    async execute(_id, a, _s, _u, ctx) {
+      lastRoot = rootOf(ctx);
+      planned.add(a.canvas);
+      const r = await planBoards(rootOf(ctx), a.canvas, a.boards, a.canvasTitle);
+      if (r.isNew) await ensureGitignore(ctx.cwd);
+      if (inTau() && !announced.has(a.canvas)) await show(ctx, a.canvas); // the panel opens with the places for the boards
+      return text(`Planned ${r.planned} boards. Now call canvas_create for each, in this order.`);
+    },
+  }));
+  canvasTools.push(defineTool({
     name: "design_compare",
     label: "Compare with the app",
     description: "Compare a board (at its approved rev) with the running app. Give what the app shows: each element's text and the style values you read from the code or the simulator. The differences show next to the board, where a person picks Fix the code or Board is wrong.",
@@ -137,8 +155,40 @@ export default function (pi: ExtensionAPI) {
   }));
   canvasTools.forEach((t) => pi.registerTool(t));
 
-  // Write guard: board files change only through canvas_edit.
-  pi.on("tool_call", (event, ctx) => {
+  // "pi is writing" and "pi is editing" while a canvas tool works on a board (board C6).
+  const busy = new Map<string, { root: string; canvas: string; board: string }>();
+  const clearBusy = async (id?: string) => {
+    for (const [k, b] of [...busy]) if (!id || k === id) { busy.delete(k); await setEditing(b.root, b.canvas, b.board, false).catch(() => {}); }
+  };
+  pi.on("tool_result", (event) => clearBusy(event.toolCallId));
+  const planned = new Set<string>(); // canvases this session planned boards for
+  let lastRoot: string | undefined;
+  pi.on("agent_end", async () => {
+    await clearBusy(); // a stopped run leaves nothing marked
+    // Boards pi planned but did not make are not coming any more.
+    for (const name of planned) await clearDraftState(lastRoot!, name, { plan: true }).catch(() => {});
+    planned.clear();
+  });
+  // A crash between a tool's start and end left a board marked: start clean.
+  pi.on("session_start", async (_e, ctx) => {
+    lastRoot = rootOf(ctx);
+    for (const name of await listCanvases(lastRoot)) await clearDraftState(lastRoot, name, { editing: true }).catch(() => {});
+  });
+
+  // Write guard: board files change only through the tools.
+  pi.on("tool_call", async (event, ctx) => {
+    if (event.toolName === "canvas_create" || event.toolName === "canvas_edit") {
+      const i = event.input as { canvas?: string; board?: string };
+      if (i.canvas && i.board) {
+        try {
+          busy.set(event.toolCallId, { root: rootOf(ctx), canvas: i.canvas, board: i.board });
+          await setEditing(rootOf(ctx), i.canvas, i.board, true);
+        } catch {
+          busy.delete(event.toolCallId); // a bad name fails in the tool itself, with its own message
+        }
+      }
+      return undefined;
+    }
     if (event.toolName !== "write" && event.toolName !== "edit") return undefined;
     const p = resolve(ctx.cwd, String((event.input as any).path ?? ""));
     const posix = p.split("\\").join("/");
@@ -177,13 +227,28 @@ export default function (pi: ExtensionAPI) {
     description: "Open a design canvas in the browser",
     async handler(args, ctx) {
       const root = rootOf(ctx);
+      const open = async (name: string) => {
+        if (inTau()) return void (await show(ctx, name));
+        server ??= await startServer({ root, onSend: (t) => pi.sendUserMessage(t, { deliverAs: "followUp" }) });
+        const url = server.url(name);
+        ctx.ui.notify(`Canvas: ${url}`, "info");
+        if (!process.env.TAU_NO_OPEN) spawn(process.platform === "darwin" ? "open" : process.platform === "win32" ? "explorer" : "xdg-open", [url], { stdio: "ignore", detached: true }).unref();
+      };
+      // Board C3: "/canvas new <title>" (the + Canvas button) makes an empty canvas and asks pi to draft its boards.
+      // "/canvas auto <title>" (Canvas ⇧C) opens the first canvas, or makes one when there is none.
+      const made = args.trim().match(/^(new|auto)(?:\s+(.*))?$/);
+      if (made && made[1] === "auto" && (await listCanvases(root))[0]) return void (await open((await listCanvases(root))[0]));
+      if (made) {
+        const title = (made[2] ?? "").trim() || "Untitled canvas";
+        const name = await createCanvas(root, title);
+        await ensureGitignore(ctx.cwd);
+        await open(name);
+        pi.sendUserMessage(`Created the canvas “${title}” (canvas "${name}"). Draft the boards for what we talked about: list them with canvas_plan first, then canvas_create for each board.`, { deliverAs: "followUp" });
+        return;
+      }
       const name = args.trim() || (await listCanvases(root))[0];
-      if (!name) return ctx.ui.notify(`No canvas yet in ${root}. Ask pi to design a screen.`, "info");
-      if (inTau()) return void (await show(ctx, name));
-      server ??= await startServer({ root, onSend: (t) => pi.sendUserMessage(t, { deliverAs: "followUp" }) });
-      const url = server.url(name);
-      ctx.ui.notify(`Canvas: ${url}`, "info");
-      if (!process.env.TAU_NO_OPEN) spawn(process.platform === "darwin" ? "open" : process.platform === "win32" ? "explorer" : "xdg-open", [url], { stdio: "ignore", detached: true }).unref();
+      if (!name) return ctx.ui.notify(`No canvas yet in ${root}. Ask pi to design a screen, or run /canvas new <title>.`, "info");
+      await open(name);
     },
   });
 

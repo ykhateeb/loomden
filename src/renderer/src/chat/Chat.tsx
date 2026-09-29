@@ -117,6 +117,8 @@ export function Chat({ sessionKey, state }: { sessionKey: string; state: LiveSta
   const branches = useStore((s) => s.sessions.find((r) => r.path === state.file)?.branches ?? 1);
   const projects = useStore((s) => s.projects);
   const canvasOpen = useStore((s) => !!s.canvas[sessionKey]?.open);
+  // Boards C3 and C4: "no canvas yet", or how many the project has.
+  const canvasCount = useStore((s) => s.design[state.cwd]?.canvases.length || (s.canvas[sessionKey] ? 1 : 0));
   const inProject = useStore((s) => state.cwd !== s.noProject);
   const [pickerAt, setPickerAt] = useState<{ x: number; y: number }>();
   const scroller = useRef<HTMLDivElement>(null);
@@ -228,10 +230,11 @@ export function Chat({ sessionKey, state }: { sessionKey: string; state: LiveSta
             </button>
             {state.branch && <span className="flex items-center gap-1"><Icon name="branch" size={13} />{state.branch}</span>}
             <span className="whitespace-nowrap">{count} messages</span>
+            <span className="whitespace-nowrap">{canvasCount ? `${canvasCount} canvas${canvasCount === 1 ? "" : "es"}` : "no canvas yet"}</span>
           </div>
         </div>
         <Button small variant={canvasOpen ? "primary" : "default"} aria-pressed={canvasOpen} title="Design canvas (⇧C)" onClick={() => actions.canvas(sessionKey)}>
-          Canvas<Kbd onFill={canvasOpen}>⇧C</Kbd>
+          {canvasCount ? "Canvas" : "+ Canvas"}<Kbd onFill={canvasOpen}>⇧C</Kbd>
         </Button>
         <Segmented
           label="View"

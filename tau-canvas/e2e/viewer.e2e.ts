@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type Frame, type Page } from "@playwright/test";
 import { startServer, type CanvasServer } from "../extensions/server";
-import { compareBoard, createBoard, editBoard, proposeTokens, readCanvas } from "../extensions/store";
+import { compareBoard, createBoard, createCanvas, editBoard, planBoards, proposeTokens, readCanvas, setEditing } from "../extensions/store";
 
 const board = (t: string) =>
   `<html><head><style>html,body{margin:0;width:390px;height:844px}button{margin:20px}</style></head><body><h1>${t}</h1><button>Pay now</button></body></html>`;
@@ -286,4 +286,31 @@ test("App view: differences from design_compare, Fix the code and Board is wrong
   await page.getByRole("button", { name: "Board is wrong" }).first().click();
   await expect(page.getByText("Sent to pi: the board is wrong")).toBeVisible();
   expect(sent[2]).toContain("the board is wrong.");
+});
+
+test("First draft: an empty canvas, places for planned boards, and pi is writing or editing", async ({ page }) => {
+  const empty = await createCanvas(root, "Onboarding flow");
+  await page.goto(server.url(empty));
+  await expect(page.getByText("No boards yet. pi is drafting")).toBeVisible();
+
+  // pi plans three boards: the first one is being written, the others wait
+  await planBoards(root, empty, [{ board: "welcome", title: "Welcome" }, { board: "signup", title: "Sign up" }, { board: "done", title: "Done" }]);
+  await expect(page.getByText("No boards yet")).toBeHidden();
+  await expect(page.locator(".hold .lbl")).toHaveText(["Welcome · pi is writing", "Sign up · waiting", "Done · waiting"]);
+  await expect(page.getByRole("button", { name: /Onboarding flow\s*0 of 3/ })).toBeVisible();
+
+  // Welcome is created: it becomes a board, the counter moves, the next one is written
+  await createBoard(root, { canvas: empty, board: "welcome", title: "Welcome", w: 390, h: 844, html: board("Welcome") });
+  await expect(page.locator(".hold .lbl")).toHaveText(["Sign up · pi is writing", "Done · waiting"]);
+  await expect(page.getByRole("button", { name: /Onboarding flow\s*1 of 3/ })).toBeVisible();
+  await expect(page.getByText("This is a first draft.")).toBeHidden(); // not while boards are still coming
+
+  // a tool works on a board: it is marked, then cleared
+  await setEditing(root, empty, "signup", true);
+  await expect(page.locator(".hold .lbl").first()).toHaveText("Sign up · pi is writing");
+  await setEditing(root, empty, "welcome", true);
+  await expect(page.locator(".board:not(.hold) .lbl")).toContainText("pi is editing");
+  await expect(page.locator("iframe.busy")).toHaveCount(1);
+  await setEditing(root, empty, "welcome", false);
+  await expect(page.locator("iframe.busy")).toHaveCount(0);
 });

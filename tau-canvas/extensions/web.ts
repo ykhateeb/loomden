@@ -94,6 +94,11 @@ body[data-view=app] #appcmp{display:flex}
 #cmp .side .row{display:flex;justify-content:space-between;align-items:center;gap:6px}
 .ok{color:#65c38b}.warn{color:#e5b773}.bad{color:#ee9075}
 .linkrow{border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+.hold .frame{border:2px dashed var(--line);border-radius:4px;display:grid;place-items:center;color:var(--mut);background:var(--card);animation:pulse 1.4s ease-in-out infinite}
+.hold.wait .frame{animation:none;opacity:.6}
+.board iframe.busy{outline:2px solid var(--acc);animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.65}}
+#empty{position:absolute;inset:0;display:none;place-items:center;color:var(--mut);pointer-events:none;text-align:center;padding:24px}
 #toast{position:fixed;left:50%;bottom:48px;transform:translateX(-50%);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 12px;display:none;z-index:20}
 #hist{position:fixed;z-index:10;min-width:240px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px;box-shadow:0 8px 24px #0004;display:none;flex-direction:column;gap:6px}
 .lbl{cursor:pointer}
@@ -125,7 +130,7 @@ body[data-tab=ds] #stage,body[data-tab=ds] aside,body[data-tab=ds] .modes{displa
 <body class="move">
 <header><nav id="tabs"></nav>
 <span class="modes"><span class="seg"><button id="m-move" class="on">Move <kbd>V</kbd></button><button id="m-point">Point <kbd>P</kbd></button><button id="m-edit">Edit <kbd>E</kbd></button><button id="m-play">Play ▶</button></span> <span class="seg views"><button id="v-canvas" class="on">Canvas</button><button id="v-compare">Compare</button><button id="v-app">App</button></span> <span id="zoom"></span></span></header>
-<main><div id="stage"><div id="world"></div><div id="player"></div><div id="hint"><span><b>This is a first draft.</b>Press <kbd>P</kbd> and click anything to ask for a change. Nothing is built until you approve.</span><button id="hint-x" aria-label="Dismiss">×</button></div></div><aside id="side"></aside><section id="ds"></section><section id="cmp"></section><section id="appcmp"></section></main>
+<main><div id="stage"><div id="world"></div><div id="empty">No boards yet. pi is drafting, or ask pi to design a screen.</div><div id="player"></div><div id="hint"><span><b>This is a first draft.</b>Press <kbd>P</kbd> and click anything to ask for a change. Nothing is built until you approve.</span><button id="hint-x" aria-label="Dismiss">×</button></div></div><aside id="side"></aside><section id="ds"></section><section id="cmp"></section><section id="appcmp"></section></main>
 <footer id="foot"></footer>
 <div id="pop"></div><div id="hist"></div><div id="toast"></div>
 <script>
@@ -143,7 +148,8 @@ async function load(){[cv,all]=await Promise.all([fetch(B+"/c/"+C+"/canvas.json"
 function renderTabs(){
   const nav=$("#tabs");nav.replaceChildren();
   for(const c of all){
-    const cur=c.slug===C,sup=c.open?h("sup",{},String(c.open)):"";
+    const cur=c.slug===C,left=(cv.plan||[]).filter(p=>!cv.boards[p.key]).length,made=Object.keys(cv.boards).length;
+    const sup=cur&&left?h("sup",{},made+" of "+(made+left)):c.open?h("sup",{},String(c.open)):"";
     nav.append(cur?h("button",{class:tab==="canvas"?"on":"",onclick:()=>setTab("canvas")},c.title,sup):h("a",{href:B+"/c/"+c.slug},h("button",{},c.title,sup)))}
   nav.append(h("button",{id:"t-ds",class:tab==="ds"?"on":"",onclick:()=>setTab("ds")},"Design system"))}
 const ago=iso=>Date.now()-new Date(iso).getTime()<60000;
@@ -170,17 +176,29 @@ function render(){
     }
     f.wrap.style.cssText="left:"+b.x+"px;top:"+b.y+"px";
     f.iframe.style.cssText="width:"+b.w+"px;height:"+b.h+"px";
-    f.lbl.textContent=b.title+" rev "+b.rev+(b.by==="you"?" · edited by you":"")+(b.at&&ago(b.at)?" · just updated":"");
+    const editing=(cv.editing||[]).includes(key);
+    f.lbl.textContent=b.title+" rev "+b.rev+(b.by==="you"?" · edited by you":"")+(editing?" · pi is editing":b.at&&ago(b.at)?" · just updated":"");
+    f.iframe.classList.toggle("busy",editing);
     const src=B+"/c/"+C+"/"+key+"?r="+b.rev+"."+bust;
     if(f.src!==src){f.src=src;f.iframe.src=src}
   }
+  // board C4: a place for each board pi will make, until it exists
+  world.querySelectorAll(".hold").forEach(p=>p.remove());
+  const plan=(cv.plan||[]).filter(p=>!cv.boards[p.key]),active=plan.some(p=>(cv.editing||[]).includes(p.key));
+  let px=Object.values(cv.boards).reduce((m,b)=>Math.max(m,b.x+b.w+80),0);
+  plan.forEach((p,i)=>{
+    const writing=(cv.editing||[]).includes(p.key)||(!active&&i===0);
+    const frame=h("div",{class:"frame"},writing?"pi is writing…":"waiting");frame.style.cssText="width:"+p.w+"px;height:"+p.h+"px";
+    const el=h("div",{class:"board hold"+(writing?"":" wait")},h("div",{class:"lbl"},p.title+" · "+(writing?"pi is writing":"waiting")),frame);
+    el.style.cssText="left:"+px+"px;top:0";px+=p.w+80;world.append(el)});
+  $("#empty").style.display=!Object.keys(cv.boards).length&&!plan.length&&tab==="canvas"?"grid":"none";
   world.querySelectorAll(".pin").forEach(p=>p.remove());
   const notes=Object.entries(cv.notes);
   notes.forEach(([id,n],i)=>{const b=cv.boards[n.board];if(!b)return;
     const pin=h("div",{class:"pin "+n.state,title:n.text},String(i+1));
     pin.style.cssText="left:"+(b.x+n.target.box[0])+"px;top:"+(b.y+n.target.box[1])+"px";world.append(pin)});
   curNotes=notes;renderSide(notes);
-  const draft=Object.values(cv.boards).length&&Object.values(cv.boards).every(b=>b.rev===1)&&!notes.length&&tab==="canvas"&&!hintOff;
+  const draft=!plan.length&&Object.values(cv.boards).length&&Object.values(cv.boards).every(b=>b.rev===1)&&!notes.length&&tab==="canvas"&&!hintOff;
   $("#hint").style.display=draft?"flex":"none";
   const open=notes.filter(([,n])=>n.state==="open").length;
   $("#foot").replaceChildren(h("code",{},".tau/canvases/"+C),h("span",{},open+" saved note"+(open===1?"":"s")))

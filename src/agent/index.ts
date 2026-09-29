@@ -43,7 +43,7 @@ async function handle(cmd: Command): Promise<unknown> {
     case "session.prompt":
       return sessions.prompt(cmd.key, cmd.text, cmd.behavior, cmd.images);
     case "session.canvas":
-      return sessions.prompt(cmd.key, "/canvas"); // an extension command: it runs at once, with no model call
+      return sessions.prompt(cmd.key, cmd.title ? `/canvas auto ${cmd.title.replace(/\s+/g, " ").trim()}` : "/canvas"); // an extension command: it runs at once, with no model call (a new canvas then asks pi to draft it)
     case "design.list":
       await assertProject(cmd.cwd);
       return designList(cmd.cwd);

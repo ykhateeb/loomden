@@ -229,7 +229,7 @@ export const actions = {
   canvas: (key: string) => {
     const c = state.canvas[key];
     if (c) set({ canvas: { ...state.canvas, [key]: { ...c, open: !c.open } } });
-    else call({ type: "session.canvas", key }).catch(report);
+    else call({ type: "session.canvas", key, title: state.live[key]?.title }).catch(report);
   },
   setTab: (tab: Tab) => set({ tab }),
   /** Show an open session (from the running menu or "needs you"). */
