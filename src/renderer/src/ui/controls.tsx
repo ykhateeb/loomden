@@ -13,7 +13,7 @@ export function Segmented<T extends string>(props: { label: string; value: T; op
             role="radio"
             aria-checked={on}
             onClick={() => props.onChange(o.value)}
-            className={cx("rounded-sm px-2.5 py-[3px] text-sm font-medium", on ? "bg-raised text-fg shadow-[0_1px_2px_rgba(0,0,0,.3)]" : "text-sub hover:text-fg")}
+            className={cx("rounded-[6px] px-2.5 py-[3px] text-sm font-medium", on ? "bg-raised text-fg shadow-[0_1px_2px_rgba(0,0,0,.3)]" : "text-sub hover:text-fg")}
           >
             {o.label}
           </button>

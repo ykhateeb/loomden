@@ -35,3 +35,20 @@ export function applyPick(text: string, t: Trigger, pick: string) {
   const rest = text.slice(t.end).replace(/^\S*/, ""); // the rest of a token the caret was inside
   return { text: text.slice(0, t.start) + insert + rest.replace(/^ /, ""), caret: t.start + insert.length };
 }
+
+export type DiffLine = { kind: "add" | "del" | "ctx" | "skip"; n?: number; text: string };
+
+/**
+ * Parse pi's diff string (one "<+|-| ><padded line number> <text>" line per row; a skip row is
+ * " <padding> ...") into structured rows for the design system's 3-column Diff grid.
+ */
+export function parseDiff(diff: string): DiffLine[] {
+  return diff.split("\n").map((line) => {
+    const m = /^([+\- ])(\s*\d*)\s(.*)$/.exec(line);
+    if (!m) return { kind: "ctx", text: line };
+    const [, sign, numStr, text] = m;
+    const n = numStr.trim() ? Number(numStr) : undefined;
+    const kind = sign === "+" ? "add" : sign === "-" ? "del" : n === undefined && text === "..." ? "skip" : "ctx";
+    return { kind, n, text };
+  });
+}

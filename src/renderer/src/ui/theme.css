@@ -79,8 +79,9 @@
   --text-lg: 15px;
   --text-xl: 16px;
 
-  --radius-xs: 5px; /* key hints */
-  --radius-sm: 7px; /* menu items, tabs, segments, chips */
+  --radius-xs: 5px; /* key hints, checkboxes */
+  --radius-6: 6px; /* segmented options, code chips */
+  --radius-sm: 7px; /* menu items, tabs */
   --radius-md: 8px; /* buttons, inputs */
   --radius-lg: 10px; /* tool cards, callouts, tab strip */
   --radius-xl: 12px; /* cards, menus, toasts */
@@ -158,7 +159,7 @@
   .md a { color: var(--color-accent2); text-decoration: underline; }
   .md h1, .md h2, .md h3 { font-weight: 600; margin: 12px 0 6px; font-size: var(--text-md); }
   /* inline code looks like the design's chip */
-  .md code { font: 500 12px var(--font-mono); background: var(--color-orange-bg); color: var(--color-orange); padding: 1px 7px; border-radius: var(--radius-sm); }
+  .md code { font: 500 12px var(--font-mono); background: var(--color-orange-bg); color: var(--color-orange); padding: 1px 7px; border-radius: var(--radius-6); }
   .md pre { font: 12.5px/1.6 var(--font-mono); padding: 10px 12px; border-radius: var(--radius-md); background: var(--color-code); border: 1px solid var(--color-line); overflow: auto; margin: 0 0 8px; }
   .md pre code { background: none; padding: 0; color: inherit; font: inherit; }
 }

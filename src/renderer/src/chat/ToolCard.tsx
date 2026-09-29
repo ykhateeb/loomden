@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { AgentMessage } from "../../../protocol";
 import { cx, Pill, Spinner } from "../ui/base";
 import { Icon } from "../ui/Icon";
-import { diffCounts } from "./format";
+import { diffCounts, parseDiff } from "./format";
 
 type Assistant = Extract<AgentMessage, { role: "assistant" }>;
 export type ToolCall = Extract<Assistant["content"][number], { type: "toolCall" }>;
@@ -52,10 +52,16 @@ export function ToolCard({ call, result, running }: { call: ToolCall; result?: T
         </span>
       </button>
       {diff ? (
-        <div className="max-h-80 overflow-auto border-t border-line font-mono text-xs leading-[1.65]">
-          {diff.split("\n").map((line, i) => (
-            <div key={i} className={cx("px-3 whitespace-pre", line.startsWith("+") && "bg-add-bg text-add", line.startsWith("-") && "bg-del-bg text-del")}>
-              {line || " "}
+        // The design system's Diff grid: a dim right-aligned line-number gutter, a sign column, then the code.
+        <div className="max-h-80 overflow-auto border-t border-line py-1 font-mono text-xs leading-[1.65]">
+          {parseDiff(diff).map((line, i) => (
+            <div
+              key={i}
+              className={cx("grid grid-cols-[40px_18px_1fr] whitespace-pre pr-3", line.kind === "add" && "bg-add-bg text-add", line.kind === "del" && "bg-del-bg text-del")}
+            >
+              <span className="pr-2.5 text-right text-dim">{line.n ?? ""}</span>
+              <span>{line.kind === "add" ? "+" : line.kind === "del" ? "−" : " "}</span>
+              <span>{line.text}</span>
             </div>
           ))}
         </div>

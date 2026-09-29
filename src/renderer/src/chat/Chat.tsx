@@ -17,17 +17,31 @@ function textOf(content: string | { type: string; text?: string }[]) {
   return typeof content === "string" ? content : content.map((c) => c.text ?? "").join("\n");
 }
 
-/** Avatar on the left, name and text on the right (board 2). */
-function Turn({ you, meta, children }: { you?: boolean; meta?: string; children: ReactNode }) {
+/** pi's turn: avatar on the left, name and text on the right (board 2). */
+function Turn({ meta, children }: { meta?: string; children: ReactNode }) {
   return (
     <div className="flex items-start gap-3">
-      <Avatar you={you} />
+      <Avatar />
       <div className="flex min-w-0 flex-1 flex-col gap-2.5">
         <div className="flex items-center gap-2">
-          <b className="text-base">{you ? "You" : "pi"}</b>
+          <b className="text-base">pi</b>
           {meta && <span className="text-xs text-muted">{meta}</span>}
         </div>
         {children}
+      </div>
+    </div>
+  );
+}
+
+/** Your turn: no avatar, right-aligned, a bordered bubble in the accent tint (board 2). */
+function YouTurn({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex justify-end">
+      <div className="flex max-w-[78%] flex-col items-end gap-1.5">
+        <span className="text-meta text-muted">You</span>
+        <div className="whitespace-pre-wrap rounded-[14px_14px_4px_14px] border border-accent-line bg-accent-bg px-3.5 py-2.5 leading-normal text-fg">
+          {children}
+        </div>
       </div>
     </div>
   );
@@ -66,7 +80,7 @@ function AssistantParts({ m, results, running }: { m: Extract<AgentMessage, { ro
 function Message({ m, results, running }: { m: AgentMessage; results: Map<string, ToolResult>; running: Set<string> }) {
   switch (m.role) {
     case "user":
-      return <Turn you><div className="-mt-1.5 whitespace-pre-wrap text-sub">{textOf(m.content)}</div></Turn>;
+      return <YouTurn>{textOf(m.content)}</YouTurn>;
     case "assistant":
       return <Turn meta={`${m.model} · ${time(m.timestamp)}`}><AssistantParts m={m} results={results} running={running} /></Turn>;
     case "toolResult":
