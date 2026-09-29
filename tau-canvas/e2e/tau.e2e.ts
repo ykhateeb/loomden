@@ -26,7 +26,7 @@ test("/canvas in Tau opens the canvas panel next to the chat", async () => {
 
     // The canvas opens in a panel next to the chat, not in a browser window.
     const panel = win.frameLocator('iframe[title="Design canvas"]');
-    await expect(panel.locator(".lbl")).toHaveText("Cart · rev 1 · by pi");
+    await expect(panel.locator(".lbl")).toHaveText(/^Cart rev 1/);
     await expect(panel.frameLocator("iframe").first().locator("h1")).toHaveText("Cart"); // the board itself shows
     await expect(win.getByLabel("Message to pi")).toBeVisible();
 
@@ -36,7 +36,7 @@ test("/canvas in Tau opens the canvas panel next to the chat", async () => {
     await expect(win.locator('iframe[title="Design canvas"]')).toHaveCount(0);
     await win.locator("main b").first().click(); // focus outside the message box
     await win.keyboard.press("Shift+C");
-    await expect(panel.locator(".lbl")).toHaveText("Cart · rev 1 · by pi");
+    await expect(panel.locator(".lbl")).toHaveText(/^Cart rev 1/);
   } finally {
     await app.close();
   }

@@ -7,7 +7,7 @@ export type Target = { tid: string; text: string; box: number[] };
 export type NoteState = "open" | "sent" | "work" | "done";
 export type Note = { board: string; target: Target; text: string; state: NoteState; by: string; at: string };
 export type BoardMeta = {
-  title: string; x: number; y: number; w: number; h: number; rev: number; by: string; approved?: number;
+  title: string; x: number; y: number; w: number; h: number; rev: number; by: string; at?: string; approved?: number;
 };
 export type Canvas = {
   v: 1; title: string; designSystem: string;
@@ -65,7 +65,7 @@ async function save(dir: string, c: Canvas, key: string, html: string, by: strin
   await writeFile(join(dir, "history", `${nameOf(key)}.r${rev}.html`), out);
   await appendFile(join(dir, "history", "log.jsonl"),
     JSON.stringify({ board: key, rev, by, at: new Date().toISOString(), why }) + "\n");
-  Object.assign(m, { rev, by });
+  Object.assign(m, { rev, by, at: new Date().toISOString() });
   await writeFile(join(dir, "canvas.json"), JSON.stringify(c, null, 2));
   return rev;
 }
@@ -216,6 +216,19 @@ export async function dsReport(root: string, canvas: string, ds: string) {
   const changes = [...new Set([...before.keys(), ...after.keys()])].flatMap((k) =>
     before.get(k) === after.get(k) ? [] : [{ name: k.split("/")[1], before: before.get(k), after: after.get(k) }]);
   return { name: tokens?.name, version: tokens?.version, items, proposal: proposed ? { name: proposed.name, changes } : undefined };
+}
+
+/** For the canvas tabs: each canvas with its number of notes not done. */
+export async function canvasTabs(root: string) {
+  const tabs = await Promise.all((await listCanvases(root)).map(async (slug) => {
+    try {
+      const c = await readCanvas(root, slug);
+      return { slug, title: c.title, open: Object.values(c.notes).filter((n) => n.state !== "done").length };
+    } catch {
+      return undefined; // one unreadable or half-written canvas must not hide the others
+    }
+  }));
+  return tabs.filter((t) => t !== undefined);
 }
 
 /** Keep history/ out of git. Returns true when it changed the file. */

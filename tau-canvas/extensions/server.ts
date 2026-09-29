@@ -6,7 +6,7 @@ import { randomBytes } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { watch, mkdirSync } from "node:fs";
 import { dirname, extname, join, sep } from "node:path";
-import { acceptProposal, addNote, boardKey, canvasDir, discardProposal, dsReport, readCanvas, setNoteState, slug, tokensCss, type NoteState } from "./store.js";
+import { acceptProposal, addNote, boardKey, canvasDir, canvasTabs, discardProposal, dsReport, readCanvas, setNoteState, slug, tokensCss, type NoteState } from "./store.js";
 import { POINT_SCRIPT, VIEWER } from "./web.js";
 
 const TYPES: Record<string, string> = {
@@ -72,6 +72,7 @@ export async function startServer(o: { root: string; onSend: (text: string) => v
       req.on("close", () => clients.delete(res));
       return;
     }
+    if (p[0] === "canvases.json") return reply(res, 200, "application/json", JSON.stringify(await canvasTabs(o.root)));
     if (p[0] === "ds" && p[1] === "tokens.css") return reply(res, 200, "text/css", await tokensCss(ds));
     if (p[0] === "api" && req.method === "POST") {
       const b = await body(req);

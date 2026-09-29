@@ -37,7 +37,21 @@ export const VIEWER = `<!doctype html>
 *{box-sizing:border-box}
 body{margin:0;height:100vh;display:flex;flex-direction:column;background:var(--bg);color:var(--fg);font:13px/1.4 system-ui,sans-serif;overflow:hidden}
 header{display:flex;gap:8px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--card)}
-header b{margin-right:auto}
+header nav{display:flex;gap:4px;margin-right:auto;overflow-x:auto}
+header nav a,header nav button{white-space:nowrap;text-decoration:none;color:inherit}
+header nav sup{color:var(--mut);margin-left:4px}
+header nav .on sup{color:inherit}
+.seg{display:inline-flex;gap:2px;border:1px solid var(--line);border-radius:8px;padding:2px}
+.seg button{border:0;background:none}
+kbd{font:11px ui-monospace,monospace;color:var(--mut);margin-left:4px}
+.on kbd{color:inherit}
+#hint{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);max-width:420px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 14px;display:none;gap:10px;box-shadow:0 8px 24px #0004}
+#hint b{display:block}
+footer{display:flex;gap:12px;align-items:center;padding:6px 12px;border-top:1px solid var(--line);background:var(--card);color:var(--mut)}
+footer code{font:12px ui-monospace,monospace}
+.chips{display:flex;gap:4px}
+.chips button{padding:2px 8px}
+.note.work{border-color:var(--acc)}
 button{font:inherit;color:inherit;background:var(--card);border:1px solid var(--line);border-radius:6px;padding:4px 10px;cursor:pointer}
 button.on,button.primary{background:var(--acc);border-color:var(--acc);color:var(--accfg);font-weight:600}
 main{flex:1;display:flex;min-height:0}
@@ -50,7 +64,7 @@ body.move iframe{pointer-events:none}
 body.point #stage{cursor:crosshair}
 .pin{position:absolute;width:20px;height:20px;margin:-10px 0 0 -10px;border-radius:50%;background:var(--acc);color:var(--accfg);font-size:11px;display:grid;place-items:center}
 .pin.done{opacity:.4}
-aside{width:280px;border-left:1px solid var(--line);background:var(--card);overflow:auto;padding:12px;display:flex;flex-direction:column;gap:8px}
+aside{width:300px;border-left:1px solid var(--line);background:var(--card);overflow:auto;padding:12px;display:flex;flex-direction:column;gap:8px}
 .note{border:1px solid var(--line);border-radius:8px;padding:8px}
 .note.done{opacity:.55}
 .note small{color:var(--mut);display:block}
@@ -72,10 +86,10 @@ body[data-tab=ds] #stage,body[data-tab=ds] aside,body[data-tab=ds] .modes{displa
 #pop div{display:flex;gap:6px}
 </style></head>
 <body class="move">
-<header><b id="title">Canvas</b>
-<button id="t-canvas" class="on">Canvas</button><button id="t-ds">Design system</button>
-<span class="modes"><button id="m-move" class="on">Move <kbd>V</kbd></button> <button id="m-point">Point <kbd>P</kbd></button> <span id="zoom"></span></span></header>
-<main><div id="stage"><div id="world"></div></div><aside id="side"></aside><section id="ds"></section></main>
+<header><nav id="tabs"></nav>
+<span class="modes"><span class="seg"><button id="m-move" class="on">Move <kbd>V</kbd></button><button id="m-point">Point <kbd>P</kbd></button></span> <span id="zoom"></span></span></header>
+<main><div id="stage"><div id="world"></div><div id="hint"><span><b>This is a first draft.</b>Press <kbd>P</kbd> and click anything to ask for a change. Nothing is built until you approve.</span><button id="hint-x" aria-label="Dismiss">×</button></div></div><aside id="side"></aside><section id="ds"></section></main>
+<footer id="foot"></footer>
 <div id="pop"></div>
 <script>
 const B="__BASE__",C="__CANVAS__";
@@ -85,13 +99,23 @@ const $=s=>document.querySelector(s);
 const h=(t,p={},...kids)=>{const e=document.createElement(t);for(const[k,v]of Object.entries(p)){if(k.startsWith("on"))e.addEventListener(k.slice(2),v);else if(k==="class")e.className=v;else e.setAttribute(k,v)}e.append(...kids);return e};
 const post=(path,body)=>fetch(B+"/api/"+path,{method:"POST",body:JSON.stringify({canvas:C,...body})}).then(r=>r.json());
 
-async function load(){cv=await(await fetch(B+"/c/"+C+"/canvas.json")).json();render()}
+let all=[],nf="open",hintOff=false;
+async function load(){[cv,all]=await Promise.all([fetch(B+"/c/"+C+"/canvas.json").then(r=>r.json()),fetch(B+"/canvases.json").then(r=>r.json())]);render()}
+function renderTabs(){
+  const nav=$("#tabs");nav.replaceChildren();
+  for(const c of all){
+    const cur=c.slug===C,sup=c.open?h("sup",{},String(c.open)):"";
+    nav.append(cur?h("button",{class:tab==="canvas"?"on":"",onclick:()=>setTab("canvas")},c.title,sup):h("a",{href:B+"/c/"+c.slug},h("button",{},c.title,sup)))}
+  nav.append(h("button",{id:"t-ds",class:tab==="ds"?"on":"",onclick:()=>setTab("ds")},"Design system"))}
+const ago=iso=>Date.now()-new Date(iso).getTime()<60000;
+let fresh;
 function applyView(){$("#world").style.transform="translate("+view.x+"px,"+view.y+"px) scale("+view.k+")";$("#zoom").textContent=Math.round(view.k*100)+"%"}
 function setMode(m){mode=m;document.body.className=m;$("#m-move").classList.toggle("on",m==="move");$("#m-point").classList.toggle("on",m==="point");
 for(const f of frames.values())f.iframe.contentWindow&&f.iframe.contentWindow.postMessage({type:"mode",mode:m},"*")}
 
 function render(){
-  $("#title").textContent=cv.title;
+  renderTabs();
+  clearTimeout(fresh);fresh=setTimeout(render,61000); // "just updated" ends after a minute
   const world=$("#world");
   for(const[key,f]of frames)if(!cv.boards[key]){f.wrap.remove();frames.delete(key)}
   for(const[key,b]of Object.entries(cv.boards)){
@@ -105,7 +129,7 @@ function render(){
     }
     f.wrap.style.cssText="left:"+b.x+"px;top:"+b.y+"px";
     f.iframe.style.cssText="width:"+b.w+"px;height:"+b.h+"px";
-    f.lbl.textContent=b.title+" · rev "+b.rev+" · by "+b.by;
+    f.lbl.textContent=b.title+" rev "+b.rev+(b.by==="you"?" · edited by you":"")+(b.at&&ago(b.at)?" · just updated":"");
     const src=B+"/c/"+C+"/"+key+"?r="+b.rev+"."+bust;
     if(f.src!==src){f.src=src;f.iframe.src=src}
   }
@@ -114,18 +138,27 @@ function render(){
   notes.forEach(([id,n],i)=>{const b=cv.boards[n.board];if(!b)return;
     const pin=h("div",{class:"pin "+n.state,title:n.text},String(i+1));
     pin.style.cssText="left:"+(b.x+n.target.box[0])+"px;top:"+(b.y+n.target.box[1])+"px";world.append(pin)});
-  renderSide(notes)
+  renderSide(notes);
+  const draft=Object.values(cv.boards).length&&Object.values(cv.boards).every(b=>b.rev===1)&&!notes.length&&tab==="canvas"&&!hintOff;
+  $("#hint").style.display=draft?"flex":"none";
+  const open=notes.filter(([,n])=>n.state==="open").length;
+  $("#foot").replaceChildren(h("code",{},".tau/canvases/"+C),h("span",{},open+" saved note"+(open===1?"":"s")))
 }
+$("#hint-x").onclick=()=>{hintOff=true;$("#hint").style.display="none"};
 function renderSide(notes){
   const side=$("#side");side.replaceChildren();
-  const open=notes.filter(([,n])=>n.state==="open");
+  const open=notes.filter(([,n])=>n.state==="open"),done=notes.filter(([,n])=>n.state==="done");
+  const chip=(k,label,n)=>h("button",{class:nf===k?"on":"",onclick:()=>{nf=k;renderSide(notes)}},label+" "+n);
+  side.append(h("div",{class:"chips"},chip("open","Open",notes.length-done.length),chip("done","Done",done.length),chip("all","All",notes.length)));
   if(open.length)side.append(h("button",{class:"primary",onclick:()=>post("send",{ids:open.map(([id])=>id)})},"Send "+open.length+" saved note"+(open.length>1?"s":"")+" to pi"));
   if(!notes.length)side.append(h("small",{},"No notes. Press P, then click an element."));
-  notes.forEach(([id,n],i)=>{
-    const el=h("div",{class:"note "+(n.state==="done"?"done":"")},
-      h("small",{},(i+1)+" · "+(cv.boards[n.board]?.title||n.board)+" · "+n.state),h("div",{},n.text),h("small",{},"“"+n.target.text+"”"));
+  const shown=notes.map((n,i)=>[...n,i]).filter(([,n])=>nf==="all"||(nf==="done")===(n.state==="done"));
+  for(const[id,n,i]of shown){
+    const st={open:"saved, not sent yet",sent:"sent",work:"pi working",done:"done"}[n.state];
+    const el=h("div",{class:"note "+n.state},
+      h("small",{},(i+1)+" · "+(cv.boards[n.board]?.title||n.board)+" · You · "+st),h("div",{},n.text),h("small",{},"“"+n.target.text+"”"));
     if(n.state==="done")el.append(h("button",{onclick:()=>post("state",{ids:[id],state:"open"})},"Reopen"));
-    side.append(el)})
+    side.append(el)}
 }
 
 // point -> note box
@@ -137,7 +170,8 @@ addEventListener("message",e=>{
   const pop=$("#pop");pop.replaceChildren();
   const ta=h("textarea",{placeholder:"What should change?"});
   const send=go=>()=>{if(!ta.value.trim())return;post("note",{note:{...pending,text:ta.value.trim()},send:go});pop.style.display="none"};
-  pop.append(h("small",{},"“"+d.text+"”"),ta,h("div",{},h("button",{class:"primary",onclick:send(true)},"Send now"),h("button",{onclick:send(false)},"Save note"),h("button",{onclick:()=>pop.style.display="none"},"Cancel")));
+  ta.addEventListener("keydown",e=>{if(e.key!=="Enter"||e.shiftKey||e.isComposing)return;e.preventDefault();(e.metaKey||e.ctrlKey?send(false):send(true))()});
+  pop.append(h("small",{},(cv.boards[key]?.title||key)+" › “"+d.text+"”"),ta,h("div",{},h("button",{onclick:send(false)},"Save note",h("kbd",{},"⌘↵")),h("button",{class:"primary",onclick:send(true)},"Send to pi",h("kbd",{},"↵")),h("button",{onclick:()=>pop.style.display="none"},"Cancel")));
   pop.style.display="flex";
   pop.style.left=Math.min(innerWidth-300,r.left+(d.box[0]+d.box[2])*view.k+8)+"px";
   pop.style.top=Math.min(innerHeight-200,Math.max(50,r.top+d.box[1]*view.k))+"px";ta.focus()
@@ -161,7 +195,7 @@ let ds=null,sel=null,tab="canvas";
 const varsOf=i=>i.decls.map(d=>d[0]);
 const showOnBoards=vars=>{for(const f of frames.values())f.iframe.contentWindow&&f.iframe.contentWindow.postMessage({type:"show",vars},"*")};
 async function loadDs(){ds=await(await fetch(B+"/c/"+C+"/ds.json")).json();renderDs()}
-function setTab(t){tab=t;document.body.dataset.tab=t;$("#t-canvas").classList.toggle("on",t==="canvas");$("#t-ds").classList.toggle("on",t==="ds");if(t==="ds"){showOnBoards(null);loadDs()}}
+function setTab(t){tab=t;document.body.dataset.tab=t;renderTabs();if(t==="ds"){showOnBoards(null);loadDs()}else if(cv)render()}
 function renderDs(){
   const el=$("#ds");el.replaceChildren();
   el.append(h("div",{class:"dstop"},h("b",{},ds.name?ds.name+" · v"+ds.version:"No design system yet"),
@@ -190,10 +224,9 @@ function renderDs(){
         h("button",{onclick:()=>{try{navigator.clipboard.writeText("var(--"+varsOf(it)[0]+")")}catch(e){}}},"Copy name"),
         h("button",{onclick:()=>{setTab("canvas");showOnBoards(varsOf(it))}},"Show on boards"))))}
 }
-$("#t-canvas").onclick=()=>setTab("canvas");$("#t-ds").onclick=()=>setTab("ds");
 
 // live updates
 const es=new EventSource(B+"/events");
-es.onmessage=e=>{const d=JSON.parse(e.data);if(d.canvas&&d.canvas!==C)return;if(d.type==="tokens-changed")bust++;load();if(tab==="ds")loadDs()};
+es.onmessage=e=>{const d=JSON.parse(e.data);if(d.type==="tokens-changed")bust++;load();if(tab==="ds")loadDs()};
 applyView();load();
 </script></body></html>`;

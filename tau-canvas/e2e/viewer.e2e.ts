@@ -23,15 +23,15 @@ const boardFrame = (page: Page, name: string): Frame => page.frames().find((f) =
 
 test("shows both boards with title and rev", async ({ page }) => {
   await page.goto(server.url("demo"));
-  await expect(page.locator(".lbl")).toHaveText(["Cart · rev 1 · by pi", "Pay · rev 1 · by pi"]);
+  await expect(page.locator(".lbl")).toHaveText([/^Cart rev 1/, /^Pay rev 1/]);
   await expect(page.frameLocator("iframe").first().locator("h1")).toHaveText("Cart");
 });
 
 test("a saved edit shows up without a refresh", async ({ page }) => {
   await page.goto(server.url("demo"));
-  await expect(page.locator(".lbl").first()).toContainText("rev 1");
+  await expect(page.locator(".lbl").first()).toContainText("Cart rev 1");
   await editBoard(root, { canvas: "demo", board: "cart", baseRev: 1, edits: [{ find: ">Cart<", replace: ">Cart v2<" }] });
-  await expect(page.locator(".lbl").first()).toContainText("rev 2");
+  await expect(page.locator(".lbl").first()).toContainText("Cart rev 2");
   await expect(page.frameLocator("iframe").first().locator("h1")).toHaveText("Cart v2");
 });
 
@@ -40,7 +40,7 @@ test("point mode: Send now puts board, element and text in the chat", async ({ p
   await page.keyboard.press("p");
   await page.frameLocator("iframe").first().getByRole("button", { name: "Pay now" }).click();
   await page.getByPlaceholder("What should change?").fill("Make it bigger");
-  await page.getByRole("button", { name: "Send now" }).click();
+  await page.getByRole("button", { name: "Send to pi", exact: false }).click();
   await expect.poll(() => sent.length).toBe(1);
   expect(sent[0]).toMatch(/^On board Cart, element “Pay now” \(tid \d+\): Make it bigger$/);
   expect((await readCanvas(root, "demo")).notes.n1.state).toBe("sent");
@@ -105,4 +105,34 @@ test("Design system tab: update from code, review, accept, see uses, show on boa
   await expect(outlined).toHaveCount(1);
   await page.keyboard.press("Escape");
   await expect(outlined).toHaveCount(0);
+});
+
+test("canvas tabs, first-draft hint, note keys and filters", async ({ page }) => {
+  await createBoard(root, { canvas: "other", board: "home", title: "Home", w: 390, h: 844, html: board("Home"), canvasTitle: "Onboarding" });
+  await page.goto(server.url("demo"));
+  await expect(page.getByRole("button", { name: "demo" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Onboarding" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Design system" })).toBeVisible();
+  await expect(page.getByText("This is a first draft.")).toBeVisible();
+
+  await page.keyboard.press("p");
+  const pick = async (text: string) => {
+    await page.frameLocator("iframe").first().getByRole("button", { name: "Pay now" }).click();
+    await page.getByPlaceholder("What should change?").fill(text);
+  };
+  await pick("Saved with the keyboard");
+  await page.keyboard.press("ControlOrMeta+Enter"); // saves
+  await expect(page.locator(".note")).toHaveCount(1);
+  await expect(page.getByText("saved, not sent yet")).toBeVisible();
+  await expect(page.getByText("This is a first draft.")).toBeHidden();
+  expect(sent).toHaveLength(0);
+  await pick("Sent with Enter");
+  await page.keyboard.press("Enter"); // sends
+  await expect.poll(() => sent.length).toBe(1);
+  await expect(page.getByRole("button", { name: /^demo\s*2/ })).toBeVisible(); // 2 notes not done
+
+  await page.getByRole("button", { name: "Done 0" }).click();
+  await expect(page.locator(".note")).toHaveCount(0);
+  await page.getByRole("button", { name: "All 2" }).click();
+  await expect(page.locator(".note")).toHaveCount(2);
 });
