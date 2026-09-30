@@ -1,12 +1,13 @@
 import { join } from "node:path";
 import { app, BrowserWindow, shell } from "electron";
+import type { GrantKind } from "#core/grants";
 import { startAgent } from "./agent-host";
 import { registerHostIpc } from "./host-ipc";
 import { shellEnv } from "./shell-env";
 
 const env = shellEnv();
 // The window's agent; host dialogs tell it which paths the user picked.
-let grantTo: (kind: "folder" | "file" | "package", path: string) => void = () => {};
+let grantTo: (kind: GrantKind, path: string) => void = () => {};
 
 function createWindow() {
   const win = new BrowserWindow({

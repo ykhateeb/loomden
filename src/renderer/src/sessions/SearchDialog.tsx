@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { SearchResult } from "#protocol";
+import { folderName } from "#renderer/chat/format";
 import { actions, useStore } from "#renderer/store";
 import { cx, Kbd, pill, Spinner } from "#renderer/ui/base";
 import { Segmented } from "#renderer/ui/controls";
@@ -88,7 +89,7 @@ export function SearchDialog() {
           <span className="mr-1 text-sm text-muted">Project</span>
           {[undefined, ...projects.map((p) => p.cwd)].map((c) => (
             <button key={c ?? "all"} aria-pressed={cwd === c} className={pill(cwd === c ? "accent" : "dim", "hover:text-fg")} onClick={() => setCwd(c)}>
-              {c ? c.split("/").pop() : "All"}
+              {c ? folderName(c) : "All"}
             </button>
           ))}
           <span className="flex-1" />
@@ -110,7 +111,7 @@ export function SearchDialog() {
                 {running.has(r.path) ? <Spinner size={11} /> : <span className="w-3" />}
                 <b className="truncate font-semibold">{r.title}</b>
                 <span className="ml-auto flex shrink-0 items-center gap-2.5 text-xs text-muted">
-                  <span className="flex items-center gap-1"><Icon name="folder" size={12} />{r.cwd.split("/").pop()}</span>
+                  <span className="flex items-center gap-1"><Icon name="folder" size={12} />{folderName(r.cwd)}</span>
                   <span>{ago(r.modified)}</span>
                   <span className={pill(i === active ? "accent" : "dim", "h-5 text-label")}>{r.total} {r.total === 1 ? "match" : "matches"}</span>
                 </span>

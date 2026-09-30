@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { type BrowserWindow, MessageChannelMain, type UtilityProcess, utilityProcess } from "electron";
+import type { GrantKind } from "#core/grants";
 import { LOOMDEN_AGENT_DIR, FREE_CANVAS_DIR, NO_PROJECT_DIR } from "#core/paths";
 
 /** Starts the agent process and connects it to the window with a direct port. Main does not relay tokens. */
@@ -8,7 +9,7 @@ export function startAgent(win: BrowserWindow, env: NodeJS.ProcessEnv) {
   let startedAt = 0;
   let quitting = false;
   // Kept here too, so a restarted agent gets them again.
-  const grants: { kind: "folder" | "file" | "package"; path: string }[] = [];
+  const grants: { kind: GrantKind; path: string }[] = [];
 
   const connect = () => {
     // The page can be gone (window closed, renderer crashed, dev server stopped): then there is nobody to connect.
@@ -48,7 +49,7 @@ export function startAgent(win: BrowserWindow, env: NodeJS.ProcessEnv) {
       child.kill();
     },
     /** A path the user picked or dropped: the agent may use it. */
-    grant(kind: "folder" | "file" | "package", path: string) {
+    grant(kind: GrantKind, path: string) {
       if (kind !== "package") grants.push({ kind, path }); // a package confirmation is for one use: not replayed after a restart
       child.postMessage({ grant: { kind, path } });
     },

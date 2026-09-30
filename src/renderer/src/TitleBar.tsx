@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { folderName } from "./chat/format";
 import { actions, type Tab, useStore } from "./store";
 import { cx, Dot, pill, Pill, Spinner } from "./ui/base";
 import { Icon, Logo } from "./ui/Icon";
@@ -9,8 +10,6 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "packages", label: "Packages" },
   { id: "settings", label: "Settings" },
 ];
-
-const project = (cwd: string) => cwd.split("/").pop() ?? cwd;
 
 /** Board 2 and 2b: logo, the three tabs, and the running / needs-you pills for every project. */
 export function TitleBar() {
@@ -26,7 +25,7 @@ export function TitleBar() {
 
   const items: MenuItem[] = [
     { heading: "Running · every project" },
-    ...running.map((l): MenuItem => ({ id: l.key, label: <span className="truncate">{l.title}</span>, icon: <Spinner size={10} />, meta: project(l.cwd), onSelect: () => actions.focus(l.key) })),
+    ...running.map((l): MenuItem => ({ id: l.key, label: <span className="truncate">{l.title}</span>, icon: <Spinner size={10} />, meta: folderName(l.cwd), onSelect: () => actions.focus(l.key) })),
     ...(running.length === 0 ? [{ label: "Nothing is running", disabled: true, onSelect: () => {} }] : []),
     "sep",
     ...(waiting.length === 0

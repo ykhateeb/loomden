@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { GalleryItem, InstalledPackage } from "#protocol";
+import { folderName } from "#renderer/chat/format";
 import { ago } from "#renderer/sessions/time";
 import { actions, useStore } from "#renderer/store";
 import { Button, Chip, cx, Kbd, Label, LinkButton, pill, Pill, type PillTone, Spinner } from "#renderer/ui/base";
@@ -134,7 +135,7 @@ export function Packages() {
                     }}
                   >
                     <Icon name="folder" size={12} />
-                    {installCwd?.split("/").pop() ?? "no project"}
+                    {installCwd ? folderName(installCwd) : "no project"}
                     <Icon name="chevronDown" size={12} />
                   </button>
                   <span className="font-mono text-xs text-muted">--local</span>
@@ -157,7 +158,7 @@ export function Packages() {
               <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent-bg text-accent"><Icon name="box" size={18} /></span>
               <div className="flex min-w-0 flex-col">
                 <b className="truncate text-lg font-[650]">{current.name}</b>
-                <span className="text-xs text-muted">{current.scope === "global" ? "Global · every project" : `${current.cwd?.split("/").pop()} · this project`}</span>
+                <span className="text-xs text-muted">{current.scope === "global" ? "Global · every project" : `${current.cwd && folderName(current.cwd)} · this project`}</span>
               </div>
               <span className="flex-1" />
               <Button variant="danger" disabled={busy(current)} onClick={() => actions.changePackage("remove", current.source, current.cwd)}><Icon name="trash" size={14} />Remove<Kbd>D</Kbd></Button>

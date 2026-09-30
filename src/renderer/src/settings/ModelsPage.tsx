@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { ModelChoice, ProviderRow } from "#protocol";
+import { folderName } from "#renderer/chat/format";
 import { ago } from "#renderer/sessions/time";
 import { actions, useStore } from "#renderer/store";
 import { Button, cx, Dot, IconButton, Kbd, LinkButton, pill, Pill } from "#renderer/ui/base";
@@ -97,7 +98,7 @@ export function ModelsPage() {
           )}
           {scope === "project" && (
             <button className={pill("dim", "hover:text-fg")} disabled={!projects.length} onMouseDown={(e) => e.stopPropagation()} onClick={(e) => setMenu({ at: at(e), label: "Project", items: projects.map((p) => ({ id: p.cwd, label: p.name, icon: p.cwd === cwd ? <Icon name="check" size={13} /> : <span className="w-[13px]" />, onSelect: () => setProject(p.cwd) })) })}>
-              <Icon name="folder" size={12} />{cwd?.split("/").pop() ?? "no project"}<Icon name="chevronDown" size={12} />
+              <Icon name="folder" size={12} />{cwd ? folderName(cwd) : "no project"}<Icon name="chevronDown" size={12} />
             </button>
           )}
           <span className="text-sm text-muted">Project settings win over global ones.</span>

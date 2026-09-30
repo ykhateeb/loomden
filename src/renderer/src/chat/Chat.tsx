@@ -8,7 +8,7 @@ import { Avatar, Button, cx, Kbd, Spinner } from "#renderer/ui/base";
 import { Icon } from "#renderer/ui/Icon";
 import { Menu, type MenuItem } from "#renderer/ui/Menu";
 import { Composer } from "./Composer";
-import { dayLabel, time } from "./format";
+import { dayLabel, folderName, time } from "./format";
 import { ToolCard, type ToolResult } from "./ToolCard";
 
 const EMPTY: AgentMessage[] = [];
@@ -225,7 +225,7 @@ export function Chat({ sessionKey, state }: { sessionKey: string; state: LiveSta
               )}
             >
               <Icon name={inProject ? "folder" : "plus"} size={13} />
-              {inProject ? state.cwd.split("/").pop() : "Add to project"}
+              {inProject ? folderName(state.cwd) : "Add to project"}
               <Icon name="chevronDown" size={12} />
             </button>
             {state.branch && <span className="flex items-center gap-1"><Icon name="branch" size={13} />{state.branch}</span>}

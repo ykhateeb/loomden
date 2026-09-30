@@ -1,4 +1,5 @@
 import type { SessionRow } from "#protocol";
+import { folderName } from "#renderer/chat/format";
 import { actions } from "#renderer/store";
 import { Button, Kbd } from "#renderer/ui/base";
 import { Icon } from "#renderer/ui/Icon";
@@ -31,7 +32,7 @@ export function DeleteDialog({ session, onClose }: { session: SessionRow; onClos
       <div className="flex flex-col gap-0.5 rounded-lg border border-line bg-raised px-3 py-2.5">
         <b className="font-semibold text-fg">{session.title}</b>
         <span className="flex items-center gap-2 text-xs text-muted">
-          <span className="flex items-center gap-1"><Icon name="folder" size={12} />{session.cwd.split("/").pop()}</span>
+          <span className="flex items-center gap-1"><Icon name="folder" size={12} />{folderName(session.cwd)}</span>
           {session.messageCount} messages · last used {ago(session.modified) === "now" ? "just now" : `${ago(session.modified)} ago`}
         </span>
       </div>

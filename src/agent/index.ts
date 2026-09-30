@@ -1,5 +1,5 @@
 // The agent process (Electron utilityProcess). pi and every extension run here, never in the window's process.
-import { initTheme, ModelRuntime } from "@earendil-works/pi-coding-agent";
+import { initTheme, ModelRuntime, type ProgressEvent } from "@earendil-works/pi-coding-agent";
 import { searchFiles } from "#core/attachments";
 import { assertGranted, grant, packageGrant } from "#core/grants";
 import { codeItems, runImport, scanImport } from "#core/import";
@@ -13,7 +13,7 @@ import { NO_PROJECT_DIR, SHARED_AUTH_PATH, sessionFile } from "#core/paths";
 import { answer, resendPending } from "#core/sessions/extension-ui";
 import { createRegistry } from "#core/sessions/registry";
 import { searchSessions } from "#core/sessions/search";
-import type { AgentOut, Command, ImportItem, Request } from "#protocol";
+import type { AgentOut, Command, ImportItem, Project, Request } from "#protocol";
 
 type Port = Electron.MessagePortMain;
 const ports = new Set<Port>();
@@ -25,6 +25,17 @@ const send = (msg: AgentOut) => {
 initTheme(); // extensions read ctx.ui.theme
 const modelRuntime = await ModelRuntime.create({ authPath: SHARED_AUTH_PATH });
 const sessions = createRegistry(send, modelRuntime);
+
+const sendPackageProgress = (e: ProgressEvent) => send({ type: "package.progress", source: e.source, action: e.action, phase: e.type, message: e.message });
+
+async function packagesWithTrust(projects: Project[]) {
+  return { ...(await listPackages(projects)), trust: trustList(projects) };
+}
+
+/** An extension command: it runs at once, with no model call (a new canvas then asks pi to draft it). */
+function canvasCommand(title?: string) {
+  return title ? `/canvas auto ${title.replace(/\s+/g, " ").trim()}` : "/canvas";
+}
 
 async function handle(cmd: Command): Promise<unknown> {
   switch (cmd.type) {
@@ -43,13 +54,16 @@ async function handle(cmd: Command): Promise<unknown> {
     case "session.prompt":
       return sessions.prompt(cmd.key, cmd.text, cmd.behavior, cmd.images);
     case "session.canvas":
-      return sessions.prompt(cmd.key, cmd.title ? `/canvas auto ${cmd.title.replace(/\s+/g, " ").trim()}` : "/canvas"); // an extension command: it runs at once, with no model call (a new canvas then asks pi to draft it)
+      return sessions.prompt(cmd.key, canvasCommand(cmd.title));
     case "design.list":
       await assertProject(cmd.cwd);
       return designList(cmd.cwd);
     case "design.open":
       await assertProject(cmd.cwd);
-      return designOpen(cmd.cwd, cmd.canvas, cmd.key, (key, text) => sessions.prompt(key, text), cmd.tab, (cwd, pack) => send({ type: "canvas.build", cwd, ...pack }));
+      return designOpen(cmd, {
+        prompt: (key, text) => sessions.prompt(key, text),
+        build: (cwd, pack) => send({ type: "canvas.build", cwd, ...pack }),
+      });
     case "session.commands":
       return sessions.commands(cmd.key);
     case "session.models":
@@ -99,22 +113,20 @@ async function handle(cmd: Command): Promise<unknown> {
       // Copying extensions or installing packages brings code into Loomden: only after main's own confirmation.
       const code = codeItems.filter((i) => items.includes(i));
       if (code.length) await assertGranted("package", packageGrant("import", code.join(",")));
-      const results = await runImport(items, (e) => send({ type: "package.progress", source: e.source, action: e.action, phase: e.type, message: e.message }));
+      const results = await runImport(items, sendPackageProgress);
       await modelRuntime.refresh(); // imported providers and keys show at once
       return results;
     }
-    case "packages.list": {
-      const { projects } = await listSessions();
-      return { ...(await listPackages(projects)), trust: trustList(projects) };
-    }
+    case "packages.list":
+      return packagesWithTrust((await listSessions()).projects);
     case "packages.change": {
       if (cmd.cwd) await assertProject(cmd.cwd);
       // Installing or updating runs new code (an update can install a missing package or a newer, unreviewed version):
       // only after the user confirmed it in main's own dialog. Removing needs no confirmation.
       if (cmd.action !== "remove") await assertGranted("package", packageGrant(cmd.action, cmd.source, cmd.cwd));
       const { projects } = await listSessions();
-      await changePackage(cmd.action, cmd.source, cmd.cwd, (e) => send({ type: "package.progress", source: e.source, action: e.action, phase: e.type, message: e.message }), projects[0]?.cwd ?? process.cwd());
-      return { ...(await listPackages(projects)), trust: trustList(projects) };
+      await changePackage(cmd.action, cmd.source, cmd.cwd, sendPackageProgress, projects[0]?.cwd ?? process.cwd());
+      return packagesWithTrust(projects);
     }
     case "packages.gallery":
       return searchGallery(cmd.query);

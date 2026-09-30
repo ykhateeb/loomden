@@ -41,9 +41,17 @@ export async function designList(cwd: string): Promise<{ canvases: DesignCanvas[
 // One server for each project the Design page opened. Notes go to the session that opened it.
 const servers = new Map<string, { server: CanvasServer; key?: string }>();
 
-export async function designOpen(cwd: string, canvas: string, key: string | undefined, prompt: (key: string, text: string) => Promise<void>, tab: "ds" | undefined, build: (cwd: string, pack: { title: string; text: string }) => void) {
+type DesignTarget = { cwd: string; canvas: string; key?: string; tab?: "ds" };
+type DesignHost = {
+  prompt: (key: string, text: string) => Promise<void>;
+  build: (cwd: string, pack: { title: string; text: string }) => void;
+};
+
+/** The address of one canvas. The first open of a project starts its server. */
+export async function designOpen({ cwd, canvas, key, tab }: DesignTarget, { prompt, build }: DesignHost) {
   let s = servers.get(cwd);
   if (!s) {
+    if (!servers.size) process.once("exit", stopDesign);
     const entry: { server: CanvasServer; key?: string } = { key, server: undefined as never };
     entry.server = await startServer({
       root: projectRoot(cwd),
@@ -56,7 +64,6 @@ export async function designOpen(cwd: string, canvas: string, key: string | unde
     servers.set(cwd, (s = entry));
   }
   s.key = key;
-  process.once("exit", stopDesign);
   return s.server.url(canvas) + (tab ? "?tab=ds" : "");
 }
 

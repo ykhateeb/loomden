@@ -1,11 +1,6 @@
 import type { BranchCard, SessionTree } from "#protocol";
-import { type Entry, isContent, isRow, labelsOf, type Node, rowsFor, structure } from "./summary";
+import { contentText, type Entry, isContent, isRow, labelsOf, type Node, rowsFor, structure } from "./summary";
 
-function text(content: unknown): string {
-  if (typeof content === "string") return content;
-  if (!Array.isArray(content)) return "";
-  return content.map((c) => (c?.type === "text" && typeof c.text === "string" ? c.text : "")).join(" ");
-}
 const short = (s: string, n: number) => {
   const flat = s.replace(/\s+/g, " ").trim();
   return flat.length > n ? `${flat.slice(0, n - 1)}…` : flat;
@@ -80,8 +75,8 @@ export function buildTree(entries: Entry[], leafId: string | null): SessionTree 
       forkId: firstUser?.id,
       current,
       label,
-      name: label ?? short(text(firstUser?.message?.content) || "branch", 28),
-      first: first ? `${first.message?.role === "user" ? "you" : "pi"}: ${short(text(first.message?.content) || (first.type === "compaction" ? "compacted" : "…"), 80)}` : "",
+      name: label ?? short(contentText(firstUser?.message?.content) || "branch", 28),
+      first: first ? `${first.message?.role === "user" ? "you" : "pi"}: ${short(contentText(first.message?.content) || (first.type === "compaction" ? "compacted" : "…"), 80)}` : "",
       tools: [...tools].map(([tool, t]) => ({ tool, files: [...t.files], count: t.count, failed: t.failed, added: t.added, removed: t.removed })),
       at: Date.parse(end.timestamp ?? "") || 0,
     };

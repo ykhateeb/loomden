@@ -79,10 +79,11 @@ export function summarize(entries: Entry[]) {
 
 const firstLine = (s: string) => s.split("\n").find((l) => l.trim())?.trim().slice(0, 140) ?? "";
 
-function text(content: unknown): string {
+/** The text parts of a message's content, one per line. */
+export function contentText(content: unknown): string {
   if (typeof content === "string") return content;
   if (!Array.isArray(content)) return "";
-  return content.map((c) => (c && typeof c === "object" && "text" in c && typeof c.text === "string" ? c.text : "")).join("\n");
+  return content.map((c) => (c?.type === "text" && typeof c.text === "string" ? c.text : "")).join("\n");
 }
 
 function toolLine(content: unknown): { tool: string; text: string } | undefined {
@@ -91,7 +92,7 @@ function toolLine(content: unknown): { tool: string; text: string } | undefined 
   if (!calls.length) return undefined;
   const args = calls.map((c) => c.arguments ?? {});
   const what = args.map((a) => a.path ?? a.file_path ?? a.command ?? a.pattern).filter((v): v is string => typeof v === "string");
-  return { tool: calls[0].name, text: what.map((w) => w.split("/").pop()).join(", ") || firstLine(text(content)) };
+  return { tool: calls[0].name, text: what.map((w) => w.split("/").pop()).join(", ") || firstLine(contentText(content)) };
 }
 
 /** The current branch: from the root to the last entry. */
@@ -137,10 +138,10 @@ export function rowsFor(branch: Entry[], entries: Entry[]): PreviewRow[] {
     if (e.type === "branch_summary") rows.push({ ...base, kind: "summary", text: firstLine(e.summary ?? "") });
     if (e.type !== "message" || !e.message) continue;
     const role = e.message.role;
-    if (role === "user") rows.push({ ...base, kind: "you", text: firstLine(text(e.message.content)) });
+    if (role === "user") rows.push({ ...base, kind: "you", text: firstLine(contentText(e.message.content)) });
     if (role === "assistant") {
       const tool = toolLine(e.message.content);
-      const said = firstLine(text(e.message.content));
+      const said = firstLine(contentText(e.message.content));
       if (said) rows.push({ ...base, kind: "pi", text: said });
       // The label and the branch point go on the message's first row: the text, or the tool row when there is no text.
       if (tool) rows.push(said ? { ...base, id: `${e.id}:tool`, kind: "pi", tool: tool.tool, text: tool.text, branchPoint: false, label: undefined } : { ...base, kind: "pi", tool: tool.tool, text: tool.text });

@@ -3,7 +3,8 @@ import { basename, dirname, extname } from "node:path";
 import { DefaultPackageManager, getAgentDir, ProjectTrustStore, type ProgressEvent, SettingsManager } from "@earendil-works/pi-coding-agent";
 import type { GalleryItem, InstalledPackage, Project } from "#protocol";
 
-const manager = (cwd: string) => new DefaultPackageManager({ cwd, agentDir: getAgentDir(), settingsManager: SettingsManager.create(cwd, getAgentDir()) });
+/** pi's package manager for Loomden's agent folder, working in `cwd`. */
+export const manager = (cwd: string) => new DefaultPackageManager({ cwd, agentDir: getAgentDir(), settingsManager: SettingsManager.create(cwd, getAgentDir()) });
 
 /** "npm:pi-prompts-review@1.4.2" → name and version; "git:github.com/me/pi-ext@main" → repo and ref; "./path" → local. */
 export function parseSource(source: string): { name: string; version?: string; kind: InstalledPackage["kind"]; where: string } {
@@ -22,8 +23,11 @@ export function parseSource(source: string): { name: string; version?: string; k
   return { name: basename(source), kind: "local", where: `folder · ${source}` };
 }
 
-/** A resource's name from its path: an extension's folder or file, a skill's folder, a prompt's or theme's file. */
-function resourceName(kind: "extensions" | "skills" | "prompts" | "themes", path: string) {
+/**
+ * A resource's name from its path: an extension's folder or file, a skill's folder, a prompt's or theme's file.
+ * "permission-gate" from ".../permission-gate/index.ts" or ".../permission-gate.ts".
+ */
+export function resourceName(kind: "extensions" | "skills" | "prompts" | "themes", path: string) {
   const file = basename(path, extname(path));
   if (kind === "extensions") return file === "index" ? basename(dirname(path)) : file;
   if (kind === "skills") return file === "SKILL" ? basename(dirname(path)) : file;
@@ -90,7 +94,7 @@ export function settingsWithoutMissing(cwd: string) {
   const agentDir = getAgentDir();
   const settingsManager = SettingsManager.create(cwd, agentDir);
   // A separate manager answers "is it installed?": it must not read through the wrapped getters below.
-  const probe = new DefaultPackageManager({ cwd, agentDir, settingsManager: SettingsManager.create(cwd, agentDir) });
+  const probe = manager(cwd);
   const installed = (source: string, scope: "user" | "project") => {
     const path = probe.getInstalledPath(source, scope);
     return !!path && existsSync(path);

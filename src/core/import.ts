@@ -1,22 +1,19 @@
-import { chmodSync, copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, existsSync, mkdirSync, readdirSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
-import { DefaultPackageManager, getAgentDir, type ProgressEvent, ProjectTrustStore, SettingsManager } from "@earendil-works/pi-coding-agent";
+import { getAgentDir, type ProgressEvent, ProjectTrustStore } from "@earendil-works/pi-coding-agent";
 import type { ImportItem, ImportResult, ImportScan } from "#protocol";
+import { manager } from "./packages";
 import { PI_AGENT_DIR } from "./paths";
 import { readModelsFile } from "./providers";
-import { writeModelSettings } from "./settings";
+import { MODEL_SETTING_KEYS, readJson, writeModelSettings } from "./settings";
 
-const SETTING_KEYS = ["defaultProvider", "defaultModel", "defaultThinkingLevel", "enabledModels"] as const;
 const FOLDERS = ["extensions", "skills", "prompts", "themes"];
 const TOP_FILES = ["AGENTS.md", "SYSTEM.md", "APPEND_SYSTEM.md"];
+/** A package source that is not a local path. */
+const REMOTE_SOURCE = /^(npm:|git:|https?:\/\/)/;
 
-function json(path: string): Record<string, unknown> {
-  try {
-    return JSON.parse(readFileSync(path, "utf8"));
-  } catch {
-    return {};
-  }
-}
+/** "1 file", "3 files". */
+const plural = (count: number, one: string, many = `${one}s`) => `${count} ${count === 1 ? one : many}`;
 
 /**
  * Every file under a folder, as paths relative to pi's folder. Symlinks are followed (a linked dev checkout is
@@ -66,9 +63,9 @@ type PackageEntry = string | ({ source: string } & Record<string, unknown>);
 
 /** pi's global packages, with a local path made absolute (pi wrote it relative to ~/.pi/agent). Bad entries are skipped. */
 function piPackages(): PackageEntry[] {
-  const list = json(join(PI_AGENT_DIR, "settings.json")).packages;
+  const list = readJson(join(PI_AGENT_DIR, "settings.json")).packages;
   if (!Array.isArray(list)) return [];
-  const local = (s: string) => !/^(npm:|git:|https?:\/\/)/.test(s) && !isAbsolute(s);
+  const local = (s: string) => !REMOTE_SOURCE.test(s) && !isAbsolute(s);
   const fix = (s: string) => (local(s) ? resolve(PI_AGENT_DIR, s) : s);
   return list.flatMap((p): PackageEntry[] =>
     typeof p === "string" && p ? [fix(p)] : p && typeof p === "object" && typeof (p as { source?: unknown }).source === "string" ? [{ ...(p as object), source: fix((p as { source: string }).source) }] : [],
@@ -78,24 +75,23 @@ const sourceOf = (p: PackageEntry) => (typeof p === "string" ? p : p.source);
 
 /** Board 5c: what terminal pi has that Loomden can take. Reads ~/.pi/agent; changes nothing there. */
 export function scanImport(): ImportScan {
-  const settings = json(join(PI_AGENT_DIR, "settings.json"));
-  const keys = Object.keys(json(join(PI_AGENT_DIR, "auth.json")));
-  const providers = Object.keys((json(join(PI_AGENT_DIR, "models.json")).providers as object) ?? {});
-  const trust = Object.keys(json(join(PI_AGENT_DIR, "trust.json")));
+  const settings = readJson(join(PI_AGENT_DIR, "settings.json"));
+  const keys = Object.keys(readJson(join(PI_AGENT_DIR, "auth.json")));
+  const providers = Object.keys((readJson(join(PI_AGENT_DIR, "models.json")).providers as object) ?? {});
+  const trust = Object.keys(readJson(join(PI_AGENT_DIR, "trust.json")));
   const files = resourceFiles();
   const packages = piPackages();
-  const settingCount = SETTING_KEYS.filter((k) => settings[k] !== undefined).length;
-  const n = (count: number, one: string, many = `${one}s`) => `${count} ${count === 1 ? one : many}`;
+  const settingCount = MODEL_SETTING_KEYS.filter((k) => settings[k] !== undefined).length;
   return {
     found: existsSync(PI_AGENT_DIR),
     items: [
       // Loomden already uses pi's auth.json, so keys are linked from the start.
-      { id: "keys", label: "Keys and logins", action: "Linked", detail: n(keys.length, "provider"), count: keys.length, done: true },
-      { id: "settings", label: "Default model, thinking, favorites", action: "Copy settings.json", detail: n(settingCount, "setting"), count: settingCount },
-      { id: "providers", label: "Custom providers", action: "Copy", detail: n(providers.length, "provider"), count: providers.length },
-      { id: "trust", label: "Trust decisions", action: "Copy", detail: n(trust.length, "project"), count: trust.length },
-      { id: "files", label: "Extensions, skills, prompts, AGENTS.md", action: "Copy", detail: n(files.length, "file"), count: files.length },
-      { id: "packages", label: "Global packages", action: "Install again", detail: n(packages.length, "package"), count: packages.length },
+      { id: "keys", label: "Keys and logins", action: "Linked", detail: plural(keys.length, "provider"), count: keys.length, done: true },
+      { id: "settings", label: "Default model, thinking, favorites", action: "Copy settings.json", detail: plural(settingCount, "setting"), count: settingCount },
+      { id: "providers", label: "Custom providers", action: "Copy", detail: plural(providers.length, "provider"), count: providers.length },
+      { id: "trust", label: "Trust decisions", action: "Copy", detail: plural(trust.length, "project"), count: trust.length },
+      { id: "files", label: "Extensions, skills, prompts, AGENTS.md", action: "Copy", detail: plural(files.length, "file"), count: files.length },
+      { id: "packages", label: "Global packages", action: "Install again", detail: plural(packages.length, "package"), count: packages.length },
     ],
   };
 }
@@ -117,10 +113,10 @@ export async function runImport(items: ImportItem[], onPackage: (e: ProgressEven
   };
 
   await step("settings", () => {
-    const s = json(join(PI_AGENT_DIR, "settings.json"));
+    const s = readJson(join(PI_AGENT_DIR, "settings.json"));
     const errors: string[] = [];
     let copied = 0;
-    for (const k of SETTING_KEYS.filter((k) => s[k] !== undefined)) {
+    for (const k of MODEL_SETTING_KEYS.filter((k) => s[k] !== undefined)) {
       try {
         writeModelSettings({ [k]: s[k] }); // one by one: a value Loomden refuses does not stop the others
         copied++;
@@ -128,11 +124,11 @@ export async function runImport(items: ImportItem[], onPackage: (e: ProgressEven
         errors.push(`${k}: ${(e as Error).message}`);
       }
     }
-    return { status: errors.length ? (copied ? "partial" : "failed") : "done", detail: `copied · ${copied} ${copied === 1 ? "setting" : "settings"}`, errors };
+    return { status: errors.length ? (copied ? "partial" : "failed") : "done", detail: `copied · ${plural(copied, "setting")}`, errors };
   });
 
   await step("providers", () => {
-    const theirs = (json(join(PI_AGENT_DIR, "models.json")).providers ?? {}) as Record<string, unknown>;
+    const theirs = (readJson(join(PI_AGENT_DIR, "models.json")).providers ?? {}) as Record<string, unknown>;
     const file = join(loomden, "models.json");
     const ours: { providers?: Record<string, unknown> } = readModelsFile(); // throws on a file it cannot read: nothing is lost
     const added = Object.keys(theirs).filter((k) => !ours.providers?.[k]); // Loomden's own entries win
@@ -140,18 +136,18 @@ export async function runImport(items: ImportItem[], onPackage: (e: ProgressEven
     mkdirSync(loomden, { recursive: true });
     writeFileSync(file, `${JSON.stringify(ours, null, 2)}\n`, { mode: 0o600 });
     chmodSync(file, 0o600); // it can hold keys
-    return { status: "done", detail: `copied · ${added.length} ${added.length === 1 ? "provider" : "providers"}`, errors: [] };
+    return { status: "done", detail: `copied · ${plural(added.length, "provider")}`, errors: [] };
   });
 
   await step("trust", () => {
-    const theirs = json(join(PI_AGENT_DIR, "trust.json"));
-    const ours = json(join(loomden, "trust.json"));
+    const theirs = readJson(join(PI_AGENT_DIR, "trust.json"));
+    const ours = readJson(join(loomden, "trust.json"));
     // Loomden's own decision wins: an import never turns "do not trust" into "trust" (that would run the project's code).
     const updates = Object.entries(theirs)
       .filter(([path, v]) => (v === true || v === false) && !(path in ours))
       .map(([path, decision]) => ({ path, decision: decision as boolean }));
     new ProjectTrustStore(loomden).setMany(updates);
-    return { status: "done", detail: `copied · ${updates.length} ${updates.length === 1 ? "project" : "projects"}`, errors: [] };
+    return { status: "done", detail: `copied · ${plural(updates.length, "project")}`, errors: [] };
   });
 
   await step("files", () => {
@@ -176,7 +172,7 @@ export async function runImport(items: ImportItem[], onPackage: (e: ProgressEven
   });
 
   await step("packages", async () => {
-    const pm = new DefaultPackageManager({ cwd: loomden, agentDir: loomden, settingsManager: SettingsManager.create(loomden, loomden) });
+    const pm = manager(loomden);
     pm.setProgressCallback(onPackage);
     const errors: string[] = [];
     const all = piPackages();
@@ -194,8 +190,8 @@ export async function runImport(items: ImportItem[], onPackage: (e: ProgressEven
     // them, because each install writes the whole list from memory. pi saves a local path relative to Loomden's folder.
     if (filtered.length) {
       const path = join(loomden, "settings.json");
-      const s = json(path);
-      const same = (saved: string, source: string) => saved === source || (!/^(npm:|git:|https?:\/\/)/.test(saved) && resolve(loomden, saved) === resolve(source));
+      const s = readJson(path);
+      const same = (saved: string, source: string) => saved === source || (!REMOTE_SOURCE.test(saved) && resolve(loomden, saved) === resolve(source));
       if (Array.isArray(s.packages)) {
         s.packages = s.packages.map((p) => {
           const hit = typeof p === "string" && filtered.find((f) => same(p, f.source));

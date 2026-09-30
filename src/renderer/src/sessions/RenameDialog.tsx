@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { SessionRow } from "#protocol";
+import { folderName } from "#renderer/chat/format";
 import { actions } from "#renderer/store";
 import { Button, Kbd } from "#renderer/ui/base";
 import { TextField } from "#renderer/ui/Field";
@@ -16,7 +17,7 @@ export function RenameDialog({ session, onClose }: { session: SessionRow; onClos
   return (
     <Modal
       title="Rename session"
-      aside={<span className="text-xs text-muted">{session.cwd.split("/").pop()}</span>}
+      aside={<span className="text-xs text-muted">{folderName(session.cwd)}</span>}
       onClose={onClose}
       footer={
         <>

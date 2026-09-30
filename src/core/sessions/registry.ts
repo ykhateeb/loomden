@@ -3,7 +3,7 @@ import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from "no
 import { randomUUID } from "node:crypto";
 import { promisify } from "node:util";
 import { tmpdir } from "node:os";
-import { basename, dirname, extname, join } from "node:path";
+import { basename, join } from "node:path";
 import {
   type AgentSessionRuntime,
   type CreateAgentSessionRuntimeFactory,
@@ -22,7 +22,8 @@ import { forwardEvents } from "./events";
 import { ask, cancelFor, uiContextFor } from "./extension-ui";
 import type { Entry as FileEntry } from "./summary";
 import { buildTree } from "./tree";
-import { settingsWithoutMissing } from "#core/packages";
+import { resourceName, settingsWithoutMissing } from "#core/packages";
+import { availableModels } from "#core/providers";
 import { EXPORT_PREFIX, FREE_CANVAS_DIR, NO_PROJECT_DIR } from "#core/paths";
 import loomdenCanvas from "#canvas/extension";
 import { designSystemDir, ensureGitignore, freeRoot, moveCanvases, moveDesignSystem, projectRoot } from "#canvas/store";
@@ -280,9 +281,7 @@ export function createRegistry(send: Send, modelRuntime: ModelRuntime) {
       ];
     },
 
-    models(key: string): ModelChoice[] {
-      return get(key).rt.session.modelRuntime.getAvailableSnapshot().map((m) => ({ provider: m.provider, id: m.id, name: m.name ?? m.id }));
-    },
+    models: (key: string): ModelChoice[] => availableModels(get(key).rt.session.modelRuntime),
 
     async setModel(key: string, provider: string, id: string) {
       const s = get(key).rt.session;
@@ -453,12 +452,6 @@ export function copyToFolder(from: string, dir: string, cwd: string) {
   return to;
 }
 
-/** "permission-gate" from ".../permission-gate/index.ts" or ".../permission-gate.ts". */
-export function extensionName(path: string) {
-  const file = basename(path, extname(path));
-  return file === "index" ? basename(dirname(path)) : file;
-}
-
 async function gitBranch(cwd: string) {
   try {
     // symbolic-ref works in a repo with no commits, and fails on a detached HEAD (no branch to show).
@@ -496,7 +489,7 @@ function resources(s: Session): LiveState["resources"] {
     ...loader.getAgentsFiles().agentsFiles.map((f) => ({ name: basename(f.path), kind: "file" as const })),
     ...(system ? [{ name: basename(system.path), kind: "system" as const }] : []),
     ...(skills.length ? [{ name: skills.join(" · "), kind: "skills" as const }] : []),
-    ...loader.getExtensions().extensions.filter((e) => !e.hidden).map((e) => ({ name: extensionName(e.path), kind: "extension" as const })),
+    ...loader.getExtensions().extensions.filter((e) => !e.hidden).map((e) => ({ name: resourceName("extensions", e.path), kind: "extension" as const })),
   ];
 }
 

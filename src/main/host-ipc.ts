@@ -2,10 +2,11 @@ import { copyFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, dirname, resolve } from "node:path";
 import { BrowserWindow, dialog, ipcMain, shell } from "electron";
+import { type GrantKind, packageGrant } from "#core/grants";
 import { EXPORT_PREFIX, sessionFile } from "#core/paths";
 
 /** Things only the main process can do. The agent process does not see these. */
-export function registerHostIpc(grant: (kind: "folder" | "file" | "package", path: string) => void) {
+export function registerHostIpc(grant: (kind: GrantKind, path: string) => void) {
   const parent = (e: Electron.IpcMainInvokeEvent) => BrowserWindow.fromWebContents(e.sender) ?? undefined;
 
   ipcMain.handle("host:pick-folder", async (e) => {
@@ -60,7 +61,7 @@ export function registerHostIpc(grant: (kind: "folder" | "file" | "package", pat
     const win = parent(e);
     const { response } = win ? await dialog.showMessageBox(win, options) : await dialog.showMessageBox(options);
     if (response !== 0) return false;
-    grant("package", `${action}|${typeof cwd === "string" ? cwd : ""}|${source}`);
+    grant("package", packageGrant(action, source, typeof cwd === "string" ? cwd : undefined));
     return true;
   });
 
@@ -79,7 +80,7 @@ export function registerHostIpc(grant: (kind: "folder" | "file" | "package", pat
     const win = parent(e);
     const { response } = win ? await dialog.showMessageBox(win, options) : await dialog.showMessageBox(options);
     if (response !== 0) return false;
-    grant("package", `import||${code.join(",")}`);
+    grant("package", packageGrant("import", code.join(",")));
     return true;
   });
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { DesignCanvas } from "#protocol";
+import { folderName } from "#renderer/chat/format";
 import { ago } from "#renderer/sessions/time";
 import { actions, useStore } from "#renderer/store";
 import { Button } from "#renderer/ui/base";
@@ -49,7 +50,7 @@ export function DesignPage({ cwd, canvas, tab }: { cwd: string; canvas?: string;
     <main className="flex min-h-0 min-w-0 flex-1 flex-col bg-bg" style={{ gridColumn: "2 / -1" }}>
       <div className="flex h-[58px] shrink-0 items-center gap-3 border-b border-line px-[22px]">
         <div className="flex min-w-0 flex-1 flex-col gap-px">
-          <b className="truncate text-lg font-[650]">Design · {project?.name ?? cwd.split("/").pop()}</b>
+          <b className="truncate text-lg font-[650]">Design · {project?.name ?? folderName(cwd)}</b>
           <span className="truncate text-xs text-muted"><span className="font-mono">.loomden/canvases/</span> · every canvas in the project, from any session</span>
         </div>
         <Segmented

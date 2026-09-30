@@ -1,14 +1,8 @@
 import type { SearchResult, SessionRow } from "#protocol";
-import { readEntries, visibleBranch } from "./summary";
+import { contentText, readEntries, visibleBranch } from "./summary";
 
 const MAX_SESSIONS = 40;
 const MAX_LINES = 3;
-
-function text(content: unknown): string {
-  if (typeof content === "string") return content;
-  if (!Array.isArray(content)) return "";
-  return content.map((c) => (c?.type === "text" && typeof c.text === "string" ? c.text : "")).join("\n");
-}
 
 /** The words around the first match in `s`, on one line: [before, match, after]. */
 export function snippet(s: string, query: string): [string, string, string] | undefined {
@@ -40,7 +34,7 @@ export function searchSessions(sessions: SessionRow[], query: string, titlesOnly
         for (const e of visibleBranch(readEntries(s.path))) {
           const m = e.type === "message" ? e.message : undefined;
           if (!m || (m.role !== "user" && m.role !== "assistant")) continue;
-          const hit = snippet(text(m.content), q);
+          const hit = snippet(contentText(m.content), q);
           if (!hit) continue;
           total++;
           if (lines.length < MAX_LINES) lines.push({ who: m.role === "user" ? "you" : "pi", at: m.timestamp ?? 0, parts: hit });

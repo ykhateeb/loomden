@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { UIRequest } from "#protocol";
+import { folderName } from "#renderer/chat/format";
 import { actions, useStore } from "#renderer/store";
 import { Button, Kbd } from "#renderer/ui/base";
 import { Modal } from "#renderer/ui/Modal";
@@ -14,7 +15,7 @@ export function ApprovalDialog({ request }: { request: Exclude<UIRequest, { meth
   return (
     <Modal
       title={request.title}
-      subtitle={session && `${session.title} · ${session.cwd.split("/").pop()}`}
+      subtitle={session && `${session.title} · ${folderName(session.cwd)}`}
       width={560}
       onClose={() => reply(undefined)}
       footer={

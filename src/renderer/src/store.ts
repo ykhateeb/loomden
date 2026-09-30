@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import type { Host } from "#preload";
+import { folderName } from "./chat/format";
 import type { AgentMessage, AgentOut, Command, CustomProvider, FoundModel, GalleryItem, ImportItem, ImportResult, ImportScan, InstalledPackage, LiveState, ModelChoice, ModelSettings, Project, ProviderRow, SearchResult, SessionRow, SessionTree, SlashCommand, UIRequest, DesignCanvas } from "#protocol";
 
 export type ModelsPage = { settings: ModelSettings; global: ModelSettings; providers: ProviderRow[]; models: ModelChoice[]; file: string };
@@ -75,6 +76,9 @@ export interface State {
   /** Dev: the text the ⌘K search starts with. */
   devSearch?: string;
 }
+
+/** The agent's answer to sessions.list, and to the commands that change the list. */
+type SessionList = Pick<State, "projects" | "sessions" | "noProject">;
 
 let state: State = { agent: "starting", tab: "sessions", projects: [], sessions: [], live: {}, messages: {}, dialogs: [], notices: [], searching: false, view: {}, drafts: {}, treeStamp: 0, packageWork: {}, addingProvider: false, importing: false, settingsPage: "models", canvas: {}, design: {} };
 const listeners = new Set<() => void>();
@@ -212,6 +216,11 @@ function receive(msg: AgentOut) {
 
 const report = (e: Error) => notice(e.message);
 
+/** After a switch or fork: show the chat, give back the user message pi returned, and tell tree views to fetch again. */
+function showChangedChat(key: string, editorText?: string) {
+  set((s) => ({ view: { ...s.view, [key]: "chat" }, drafts: editorText ? { ...s.drafts, [key]: editorText } : s.drafts, treeStamp: s.treeStamp + 1 }));
+}
+
 export const actions = {
   /** Board C1: read the canvases of a project folder. */
   loadDesign: (cwd: string) =>
@@ -252,7 +261,7 @@ export const actions = {
       }
       await actions.refresh();
       if (undo || !from) return;
-      const name = state.projects.find((p) => p.cwd === cwd)?.name ?? cwd.split("/").pop();
+      const name = state.projects.find((p) => p.cwd === cwd)?.name ?? folderName(cwd);
       notice(`Moved to ${name}`, "info", { label: "Undo", run: () => actions.move(moved, from, true) });
     } catch (e) {
       report(e as Error);
@@ -263,14 +272,14 @@ export const actions = {
     const cwd = await window.loomden.pickFolder();
     if (!cwd) return;
     try {
-      set(await call<Pick<State, "projects" | "sessions" | "noProject">>({ type: "project.add", cwd }));
+      set(await call<SessionList>({ type: "project.add", cwd }));
       await actions.move(key, cwd);
     } catch (e) {
       report(e as Error);
     }
   },
   refresh: () =>
-    call<Pick<State, "projects" | "sessions" | "noProject">>({ type: "sessions.list" })
+    call<SessionList>({ type: "sessions.list" })
       .then((r) => {
         set(r);
         for (const p of r.projects) actions.loadDesign(p.cwd);
@@ -306,7 +315,7 @@ export const actions = {
   navigate: async (key: string, id: string, summarize: boolean) => {
     try {
       const r = await call<{ editorText?: string; tree: SessionTree }>({ type: "session.navigate", key, id, summarize });
-      set((s) => ({ view: { ...s.view, [key]: "chat" }, drafts: r.editorText ? { ...s.drafts, [key]: r.editorText } : s.drafts, treeStamp: s.treeStamp + 1 }));
+      showChangedChat(key, r.editorText);
       return r.tree;
     } catch (e) {
       report(e as Error);
@@ -320,7 +329,7 @@ export const actions = {
     try {
       const r = await call<{ cancelled: boolean; editorText?: string }>({ type: "session.fork", key, id, at });
       if (r.cancelled) return;
-      set((s) => ({ view: { ...s.view, [key]: "chat" }, drafts: r.editorText ? { ...s.drafts, [key]: r.editorText } : s.drafts, treeStamp: s.treeStamp + 1 }));
+      showChangedChat(key, r.editorText);
       notice(at ? "Cloned into a new session" : "Forked into a new session", "info");
       await actions.refresh();
     } catch (e) {
@@ -421,7 +430,7 @@ export const actions = {
   },
   addProject: async () => {
     const cwd = await window.loomden.pickFolder();
-    if (cwd) await call<Pick<State, "projects" | "sessions" | "noProject">>({ type: "project.add", cwd }).then(set).catch(report);
+    if (cwd) await call<SessionList>({ type: "project.add", cwd }).then(set).catch(report);
   },
   /** True when pi accepted it (the run itself may still fail later, as a notice). */
   prompt: (key: string, text: string, behavior?: "steer" | "followUp", images?: string[]) =>
@@ -445,7 +454,7 @@ export const actions = {
   answer: (id: string, value: unknown) => call({ type: "ui.answer", id, value }).catch(report),
 
   rename: (path: string, name: string) =>
-    call<Pick<State, "projects" | "sessions" | "noProject">>({ type: "session.rename", path, name })
+    call<SessionList>({ type: "session.rename", path, name })
       .then((r) => (set(r), notice("Session renamed", "info")))
       .catch(report),
   clone: (cwd: string, path: string) =>
@@ -478,7 +487,7 @@ export const actions = {
   },
   showInFolder: (path: string) => window.loomden.showInFolder(path),
   removeProject: (cwd: string) =>
-    call<Pick<State, "projects" | "sessions" | "noProject">>({ type: "project.remove", cwd })
+    call<SessionList>({ type: "project.remove", cwd })
       .then(set)
       .catch(report),
 };
