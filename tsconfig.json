@@ -9,7 +9,13 @@
     "skipLibCheck": true,
     "noEmit": true,
     "isolatedModules": true,
-    "types": ["node"]
+    "types": ["node"],
+    // Copy of the wildcard "imports" in package.json: tsc does not add .ts/.tsx to those targets.
+    "paths": {
+      "#core/*": ["./src/core/*"],
+      "#renderer/*": ["./src/renderer/src/*"],
+      "#canvas/*": ["./packages/loomden-canvas/src/*"]
+    }
   },
   "include": ["src", "packages", "e2e", "electron.vite.config.ts"]
 }

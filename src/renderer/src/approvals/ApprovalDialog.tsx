@@ -1,8 +1,8 @@
 import { useState } from "react";
-import type { UIRequest } from "../../../protocol";
-import { actions, useStore } from "../store";
-import { Button, Kbd } from "../ui/base";
-import { Modal } from "../ui/Modal";
+import type { UIRequest } from "#protocol";
+import { actions, useStore } from "#renderer/store";
+import { Button, Kbd } from "#renderer/ui/base";
+import { Modal } from "#renderer/ui/Modal";
 
 /** An extension asks the user (for example permission-gate before bash). The session waits for this answer. */
 export function ApprovalDialog({ request }: { request: Exclude<UIRequest, { method: "trust" }> }) {

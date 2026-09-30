@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
-import type { ModelSettings } from "../protocol";
+import type { ModelSettings } from "#protocol";
 
 const KEYS = ["defaultProvider", "defaultModel", "defaultThinkingLevel", "enabledModels"] as const;
 

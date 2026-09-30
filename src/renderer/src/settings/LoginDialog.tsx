@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { actions, useStore } from "../store";
-import { Button, Kbd, Pill, Spinner } from "../ui/base";
-import { Icon } from "../ui/Icon";
-import { Modal, ModalIcon } from "../ui/Modal";
+import { actions, useStore } from "#renderer/store";
+import { Button, Kbd, Pill, Spinner } from "#renderer/ui/base";
+import { Icon } from "#renderer/ui/Icon";
+import { Modal, ModalIcon } from "#renderer/ui/Modal";
 
 const clock = (ms: number) => `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, "0")}`;
 

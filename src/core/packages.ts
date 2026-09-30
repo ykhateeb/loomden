@@ -1,7 +1,7 @@
 import { existsSync, realpathSync, statSync } from "node:fs";
 import { basename, dirname, extname } from "node:path";
 import { DefaultPackageManager, getAgentDir, ProjectTrustStore, type ProgressEvent, SettingsManager } from "@earendil-works/pi-coding-agent";
-import type { GalleryItem, InstalledPackage, Project } from "../protocol";
+import type { GalleryItem, InstalledPackage, Project } from "#protocol";
 
 const manager = (cwd: string) => new DefaultPackageManager({ cwd, agentDir: getAgentDir(), settingsManager: SettingsManager.create(cwd, getAgentDir()) });
 

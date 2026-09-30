@@ -1,19 +1,19 @@
 // The agent process (Electron utilityProcess). pi and every extension run here, never in the window's process.
 import { initTheme, ModelRuntime } from "@earendil-works/pi-coding-agent";
-import { searchFiles } from "../core/attachments";
-import { assertGranted, grant, packageGrant } from "../core/grants";
-import { codeItems, runImport, scanImport } from "../core/import";
-import { changePackage, listPackages, searchGallery, setTrust, trustList } from "../core/packages";
-import { addCustomProvider, availableModels, cancelLogin, findModels, listProviders, login } from "../core/providers";
-import { readModelSettings, settingsFile, writeModelSettings } from "../core/settings";
-import { designList, designOpen } from "../core/design";
-import { addProject, assertProject, listSessions, removeProject } from "../core/projects";
+import { searchFiles } from "#core/attachments";
+import { assertGranted, grant, packageGrant } from "#core/grants";
+import { codeItems, runImport, scanImport } from "#core/import";
+import { changePackage, listPackages, searchGallery, setTrust, trustList } from "#core/packages";
+import { addCustomProvider, availableModels, cancelLogin, findModels, listProviders, login } from "#core/providers";
+import { readModelSettings, settingsFile, writeModelSettings } from "#core/settings";
+import { designList, designOpen } from "#core/design";
+import { addProject, assertProject, listSessions, removeProject } from "#core/projects";
 import { mkdirSync } from "node:fs";
-import { NO_PROJECT_DIR, SHARED_AUTH_PATH, sessionFile } from "../core/paths";
-import { answer, resendPending } from "../core/sessions/extension-ui";
-import { createRegistry } from "../core/sessions/registry";
-import { searchSessions } from "../core/sessions/search";
-import type { AgentOut, Command, ImportItem, Request } from "../protocol";
+import { NO_PROJECT_DIR, SHARED_AUTH_PATH, sessionFile } from "#core/paths";
+import { answer, resendPending } from "#core/sessions/extension-ui";
+import { createRegistry } from "#core/sessions/registry";
+import { searchSessions } from "#core/sessions/search";
+import type { AgentOut, Command, ImportItem, Request } from "#protocol";
 
 type Port = Electron.MessagePortMain;
 const ports = new Set<Port>();

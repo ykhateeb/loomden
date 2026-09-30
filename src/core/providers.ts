@@ -1,7 +1,7 @@
 import { chmodSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { getAgentDir, type ModelRuntime } from "@earendil-works/pi-coding-agent";
-import type { CustomProvider, FoundModel, ModelChoice, ProviderRow, Send } from "../protocol";
+import type { CustomProvider, FoundModel, ModelChoice, ProviderRow, Send } from "#protocol";
 import { ask } from "./sessions/extension-ui";
 
 /** Board 5's table: every provider pi knows, with how it is connected. */

@@ -1,4 +1,4 @@
-import type { SearchResult, SessionRow } from "../../protocol";
+import type { SearchResult, SessionRow } from "#protocol";
 import { readEntries, visibleBranch } from "./summary";
 
 const MAX_SESSIONS = 40;

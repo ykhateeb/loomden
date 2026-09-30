@@ -1,5 +1,5 @@
 import type { AgentSessionEvent } from "@earendil-works/pi-coding-agent";
-import type { Send } from "../../protocol";
+import type { Send } from "#protocol";
 
 const UPDATE_MS = 50;
 

@@ -1,4 +1,4 @@
-import type { BranchCard, SessionTree } from "../../protocol";
+import type { BranchCard, SessionTree } from "#protocol";
 import { type Entry, isContent, isRow, labelsOf, type Node, rowsFor, structure } from "./summary";
 
 function text(content: unknown): string {

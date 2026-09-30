@@ -2,9 +2,9 @@
 import { existsSync, readdirSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { startServer, type CanvasServer } from "../../packages/loomden-canvas/src/server";
-import { designSystemDir, listCanvases, projectRoot, readCanvas, readHistory } from "../../packages/loomden-canvas/src/store";
-import type { DesignCanvas } from "../protocol";
+import { startServer, type CanvasServer } from "#canvas/server";
+import { designSystemDir, listCanvases, projectRoot, readCanvas, readHistory } from "#canvas/store";
+import type { DesignCanvas } from "#protocol";
 
 export async function designList(cwd: string): Promise<{ canvases: DesignCanvas[]; system?: string }> {
   const root = projectRoot(cwd);

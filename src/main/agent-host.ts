@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { type BrowserWindow, MessageChannelMain, type UtilityProcess, utilityProcess } from "electron";
-import { LOOMDEN_AGENT_DIR, FREE_CANVAS_DIR, NO_PROJECT_DIR } from "../core/paths";
+import { LOOMDEN_AGENT_DIR, FREE_CANVAS_DIR, NO_PROJECT_DIR } from "#core/paths";
 
 /** Starts the agent process and connects it to the window with a direct port. Main does not relay tokens. */
 export function startAgent(win: BrowserWindow, env: NodeJS.ProcessEnv) {

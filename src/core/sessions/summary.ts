@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { migrateSessionEntries, parseSessionEntries } from "@earendil-works/pi-coding-agent";
-import type { PreviewRow } from "../../protocol";
+import type { PreviewRow } from "#protocol";
 
 /** One line of a session file. Only the fields Loomden reads. */
 export type Entry = {

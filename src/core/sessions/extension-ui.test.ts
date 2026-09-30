@@ -1,5 +1,5 @@
 import { expect, test, vi } from "vitest";
-import type { AgentOut } from "../../protocol";
+import type { AgentOut } from "#protocol";
 import { answer, resendPending, uiContextFor } from "./extension-ui";
 
 function setup() {

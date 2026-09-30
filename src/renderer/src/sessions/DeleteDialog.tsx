@@ -1,8 +1,8 @@
-import type { SessionRow } from "../../../protocol";
-import { actions } from "../store";
-import { Button, Kbd } from "../ui/base";
-import { Icon } from "../ui/Icon";
-import { Modal, ModalIcon } from "../ui/Modal";
+import type { SessionRow } from "#protocol";
+import { actions } from "#renderer/store";
+import { Button, Kbd } from "#renderer/ui/base";
+import { Icon } from "#renderer/ui/Icon";
+import { Modal, ModalIcon } from "#renderer/ui/Modal";
 import { ago } from "./time";
 
 /** Board 2e: the session file goes to the Trash. */

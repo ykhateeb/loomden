@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
-import type { Project, SessionRow } from "../protocol";
+import type { Project, SessionRow } from "#protocol";
 import { assertGranted } from "./grants";
 import { readEntries, summarize } from "./sessions/summary";
 import { NO_PROJECT_DIR, LOOMDEN_DIR } from "./paths";

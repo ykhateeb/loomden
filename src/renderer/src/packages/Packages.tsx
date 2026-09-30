@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import type { GalleryItem, InstalledPackage } from "../../../protocol";
-import { ago } from "../sessions/time";
-import { actions, useStore } from "../store";
-import { Button, Chip, cx, Kbd, Label, LinkButton, pill, Pill, type PillTone, Spinner } from "../ui/base";
-import { Segmented } from "../ui/controls";
-import { SearchInput } from "../ui/Field";
-import { Icon } from "../ui/Icon";
-import { Menu, type MenuItem } from "../ui/Menu";
-import { Callout, Card, CardBody, CardHeader, ListItem } from "../ui/surfaces";
+import type { GalleryItem, InstalledPackage } from "#protocol";
+import { ago } from "#renderer/sessions/time";
+import { actions, useStore } from "#renderer/store";
+import { Button, Chip, cx, Kbd, Label, LinkButton, pill, Pill, type PillTone, Spinner } from "#renderer/ui/base";
+import { Segmented } from "#renderer/ui/controls";
+import { SearchInput } from "#renderer/ui/Field";
+import { Icon } from "#renderer/ui/Icon";
+import { Menu, type MenuItem } from "#renderer/ui/Menu";
+import { Callout, Card, CardBody, CardHeader, ListItem } from "#renderer/ui/surfaces";
 
 type Show = "all" | "global" | "projects";
 const galleryTones: Record<GalleryItem["kind"], PillTone> = { skills: "violet", extension: "orange", theme: "accent", prompts: "ok" };

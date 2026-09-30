@@ -1,11 +1,11 @@
 import { useState } from "react";
-import type { FoundModel } from "../../../protocol";
-import { actions } from "../store";
-import { Button, Kbd, Spinner } from "../ui/base";
-import { Checkbox, Segmented } from "../ui/controls";
-import { TextField } from "../ui/Field";
-import { Icon } from "../ui/Icon";
-import { Modal, ModalIcon } from "../ui/Modal";
+import type { FoundModel } from "#protocol";
+import { actions } from "#renderer/store";
+import { Button, Kbd, Spinner } from "#renderer/ui/base";
+import { Checkbox, Segmented } from "#renderer/ui/controls";
+import { TextField } from "#renderer/ui/Field";
+import { Icon } from "#renderer/ui/Icon";
+import { Modal, ModalIcon } from "#renderer/ui/Modal";
 
 const APIS = ["openai-completions", "openai-responses", "anthropic-messages"];
 const k = (n: number) => (n >= 1000 ? `${Math.round(n / 1000)}k` : String(n));

@@ -1,7 +1,7 @@
 import { chmodSync, copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { DefaultPackageManager, getAgentDir, type ProgressEvent, ProjectTrustStore, SettingsManager } from "@earendil-works/pi-coding-agent";
-import type { ImportItem, ImportResult, ImportScan } from "../protocol";
+import type { ImportItem, ImportResult, ImportScan } from "#protocol";
 import { PI_AGENT_DIR } from "./paths";
 import { readModelsFile } from "./providers";
 import { writeModelSettings } from "./settings";

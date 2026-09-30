@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Button, Kbd } from "../ui/base";
-import { TextField } from "../ui/Field";
-import { Icon } from "../ui/Icon";
-import { Modal, ModalIcon } from "../ui/Modal";
+import { Button, Kbd } from "#renderer/ui/base";
+import { TextField } from "#renderer/ui/Field";
+import { Icon } from "#renderer/ui/Icon";
+import { Modal, ModalIcon } from "#renderer/ui/Modal";
 
 /** Board 3a: L on a point in the tree. */
 export function LabelDialog({ point, current, others, onSave, onClose }: {

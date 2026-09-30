@@ -66,3 +66,7 @@ The window shows model output, so the agent treats every window command as untru
 - Comments like "board 2c" or "board C12" refer to numbered design boards of the product spec. That spec is not in this repo.
 - Write comments and commit messages in short, plain English. Feature commit subjects name the step and boards (for example, "(step 9, board C12)"), and bullet lists follow.
 - A `ponytail:` comment marks a deliberate simplification and states its limit.
+- Imports: use `./x` in the same folder. For any other folder, use a `#` alias from the `"imports"` field of `package.json` (`#protocol`, `#preload`, `#core/*`, `#renderer/*`, `#canvas/*`). Do not use `../`.
+  - `tsconfig.json` `paths` repeats the wildcard aliases, because `tsc` does not add `.ts`/`.tsx` to them. If you add an alias, change both files.
+  - Import each file directly. The folders have no `index.ts` barrel files.
+  - Code in `packages/loomden-canvas/` does not use the aliases. Terminal pi loads it without this app.

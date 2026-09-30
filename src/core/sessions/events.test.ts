@@ -1,6 +1,6 @@
 import type { AgentSessionEvent } from "@earendil-works/pi-coding-agent";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import type { AgentOut } from "../../protocol";
+import type { AgentOut } from "#protocol";
 import { forwardEvents } from "./events";
 
 beforeEach(() => vi.useFakeTimers());

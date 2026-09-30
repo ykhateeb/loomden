@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import type { SearchResult } from "../../../protocol";
-import { actions, useStore } from "../store";
-import { cx, Kbd, pill, Spinner } from "../ui/base";
-import { Segmented } from "../ui/controls";
-import { Icon } from "../ui/Icon";
+import type { SearchResult } from "#protocol";
+import { actions, useStore } from "#renderer/store";
+import { cx, Kbd, pill, Spinner } from "#renderer/ui/base";
+import { Segmented } from "#renderer/ui/controls";
+import { Icon } from "#renderer/ui/Icon";
 import { ago } from "./time";
 
 /** Board 1a: ⌘K. Results show the matched text; ↵ opens the session at the match, which stays marked in the chat. */

@@ -2,7 +2,7 @@ import { copyFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, dirname, resolve } from "node:path";
 import { BrowserWindow, dialog, ipcMain, shell } from "electron";
-import { EXPORT_PREFIX, sessionFile } from "../core/paths";
+import { EXPORT_PREFIX, sessionFile } from "#core/paths";
 
 /** Things only the main process can do. The agent process does not see these. */
 export function registerHostIpc(grant: (kind: "folder" | "file" | "package", path: string) => void) {

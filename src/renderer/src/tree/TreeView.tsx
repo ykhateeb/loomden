@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import type { BranchCard, LiveState, PreviewRow, SessionTree } from "../../../protocol";
-import { time } from "../chat/format";
-import { actions, useStore } from "../store";
-import { Button, cx, Kbd, Pill, Spinner } from "../ui/base";
-import { Checkbox, Segmented } from "../ui/controls";
-import { Icon } from "../ui/Icon";
+import type { BranchCard, LiveState, PreviewRow, SessionTree } from "#protocol";
+import { time } from "#renderer/chat/format";
+import { actions, useStore } from "#renderer/store";
+import { Button, cx, Kbd, Pill, Spinner } from "#renderer/ui/base";
+import { Checkbox, Segmented } from "#renderer/ui/controls";
+import { Icon } from "#renderer/ui/Icon";
 import { LabelDialog } from "./LabelDialog";
 
 type Filter = "all" | "mine" | "labeled" | "notools";

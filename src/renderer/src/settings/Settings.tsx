@@ -1,7 +1,7 @@
-import { actions, useStore } from "../store";
-import { Label } from "../ui/base";
-import { Icon, type IconName } from "../ui/Icon";
-import { ListItem } from "../ui/surfaces";
+import { actions, useStore } from "#renderer/store";
+import { Label } from "#renderer/ui/base";
+import { Icon, type IconName } from "#renderer/ui/Icon";
+import { ListItem } from "#renderer/ui/surfaces";
 import { ModelsPage } from "./ModelsPage";
 import { TrustPage } from "./TrustPage";
 

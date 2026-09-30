@@ -16,16 +16,16 @@ import {
   ProjectTrustStore,
   SessionManager,
 } from "@earendil-works/pi-coding-agent";
-import type { AgentMessage, LiveState, ModelChoice, Send, SlashCommand, TrustAnswer } from "../../protocol";
-import { readImage } from "../attachments";
+import type { AgentMessage, LiveState, ModelChoice, Send, SlashCommand, TrustAnswer } from "#protocol";
+import { readImage } from "#core/attachments";
 import { forwardEvents } from "./events";
 import { ask, cancelFor, uiContextFor } from "./extension-ui";
 import type { Entry as FileEntry } from "./summary";
 import { buildTree } from "./tree";
-import { settingsWithoutMissing } from "../packages";
-import { EXPORT_PREFIX, FREE_CANVAS_DIR, NO_PROJECT_DIR } from "../paths";
-import loomdenCanvas from "../../../packages/loomden-canvas/src/extension";
-import { designSystemDir, ensureGitignore, freeRoot, moveCanvases, moveDesignSystem, projectRoot } from "../../../packages/loomden-canvas/src/store";
+import { settingsWithoutMissing } from "#core/packages";
+import { EXPORT_PREFIX, FREE_CANVAS_DIR, NO_PROJECT_DIR } from "#core/paths";
+import loomdenCanvas from "#canvas/extension";
+import { designSystemDir, ensureGitignore, freeRoot, moveCanvases, moveDesignSystem, projectRoot } from "#canvas/store";
 
 type ThinkingLevel = AgentSessionRuntime["session"]["thinkingLevel"];
 

@@ -1,9 +1,9 @@
 import { useEffect, useId, useRef, useState } from "react";
-import type { LiveState, ModelChoice, SlashCommand } from "../../../protocol";
-import { actions, useStore } from "../store";
-import { Button, cx, IconButton, Kbd, pill, Pill } from "../ui/base";
-import { Icon } from "../ui/Icon";
-import { Menu, type MenuItem } from "../ui/Menu";
+import type { LiveState, ModelChoice, SlashCommand } from "#protocol";
+import { actions, useStore } from "#renderer/store";
+import { Button, cx, IconButton, Kbd, pill, Pill } from "#renderer/ui/base";
+import { Icon } from "#renderer/ui/Icon";
+import { Menu, type MenuItem } from "#renderer/ui/Menu";
 import { CommandMenu, type Row } from "./CommandMenu";
 import { applyPick, findTrigger } from "./format";
 

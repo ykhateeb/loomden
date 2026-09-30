@@ -3,6 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "imports": {
+    "#protocol": "./src/protocol.ts",
+    "#preload": "./src/preload/index.ts",
+    "#core/*": "./src/core/*",
+    "#renderer/*": "./src/renderer/src/*",
+    "#canvas/*": "./packages/loomden-canvas/src/*"
+  },
   "main": "out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",

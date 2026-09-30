@@ -1,9 +1,9 @@
-import type { TrustAnswer, UIRequest } from "../../../protocol";
-import { actions } from "../store";
-import { Button, Kbd } from "../ui/base";
-import { Icon } from "../ui/Icon";
-import { Modal, ModalIcon } from "../ui/Modal";
-import { Callout } from "../ui/surfaces";
+import type { TrustAnswer, UIRequest } from "#protocol";
+import { actions } from "#renderer/store";
+import { Button, Kbd } from "#renderer/ui/base";
+import { Icon } from "#renderer/ui/Icon";
+import { Modal, ModalIcon } from "#renderer/ui/Modal";
+import { Callout } from "#renderer/ui/surfaces";
 
 /** Board 1 (tweak): a project folder with its own .pi files asks before they load. */
 export function TrustDialog({ request }: { request: Extract<UIRequest, { method: "trust" }> }) {

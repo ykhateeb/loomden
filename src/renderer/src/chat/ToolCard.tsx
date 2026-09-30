@@ -1,7 +1,7 @@
 import { useState } from "react";
-import type { AgentMessage } from "../../../protocol";
-import { cx, Pill, Spinner } from "../ui/base";
-import { Icon } from "../ui/Icon";
+import type { AgentMessage } from "#protocol";
+import { cx, Pill, Spinner } from "#renderer/ui/base";
+import { Icon } from "#renderer/ui/Icon";
 import { diffCounts, parseDiff } from "./format";
 
 type Assistant = Extract<AgentMessage, { role: "assistant" }>;

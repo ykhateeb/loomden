@@ -1,9 +1,9 @@
 import { type ReactNode, useState } from "react";
-import type { DesignCanvas, LiveState, SessionRow } from "../../../protocol";
-import { actions, useStore } from "../store";
-import { Dot, IconButton, Kbd, Label, Spinner } from "../ui/base";
-import { Icon } from "../ui/Icon";
-import { ListItem } from "../ui/surfaces";
+import type { DesignCanvas, LiveState, SessionRow } from "#protocol";
+import { actions, useStore } from "#renderer/store";
+import { Dot, IconButton, Kbd, Label, Spinner } from "#renderer/ui/base";
+import { Icon } from "#renderer/ui/Icon";
+import { ListItem } from "#renderer/ui/surfaces";
 import { useSessionMenus } from "./menus";
 import { ago } from "./time";
 

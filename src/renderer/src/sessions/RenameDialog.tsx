@@ -1,9 +1,9 @@
 import { useState } from "react";
-import type { SessionRow } from "../../../protocol";
-import { actions } from "../store";
-import { Button, Kbd } from "../ui/base";
-import { TextField } from "../ui/Field";
-import { Modal } from "../ui/Modal";
+import type { SessionRow } from "#protocol";
+import { actions } from "#renderer/store";
+import { Button, Kbd } from "#renderer/ui/base";
+import { TextField } from "#renderer/ui/Field";
+import { Modal } from "#renderer/ui/Modal";
 
 /** Board 2d: right-click › Rename…, or R. */
 export function RenameDialog({ session, onClose }: { session: SessionRow; onClose: () => void }) {

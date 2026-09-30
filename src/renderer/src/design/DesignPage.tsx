@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import type { DesignCanvas } from "../../../protocol";
-import { ago } from "../sessions/time";
-import { actions, useStore } from "../store";
-import { Button } from "../ui/base";
-import { Icon } from "../ui/Icon";
-import { Segmented } from "../ui/controls";
+import type { DesignCanvas } from "#protocol";
+import { ago } from "#renderer/sessions/time";
+import { actions, useStore } from "#renderer/store";
+import { Button } from "#renderer/ui/base";
+import { Icon } from "#renderer/ui/Icon";
+import { Segmented } from "#renderer/ui/controls";
 
 const STATUS = {
   draft: { label: "draft", cls: "bg-raised text-sub" },

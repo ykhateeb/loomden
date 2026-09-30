@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import type { LiveState, SessionTree } from "../../../protocol";
-import { actions, useStore } from "../store";
-import { cx, LinkButton, Pill, type PillTone, Spinner } from "../ui/base";
-import { Switch } from "../ui/controls";
-import { Icon, type IconName } from "../ui/Icon";
-import { Card, CardBody, CardHeader } from "../ui/surfaces";
+import type { LiveState, SessionTree } from "#protocol";
+import { actions, useStore } from "#renderer/store";
+import { cx, LinkButton, Pill, type PillTone, Spinner } from "#renderer/ui/base";
+import { Switch } from "#renderer/ui/controls";
+import { Icon, type IconName } from "#renderer/ui/Icon";
+import { Card, CardBody, CardHeader } from "#renderer/ui/surfaces";
 
 const k = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n));
 const kinds: Record<LiveState["resources"][number]["kind"], { icon: IconName; tone: PillTone; label: string }> = {

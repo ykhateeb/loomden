@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import type { ImportItem, ImportResult, ImportScan } from "../../../protocol";
-import { actions, useStore } from "../store";
-import { Button, cx, Kbd, Spinner } from "../ui/base";
-import { Checkbox } from "../ui/controls";
-import { Icon } from "../ui/Icon";
-import { Modal, ModalIcon } from "../ui/Modal";
+import type { ImportItem, ImportResult, ImportScan } from "#protocol";
+import { actions, useStore } from "#renderer/store";
+import { Button, cx, Kbd, Spinner } from "#renderer/ui/base";
+import { Checkbox } from "#renderer/ui/controls";
+import { Icon } from "#renderer/ui/Icon";
+import { Modal, ModalIcon } from "#renderer/ui/Modal";
 
 const SEEN = "loomden.importOffered";
 

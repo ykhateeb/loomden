@@ -1,6 +1,6 @@
-import type { SlashCommand } from "../../../protocol";
-import { cx, pill, type PillTone } from "../ui/base";
-import { Icon } from "../ui/Icon";
+import type { SlashCommand } from "#protocol";
+import { cx, pill, type PillTone } from "#renderer/ui/base";
+import { Icon } from "#renderer/ui/Icon";
 
 export type Row = { value: string; label: string; description?: string; source?: SlashCommand["source"] };
 

@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import type { ModelChoice, ProviderRow } from "../../../protocol";
-import { ago } from "../sessions/time";
-import { actions, useStore } from "../store";
-import { Button, cx, Dot, IconButton, Kbd, LinkButton, pill, Pill } from "../ui/base";
-import { Segmented } from "../ui/controls";
-import { Icon } from "../ui/Icon";
-import { Menu, type MenuItem } from "../ui/Menu";
-import { Bar, Card, CardBody, CardHeader, ListItem, Table, Td, Th, Tr } from "../ui/surfaces";
+import type { ModelChoice, ProviderRow } from "#protocol";
+import { ago } from "#renderer/sessions/time";
+import { actions, useStore } from "#renderer/store";
+import { Button, cx, Dot, IconButton, Kbd, LinkButton, pill, Pill } from "#renderer/ui/base";
+import { Segmented } from "#renderer/ui/controls";
+import { Icon } from "#renderer/ui/Icon";
+import { Menu, type MenuItem } from "#renderer/ui/Menu";
+import { Bar, Card, CardBody, CardHeader, ListItem, Table, Td, Th, Tr } from "#renderer/ui/surfaces";
 
 const MAIN = ["anthropic", "openai", "google", "openrouter"];
 const LEVELS = ["off", "low", "medium", "high"];

@@ -2,7 +2,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vitest";
-import type { SessionRow } from "../../protocol";
+import type { SessionRow } from "#protocol";
 import { searchSessions, snippet } from "./search";
 
 test("snippet: words around the match, marked", () => {

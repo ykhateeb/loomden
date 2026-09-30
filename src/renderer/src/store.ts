@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
-import type { Host } from "../../preload";
-import type { AgentMessage, AgentOut, Command, CustomProvider, FoundModel, GalleryItem, ImportItem, ImportResult, ImportScan, InstalledPackage, LiveState, ModelChoice, ModelSettings, Project, ProviderRow, SearchResult, SessionRow, SessionTree, SlashCommand, UIRequest, DesignCanvas } from "../../protocol";
+import type { Host } from "#preload";
+import type { AgentMessage, AgentOut, Command, CustomProvider, FoundModel, GalleryItem, ImportItem, ImportResult, ImportScan, InstalledPackage, LiveState, ModelChoice, ModelSettings, Project, ProviderRow, SearchResult, SessionRow, SessionTree, SlashCommand, UIRequest, DesignCanvas } from "#protocol";
 
 export type ModelsPage = { settings: ModelSettings; global: ModelSettings; providers: ProviderRow[]; models: ModelChoice[]; file: string };
 export type Login = { providerId: string; method: "api_key" | "oauth"; startedAt: number; url?: string; code?: { userCode: string; verificationUri: string }; message?: string };
