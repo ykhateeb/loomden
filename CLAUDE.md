@@ -1,0 +1,61 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+Tau is an Electron desktop app for pi (`@earendil-works/pi-coding-agent`), a coding agent. It is built with electron-vite, React 19, and Tailwind 4.
+
+## Commands
+
+- `npm run dev`: start the app with hot reload.
+- `npm run typecheck`: run `tsc` on `src/`, `packages/`, and `e2e/`. No lint tool exists.
+- `npm test`: run all Vitest unit tests (`*.test.ts` in `src/` and `packages/`).
+  - One file: `npx vitest run src/core/sessions/tree.test.ts`. One test: add `-t "<name>"`.
+- `npm run test:e2e`: run the Playwright tests (`e2e/*.e2e.ts`, `packages/*/e2e/*.e2e.ts`).
+  - `e2e/tau.e2e.ts` launches the built app. Run `npm run build` before it.
+  - `packages/tau-canvas/e2e/` starts the canvas server in Chromium and needs no build.
+- `npm run dist`: build and package the app with electron-builder.
+
+## Dev environment variables
+
+- `TAU_DIR` (default `~/.tau`) and `TAU_PI_DIR` (default `~/.pi/agent`): set both to a temp folder to keep a test run away from real data. The e2e tests do this.
+- `TAU_OPEN=latest|<part of a title>`, `TAU_VIEW=tree`, `TAU_SEARCH=<text>`, `TAU_TAB`, `TAU_DIALOG`: open the app on a given view with no clicks (`src/main/index.ts`).
+- `npm run gallery` (`TAU_GALLERY=1`): show the UI design system page (`src/renderer/src/ui/Gallery.tsx`).
+- `TAU_NO_OPEN=1`: the canvas extension does not open a browser.
+
+## Architecture
+
+The app has three processes:
+
+1. **Main** (`src/main/`): owns the window, native dialogs, and the host IPC (`host-ipc.ts`). It forks the agent process and gives the window a direct `MessagePort` to it (`agent-host.ts`). Main does not relay agent traffic.
+2. **Agent** (`src/agent/index.ts`, an Electron `utilityProcess`): pi and all pi extensions run here, never in the window. `handle()` is the one dispatcher for window commands. The logic lives in `src/core/`, and `src/core/sessions/registry.ts` holds the open pi sessions.
+3. **Renderer** (`src/renderer/src/`): React UI. `store.ts` is one global store (`useSyncExternalStore`) that sends commands and applies agent messages.
+
+`src/protocol.ts` is the single source of truth for the window-to-agent contract: `Command` (window to agent, answered with a `reply` by `rid`) and `AgentOut` (agent to window). To add a feature, add a `Command` variant, a case in `handle()`, and a call in the renderer store.
+
+### Trust model
+
+The window shows model output, so the agent treats every window command as untrusted.
+
+- A folder becomes a project, and a file becomes readable, only if the user picked or dropped it. Main sees the pick and sends a grant to the agent on its own channel (`src/core/grants.ts`). The agent checks with `assertProject` / `assertGranted`.
+- A package install or update needs a confirmation in main's own dialog. The grant is for one use.
+- Session paths from the window go through `sessionFile()` (`src/core/paths.ts`).
+- The preload is sandboxed and must be CommonJS.
+
+### Data locations
+
+- Tau keeps its own pi agent folder at `~/.tau/agent`. Main sets `PI_CODING_AGENT_DIR` to it.
+- Tau shares only `auth.json` with terminal pi. The import feature copies other items from `~/.pi/agent`.
+
+### tau-canvas package
+
+`packages/tau-canvas/` is a pi package: a design canvas extension (`src/extension.ts`) and the `tau-design` skill. It also works in terminal pi. Tau loads it from source through `extensionFactories` and `additionalSkillPaths` in `registry.ts`, and the host also imports helpers from its `store.ts`.
+
+- Canvases live in `<project>/.tau/canvases/<slug>/`. A session with no project keeps them in `~/.tau/sessions/<id>/canvases`.
+- The extension reads `TAU_APP`, `TAU_NO_PROJECT`, and `TAU_FREE_DIR` to know that it runs inside Tau.
+- pi loads extensions at runtime with jiti. Thus the main build does not bundle dependencies, and electron-builder unpacks `@earendil-works` from the asar.
+
+## Conventions
+
+- Comments like "board 2c" or "board C12" refer to numbered design boards of the product spec. That spec is not in this repo.
+- Write comments and commit messages in short, plain English. Commit subjects name the step and boards (for example, "(step 9, board C12)"), and bullet lists follow.
+- A `ponytail:` comment marks a deliberate simplification and states its limit.
