@@ -12,14 +12,16 @@ Tau is an Electron desktop app for pi (`@earendil-works/pi-coding-agent`), a cod
   - One file: `npx vitest run src/core/sessions/tree.test.ts`. One test: add `-t "<name>"`.
 - `npm run test:e2e`: run the Playwright tests (`e2e/*.e2e.ts`, `packages/*/e2e/*.e2e.ts`).
   - `e2e/tau.e2e.ts` launches the built app. Run `npm run build` before it.
-  - `packages/tau-canvas/e2e/` starts the canvas server in Chromium and needs no build.
+  - `packages/tau-canvas/e2e/` runs the canvas server in the test process and drives it with Chromium. It needs no build.
 - `npm run dist`: build and package the app with electron-builder.
 
 ## Dev environment variables
 
 - `TAU_DIR` (default `~/.tau`) and `TAU_PI_DIR` (default `~/.pi/agent`): set both to a temp folder to keep a test run away from real data. The e2e tests do this.
-- `TAU_OPEN=latest|<part of a title>`, `TAU_VIEW=tree`, `TAU_SEARCH=<text>`, `TAU_TAB`, `TAU_DIALOG`: open the app on a given view with no clicks (`src/main/index.ts`).
-- `npm run gallery` (`TAU_GALLERY=1`): show the UI design system page (`src/renderer/src/ui/Gallery.tsx`).
+- Open the app on a given view with no clicks. Main puts these in the URL hash, and `src/renderer/src/store.ts` reads them:
+  - `TAU_OPEN=latest|<part of a title>` opens a session. Add `TAU_VIEW=tree` to show its tree.
+  - `TAU_SEARCH=<text>`, `TAU_TAB=sessions|packages|settings`, `TAU_DIALOG=provider|import`.
+- `npm run gallery` (`TAU_GALLERY=1`): show the UI design system page (`src/renderer/src/ui/Gallery.tsx`). `TAU_GALLERY=open` also opens its menu and dialog.
 - `TAU_NO_OPEN=1`: the canvas extension does not open a browser.
 
 ## Architecture
@@ -34,28 +36,33 @@ The app has three processes:
 
 ### Trust model
 
-The window shows model output, so the agent treats every window command as untrusted.
+The window shows model output, so the agent treats every window command as untrusted. When you add a `Command`, guard each value from the window:
 
-- A folder becomes a project, and a file becomes readable, only if the user picked or dropped it. Main sees the pick and sends a grant to the agent on its own channel (`src/core/grants.ts`). The agent checks with `assertProject` / `assertGranted`.
-- A package install or update needs a confirmation in main's own dialog. The grant is for one use.
-- Session paths from the window go through `sessionFile()` (`src/core/paths.ts`).
-- The preload is sandboxed and must be CommonJS.
+- A `cwd`: `assertProject` (`src/core/projects.ts`). A folder becomes a project only through main's folder picker.
+- A session path: `sessionFile()` (`src/core/paths.ts`).
+- A file path: `assertGranted("file", …)` (`src/core/grants.ts`). Main grants a file that the user picked or dropped, on its own channel to the agent.
+- A package install or update: `assertGranted("package", packageGrant(…))`. The user confirms in main's own dialog, and the grant is for one use.
 
 ### Data locations
 
 - Tau keeps its own pi agent folder at `~/.tau/agent`. Main sets `PI_CODING_AGENT_DIR` to it.
 - Tau shares only `auth.json` with terminal pi. The import feature copies other items from `~/.pi/agent`.
+- `src/core/paths.ts` reads `TAU_DIR` and `TAU_PI_DIR` when a module imports it. A test that touches these folders sets `process.env` first and then uses `await import(…)`. A static import uses the real `~/.tau`.
 
 ### tau-canvas package
 
-`packages/tau-canvas/` is a pi package: a design canvas extension (`src/extension.ts`) and the `tau-design` skill. It also works in terminal pi. Tau loads it from source through `extensionFactories` and `additionalSkillPaths` in `registry.ts`, and the host also imports helpers from its `store.ts`.
+`packages/tau-canvas/` is a pi package: a design canvas extension (`src/extension.ts`) and the `tau-design` skill. It also works in terminal pi, which loads it with jiti.
+
+- Tau imports the extension in `registry.ts` (`extensionFactories`), so it is bundled into `out/main/agent.js`. Rebuild before the app e2e test sees an extension change.
+- Tau reads only `skills/` from disk, at a path relative to `out/main/`. If you move the skills folder, change `registry.ts` and `electron-builder.yml` too.
+- The host also imports `store.ts` and `server.ts` from the package (`registry.ts`, `src/core/design.ts`).
 
 - Canvases live in `<project>/.tau/canvases/<slug>/`. A session with no project keeps them in `~/.tau/sessions/<id>/canvases`.
 - The extension reads `TAU_APP`, `TAU_NO_PROJECT`, and `TAU_FREE_DIR` to know that it runs inside Tau.
-- pi loads extensions at runtime with jiti. Thus the main build does not bundle dependencies, and electron-builder unpacks `@earendil-works` from the asar.
+- pi loads user and third-party extensions at runtime with jiti. Thus the main build does not bundle dependencies, and electron-builder unpacks `@earendil-works` from the asar.
 
 ## Conventions
 
 - Comments like "board 2c" or "board C12" refer to numbered design boards of the product spec. That spec is not in this repo.
-- Write comments and commit messages in short, plain English. Commit subjects name the step and boards (for example, "(step 9, board C12)"), and bullet lists follow.
+- Write comments and commit messages in short, plain English. Feature commit subjects name the step and boards (for example, "(step 9, board C12)"), and bullet lists follow.
 - A `ponytail:` comment marks a deliberate simplification and states its limit.
