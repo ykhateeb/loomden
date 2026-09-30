@@ -1,125 +1,38 @@
 import { execFile } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, rmSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { promisify } from "node:util";
 import { tmpdir } from "node:os";
-import { basename, join } from "node:path";
-import {
-  type AgentSessionRuntime,
-  type CreateAgentSessionRuntimeFactory,
-  createAgentSessionFromServices,
-  createAgentSessionRuntime,
-  createAgentSessionServices,
-  getAgentDir,
-  hasTrustRequiringProjectResources,
-  type ModelRuntime,
-  ProjectTrustStore,
-  SessionManager,
-} from "@earendil-works/pi-coding-agent";
-import type { AgentMessage, LiveState, ModelChoice, Send, SlashCommand, TrustAnswer } from "#protocol";
+import { join } from "node:path";
+import { type ModelRuntime, SessionManager } from "@earendil-works/pi-coding-agent";
+import type { AgentMessage, ModelChoice, Send, SlashCommand } from "#protocol";
 import { readImage } from "#core/attachments";
 import { forwardEvents } from "./events";
-import { ask, cancelFor, uiContextFor } from "./extension-ui";
+import { liveState, type OpenSession, type Session } from "./live-state";
+import { copyToFolder, moveFreeCanvases } from "./move";
+import { cancelFor, uiContextFor } from "./extension-ui";
+import { createRuntimes } from "./runtime";
 import type { Entry as FileEntry } from "./summary";
 import { buildTree } from "./tree";
-import { resourceName, settingsWithoutMissing } from "#core/packages";
 import { availableModels } from "#core/providers";
-import { EXPORT_PREFIX, FREE_CANVAS_DIR, NO_PROJECT_DIR } from "#core/paths";
-import loomdenCanvas from "#canvas/extension";
-import { designSystemDir, ensureGitignore, freeRoot, moveCanvases, moveDesignSystem, projectRoot } from "#canvas/store";
+import { EXPORT_PREFIX, NO_PROJECT_DIR } from "#core/paths";
 
-type Session = AgentSessionRuntime["session"];
 type ThinkingLevel = Session["thinkingLevel"];
 
-type Entry = {
-  rt: AgentSessionRuntime;
-  unsubscribe?: () => void;
-  runningTools: Set<string>;
-  branch?: string;
-  runStartedAt?: number;
-  /** What the user queued, as typed and with image paths (pi keeps only the expanded text). */
-  queued: { text: string; images: string[] }[];
-};
-
 const GIT_TIMEOUT_MS = 3000;
-const TITLE_MAX_LENGTH = 80;
 
 export function createRegistry(send: Send, modelRuntime: ModelRuntime) {
-  const live = new Map<string, Entry>();
+  const live = new Map<string, OpenSession>();
   // Session files the user opened (not only an export): an export never closes these.
   const wanted = new Set<string>();
   // Opens in progress, by session file.
   const opening = new Map<string, Promise<string | undefined>>();
-  // "Open without project files" answers, for this app run only.
-  const trustOnce = new Map<string, boolean>();
-
-  const factory: CreateAgentSessionRuntimeFactory = async ({ cwd, sessionManager, sessionStartEvent }) => {
-    const trusted = new ProjectTrustStore(getAgentDir()).get(cwd) ?? trustOnce.get(cwd) ?? false;
-    const { settingsManager, missing } = settingsWithoutMissing(cwd);
-    if (missing.length) notify("warning", `Not installed, so not loaded: ${missing.join(", ")}. Install them in Packages.`);
-    const services = await createAgentSessionServices({
-      cwd,
-      modelRuntime,
-      settingsManager,
-      // Loomden ships the design canvas itself: no `pi install` needed. Bundle is out/main/agent.js.
-      resourceLoaderOptions: {
-        extensionFactories: [{ name: "loomden-canvas", factory: loomdenCanvas }],
-        additionalSkillPaths: [join(import.meta.dirname, "../../packages/loomden-canvas/skills")],
-      },
-      resourceLoaderReloadOptions: { resolveProjectTrust: async () => trusted },
-    });
-    return {
-      ...(await createAgentSessionFromServices({ services, sessionManager, sessionStartEvent })),
-      services,
-      diagnostics: services.diagnostics,
-    };
-  };
+  const runtimes = createRuntimes(send, modelRuntime);
 
   const notify = (level: "info" | "warning" | "error", message: string, key?: string) => send({ type: "notify", key, level, message });
   const sendMessages = (key: string, session: Session) => send({ type: "messages", key, messages: session.messages as AgentMessage[] });
   // A run can end after its session was closed (deleted while it streamed): then there is nothing to send.
-  const sendState = (key: string) => live.has(key) && send({ type: "state", state: state(key) });
-
-  /** Ask once for a folder with .pi/ extensions, skills or prompts. false = the user cancelled. */
-  async function ensureTrust(cwd: string): Promise<boolean> {
-    const store = new ProjectTrustStore(getAgentDir());
-    if (!hasTrustRequiringProjectResources(cwd) || store.get(cwd) !== null || trustOnce.has(cwd)) return true;
-    const answer = await ask<TrustAnswer | undefined>(send, { method: "trust", cwd, files: piFiles(cwd) }, undefined);
-    if (!answer) return false;
-    if (answer === "trust") store.set(cwd, true);
-    else trustOnce.set(cwd, false);
-    return true;
-  }
-
-  function state(key: string): LiveState {
-    const { rt, runningTools, branch, runStartedAt, queued } = get(key);
-    const s = rt.session;
-    const stats = s.getSessionStats();
-    const active = new Set(s.getActiveToolNames());
-    return {
-      key,
-      cwd: rt.cwd,
-      file: s.sessionFile,
-      title: s.sessionName ?? firstUserText(s.messages) ?? "New session",
-      branch,
-      streaming: s.isStreaming,
-      runStartedAt,
-      model: s.model?.id,
-      provider: s.model?.provider,
-      thinking: s.thinkingLevel,
-      thinkingLevels: s.supportsThinking() ? s.getAvailableThinkingLevels() : [],
-      cost: stats.cost,
-      tokensIn: stats.tokens.input + stats.tokens.cacheRead,
-      tokensOut: stats.tokens.output,
-      context: s.getContextUsage(),
-      compactAt: compactAt(s),
-      compacting: s.isCompacting,
-      resources: resources(s),
-      tools: s.getAllTools().map((t) => ({ name: t.name, active: active.has(t.name) })),
-      runningTools: [...runningTools],
-      queued,
-    };
-  }
+  const sendState = (key: string) => live.has(key) && send({ type: "state", state: liveState(key, get(key)) });
 
   // Called on open and after pi replaces the session (fork, new, switch): subscriptions belong to the old one.
   async function bind(key: string) {
@@ -199,32 +112,13 @@ export function createRegistry(send: Send, modelRuntime: ModelRuntime) {
       sendState(found);
       return found;
     }
-    if (!(await ensureTrust(cwd))) return undefined;
-    const rt = await createAgentSessionRuntime(factory, {
-      cwd,
-      agentDir: getAgentDir(),
-      sessionManager: createManager ? createManager() : path ? SessionManager.open(path) : SessionManager.create(cwd),
-    });
+    if (!(await runtimes.ensureTrust(cwd))) return undefined;
+    const rt = await runtimes.create(cwd, createManager ? createManager() : path ? SessionManager.open(path) : SessionManager.create(cwd));
     const key = randomUUID();
     live.set(key, { rt, runningTools: new Set(), queued: [] });
     rt.setRebindSession(() => bind(key));
     await bind(key);
     return key;
-  }
-
-  /** Board C14: the session's canvases move into the project, where the team gets them with git. */
-  async function moveFreeCanvases(key: string, sessionId: string, cwd: string) {
-    const freeDir = freeRoot(FREE_CANVAS_DIR, sessionId);
-    try {
-      const moved = await moveCanvases(freeDir, projectRoot(cwd));
-      await moveDesignSystem(designSystemDir(freeDir), designSystemDir(projectRoot(cwd)));
-      if (moved.length) {
-        await ensureGitignore(cwd);
-        notify("info", `Canvas moved to ${basename(cwd)}/.loomden/canvases/${moved.join(", ")}`, key);
-      }
-    } catch (e) {
-      notify("error", `The session moved, but its canvas did not: ${(e as Error).message}. It is still in ${freeDir}`, key);
-    }
   }
 
   return {
@@ -372,7 +266,7 @@ export function createRegistry(send: Send, modelRuntime: ModelRuntime) {
       const { rt } = get(key);
       if (rt.session.isStreaming) throw new Error("pi is working. Wait until it is done, then move the session.");
       if (rt.cwd === cwd) return key;
-      if (!(await ensureTrust(cwd))) return undefined;
+      if (!(await runtimes.ensureTrust(cwd))) return undefined;
       const from = rt.session.sessionFile;
       // pi writes the file after pi's first reply: before that there is nothing to move, so start in the project.
       if (!from || !existsSync(from)) {
@@ -388,7 +282,7 @@ export function createRegistry(send: Send, modelRuntime: ModelRuntime) {
       }
       rmSync(from);
       if (wanted.delete(from)) wanted.add(to);
-      if (freeId) await moveFreeCanvases(key, freeId, cwd);
+      if (freeId) await moveFreeCanvases(freeId, cwd, (level, message) => notify(level, message, key));
       return key;
     },
 
@@ -439,17 +333,7 @@ export function createRegistry(send: Send, modelRuntime: ModelRuntime) {
         sendState(key);
       }
     },
-
-    running: () => [...live.values()].filter(({ rt }) => rt.session.isStreaming).length,
   };
-}
-
-/** A copy of a session file in `dir`, with `cwd` in its header (pi reads the folder to work in from there). Never overwrites. */
-export function copyToFolder(from: string, dir: string, cwd: string) {
-  const to = join(dir, basename(from));
-  const [header, ...rest] = readFileSync(from, "utf8").split("\n");
-  writeFileSync(to, [JSON.stringify({ ...JSON.parse(header), cwd }), ...rest].join("\n"), { flag: "wx" });
-  return to;
 }
 
 async function gitBranch(cwd: string) {
@@ -460,42 +344,4 @@ async function gitBranch(cwd: string) {
   } catch {
     return undefined; // not a git repository, or no git
   }
-}
-
-/** Board 1's trust dialog: what the project's .pi folder holds. */
-function piFiles(cwd: string) {
-  try {
-    return readdirSync(join(cwd, ".pi"), { withFileTypes: true }).map((e) => {
-      if (!e.isDirectory()) return { name: `.pi/${e.name}` };
-      const n = readdirSync(join(cwd, ".pi", e.name)).length;
-      return { name: `.pi/${e.name}/`, detail: `${n} ${n === 1 ? "item" : "items"}` };
-    });
-  } catch {
-    return [];
-  }
-}
-
-function compactAt(s: Session) {
-  const window = s.model?.contextWindow;
-  if (!window || !s.autoCompactionEnabled) return undefined;
-  return window - s.settingsManager.getCompactionSettings(s.model).reserveTokens;
-}
-
-function resources(s: Session): LiveState["resources"] {
-  const loader = s.resourceLoader;
-  const skills = loader.getSkills().skills.map((k) => k.name);
-  const system = loader.getSystemPromptSource();
-  return [
-    ...loader.getAgentsFiles().agentsFiles.map((f) => ({ name: basename(f.path), kind: "file" as const })),
-    ...(system ? [{ name: basename(system.path), kind: "system" as const }] : []),
-    ...(skills.length ? [{ name: skills.join(" · "), kind: "skills" as const }] : []),
-    ...loader.getExtensions().extensions.filter((e) => !e.hidden).map((e) => ({ name: resourceName("extensions", e.path), kind: "extension" as const })),
-  ];
-}
-
-function firstUserText(messages: readonly AgentMessage[]): string | undefined {
-  const m = messages.find((m) => m.role === "user");
-  if (!m || m.role !== "user") return undefined;
-  const text = typeof m.content === "string" ? m.content : m.content.find((c) => c.type === "text")?.text;
-  return text?.split("\n")[0].slice(0, TITLE_MAX_LENGTH);
 }

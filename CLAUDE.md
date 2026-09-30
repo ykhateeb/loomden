@@ -53,9 +53,9 @@ The window shows model output, so the agent treats every window command as untru
 
 `packages/loomden-canvas/` is a pi package: a design canvas extension (`src/extension.ts`) and the `loomden-design` skill. It also works in terminal pi, which loads it with jiti.
 
-- Loomden imports the extension in `registry.ts` (`extensionFactories`), so it is bundled into `out/main/agent.js`. Rebuild before the app e2e test sees an extension change.
-- Loomden reads only `skills/` from disk, at a path relative to `out/main/`. If you move the skills folder, change `registry.ts` and `electron-builder.yml` too.
-- The host also imports `store.ts` and `server.ts` from the package (`registry.ts`, `src/core/design.ts`).
+- Loomden imports the extension in `src/core/sessions/runtime.ts` (`extensionFactories`), so it is bundled into `out/main/agent.js`. Rebuild before the app e2e test sees an extension change.
+- Loomden reads only `skills/` from disk, at a path relative to `out/main/`. If you move the skills folder, change `runtime.ts` and `electron-builder.yml` too.
+- The host also imports `store.ts` and `server.ts` from the package (`src/core/sessions/move.ts`, `src/core/design.ts`).
 
 - Canvases live in `<project>/.loomden/canvases/<slug>/`. A session with no project keeps them in `~/.loomden/sessions/<id>/canvases`.
 - The extension reads `LOOMDEN_APP`, `LOOMDEN_NO_PROJECT`, and `LOOMDEN_FREE_DIR` to know that it runs inside Loomden.

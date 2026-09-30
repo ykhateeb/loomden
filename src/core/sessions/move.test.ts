@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vitest";
-import { copyToFolder } from "./registry";
+import { copyToFolder } from "./move";
 
 test("a moved session keeps its file name and entries; only the header's cwd changes", () => {
   const root = mkdtempSync(join(tmpdir(), "loomden-move-"));
