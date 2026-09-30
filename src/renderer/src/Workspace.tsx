@@ -9,7 +9,7 @@ import { Button, Kbd } from "./ui/base";
 import { Icon } from "./ui/Icon";
 
 const WIDTH = { base: 280, min: 220, max: 480 };
-const KEY = "tau.sidebarWidth";
+const KEY = "loomden.sidebarWidth";
 
 function savedWidth() {
   try {

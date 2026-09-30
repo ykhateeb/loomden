@@ -7,12 +7,12 @@ import { execFileSync } from "node:child_process";
 export function shellEnv(): NodeJS.ProcessEnv {
   if (process.platform === "win32") return process.env;
   try {
-    const out = execFileSync(process.env.SHELL || "/bin/zsh", ["-ilc", 'printf "__TAU_PATH__%s" "$PATH"'], {
+    const out = execFileSync(process.env.SHELL || "/bin/zsh", ["-ilc", 'printf "__LOOMDEN_PATH__%s" "$PATH"'], {
       encoding: "utf8",
       timeout: 5000,
       stdio: ["ignore", "pipe", "ignore"],
     });
-    const path = out.split("__TAU_PATH__").pop();
+    const path = out.split("__LOOMDEN_PATH__").pop();
     return path ? { ...process.env, PATH: path } : process.env;
   } catch {
     return process.env;

@@ -50,7 +50,7 @@ export function DesignPage({ cwd, canvas, tab }: { cwd: string; canvas?: string;
       <div className="flex h-[58px] shrink-0 items-center gap-3 border-b border-line px-[22px]">
         <div className="flex min-w-0 flex-1 flex-col gap-px">
           <b className="truncate text-lg font-[650]">Design · {project?.name ?? cwd.split("/").pop()}</b>
-          <span className="truncate text-xs text-muted"><span className="font-mono">.tau/canvases/</span> · every canvas in the project, from any session</span>
+          <span className="truncate text-xs text-muted"><span className="font-mono">.loomden/canvases/</span> · every canvas in the project, from any session</span>
         </div>
         <Segmented
           label="Design page"
@@ -99,7 +99,7 @@ export function DesignPage({ cwd, canvas, tab }: { cwd: string; canvas?: string;
             {selected ? (
               <>
                 <div className="flex items-center gap-2"><b className="text-lg font-[650]">{selected.title}</b><Chip status={selected.status} /></div>
-                <span className="font-mono text-xs text-muted">.tau/canvases/{selected.slug}/</span>
+                <span className="font-mono text-xs text-muted">.loomden/canvases/{selected.slug}/</span>
                 <ul className="flex flex-col gap-1.5">
                   {selected.boards.map((b) => (
                     <li key={b.title} className="flex items-center justify-between rounded-md border border-line px-2.5 py-1.5">
@@ -121,7 +121,7 @@ export function DesignPage({ cwd, canvas, tab }: { cwd: string; canvas?: string;
             )}
             <div className="rounded-xl border border-line bg-panel p-3">
               <b className="text-sm font-[650]">Design system</b>
-              <p className="mt-1 text-sm text-sub">{data?.system ? <>{data.system} · <span className="text-ok">.tau/design-system/</span></> : "None yet. Boards use a plain look."}</p>
+              <p className="mt-1 text-sm text-sub">{data?.system ? <>{data.system} · <span className="text-ok">.loomden/design-system/</span></> : "None yet. Boards use a plain look."}</p>
               <button className="mt-1.5 text-sm font-medium text-accent hover:text-accent2" onClick={() => actions.openDesign(cwd, canvas, "system")}>Open the Design system tab</button>
             </div>
           </aside>

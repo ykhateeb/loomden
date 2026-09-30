@@ -37,7 +37,7 @@ export function TitleBar() {
   return (
     // The window's traffic lights sit in the 88px on the left.
     <header className="drag flex h-12 shrink-0 items-center gap-3.5 border-b border-line bg-side pr-4 pl-[88px]">
-      <div className="flex items-center gap-2 text-md font-[650] tracking-[0.2px]"><Logo /><span>Tau</span></div>
+      <div className="flex items-center gap-2 text-md font-[650] tracking-[0.2px]"><Logo /><span>Loomden</span></div>
       <nav aria-label="App" className="no-drag mx-auto flex gap-0.5 rounded-lg border border-line bg-panel p-[3px]">
         {TABS.map((t) => (
           <button
@@ -51,7 +51,7 @@ export function TitleBar() {
         ))}
       </nav>
       {agent === "starting" && <Pill tone="warn" className="no-drag">Starting pi…</Pill>}
-      {agent === "stopped" && <Pill tone="danger" className="no-drag" title="The pi process stopped. Tau starts it again unless it stopped at startup.">pi stopped</Pill>}
+      {agent === "stopped" && <Pill tone="danger" className="no-drag" title="The pi process stopped. Loomden starts it again unless it stopped at startup.">pi stopped</Pill>}
       <button
         className={pill("accent", cx("no-drag", menuAt && "shadow-open"))}
         title="Running sessions, across every project"

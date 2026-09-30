@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Tau is an Electron desktop app for pi (`@earendil-works/pi-coding-agent`), a coding agent. It is built with electron-vite, React 19, and Tailwind 4.
+Loomden is an Electron desktop app for pi (`@earendil-works/pi-coding-agent`), a coding agent. It is built with electron-vite, React 19, and Tailwind 4.
 
 ## Commands
 
@@ -11,18 +11,18 @@ Tau is an Electron desktop app for pi (`@earendil-works/pi-coding-agent`), a cod
 - `npm test`: run all Vitest unit tests (`*.test.ts` in `src/` and `packages/`).
   - One file: `npx vitest run src/core/sessions/tree.test.ts`. One test: add `-t "<name>"`.
 - `npm run test:e2e`: run the Playwright tests (`e2e/*.e2e.ts`, `packages/*/e2e/*.e2e.ts`).
-  - `e2e/tau.e2e.ts` launches the built app. Run `npm run build` before it.
-  - `packages/tau-canvas/e2e/` runs the canvas server in the test process and drives it with Chromium. It needs no build.
+  - `e2e/loomden.e2e.ts` launches the built app. Run `npm run build` before it.
+  - `packages/loomden-canvas/e2e/` runs the canvas server in the test process and drives it with Chromium. It needs no build.
 - `npm run dist`: build and package the app with electron-builder.
 
 ## Dev environment variables
 
-- `TAU_DIR` (default `~/.tau`) and `TAU_PI_DIR` (default `~/.pi/agent`): set both to a temp folder to keep a test run away from real data. The e2e tests do this.
+- `LOOMDEN_DIR` (default `~/.loomden`) and `LOOMDEN_PI_DIR` (default `~/.pi/agent`): set both to a temp folder to keep a test run away from real data. The e2e tests do this.
 - Open the app on a given view with no clicks. Main puts these in the URL hash, and `src/renderer/src/store.ts` reads them:
-  - `TAU_OPEN=latest|<part of a title>` opens a session. Add `TAU_VIEW=tree` to show its tree.
-  - `TAU_SEARCH=<text>`, `TAU_TAB=sessions|packages|settings`, `TAU_DIALOG=provider|import`.
-- `npm run gallery` (`TAU_GALLERY=1`): show the UI design system page (`src/renderer/src/ui/Gallery.tsx`). `TAU_GALLERY=open` also opens its menu and dialog.
-- `TAU_NO_OPEN=1`: the canvas extension does not open a browser.
+  - `LOOMDEN_OPEN=latest|<part of a title>` opens a session. Add `LOOMDEN_VIEW=tree` to show its tree.
+  - `LOOMDEN_SEARCH=<text>`, `LOOMDEN_TAB=sessions|packages|settings`, `LOOMDEN_DIALOG=provider|import`.
+- `npm run gallery` (`LOOMDEN_GALLERY=1`): show the UI design system page (`src/renderer/src/ui/Gallery.tsx`). `LOOMDEN_GALLERY=open` also opens its menu and dialog.
+- `LOOMDEN_NO_OPEN=1`: the canvas extension does not open a browser.
 
 ## Architecture
 
@@ -45,20 +45,20 @@ The window shows model output, so the agent treats every window command as untru
 
 ### Data locations
 
-- Tau keeps its own pi agent folder at `~/.tau/agent`. Main sets `PI_CODING_AGENT_DIR` to it.
-- Tau shares only `auth.json` with terminal pi. The import feature copies other items from `~/.pi/agent`.
-- `src/core/paths.ts` reads `TAU_DIR` and `TAU_PI_DIR` when a module imports it. A test that touches these folders sets `process.env` first and then uses `await import(…)`. A static import uses the real `~/.tau`.
+- Loomden keeps its own pi agent folder at `~/.loomden/agent`. Main sets `PI_CODING_AGENT_DIR` to it.
+- Loomden shares only `auth.json` with terminal pi. The import feature copies other items from `~/.pi/agent`.
+- `src/core/paths.ts` reads `LOOMDEN_DIR` and `LOOMDEN_PI_DIR` when a module imports it. A test that touches these folders sets `process.env` first and then uses `await import(…)`. A static import uses the real `~/.loomden`.
 
-### tau-canvas package
+### loomden-canvas package
 
-`packages/tau-canvas/` is a pi package: a design canvas extension (`src/extension.ts`) and the `tau-design` skill. It also works in terminal pi, which loads it with jiti.
+`packages/loomden-canvas/` is a pi package: a design canvas extension (`src/extension.ts`) and the `loomden-design` skill. It also works in terminal pi, which loads it with jiti.
 
-- Tau imports the extension in `registry.ts` (`extensionFactories`), so it is bundled into `out/main/agent.js`. Rebuild before the app e2e test sees an extension change.
-- Tau reads only `skills/` from disk, at a path relative to `out/main/`. If you move the skills folder, change `registry.ts` and `electron-builder.yml` too.
+- Loomden imports the extension in `registry.ts` (`extensionFactories`), so it is bundled into `out/main/agent.js`. Rebuild before the app e2e test sees an extension change.
+- Loomden reads only `skills/` from disk, at a path relative to `out/main/`. If you move the skills folder, change `registry.ts` and `electron-builder.yml` too.
 - The host also imports `store.ts` and `server.ts` from the package (`registry.ts`, `src/core/design.ts`).
 
-- Canvases live in `<project>/.tau/canvases/<slug>/`. A session with no project keeps them in `~/.tau/sessions/<id>/canvases`.
-- The extension reads `TAU_APP`, `TAU_NO_PROJECT`, and `TAU_FREE_DIR` to know that it runs inside Tau.
+- Canvases live in `<project>/.loomden/canvases/<slug>/`. A session with no project keeps them in `~/.loomden/sessions/<id>/canvases`.
+- The extension reads `LOOMDEN_APP`, `LOOMDEN_NO_PROJECT`, and `LOOMDEN_FREE_DIR` to know that it runs inside Loomden.
 - pi loads user and third-party extensions at runtime with jiti. Thus the main build does not bundle dependencies, and electron-builder unpacks `@earendil-works` from the asar.
 
 ## Conventions

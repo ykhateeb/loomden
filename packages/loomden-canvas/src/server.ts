@@ -17,7 +17,7 @@ const TYPES: Record<string, string> = {
 export type CanvasServer = { url: (canvas: string) => string; close: () => void };
 
 export async function startServer(o: { root: string; onSend: (text: string) => void | Promise<void>;
-  /** "Start build session": Tau opens a new session with the pack. Without it, the pack goes to the current session. */
+  /** "Start build session": Loomden opens a new session with the pack. Without it, the pack goes to the current session. */
   onBuild?: (canvas: string, pack: { title: string; text: string }) => void | Promise<void>;
 }): Promise<CanvasServer> {
   const token = randomBytes(16).toString("hex");
@@ -139,7 +139,7 @@ export async function startServer(o: { root: string; onSend: (text: string) => v
         return reply(res, 200, "application/json", "{}");
       }
       if (p[1] === "ds" && p[2] === "update") {
-        o.onSend("Update the design system from code. Read the theme file (for example src/theme.ts, or the paths in `source` of .tau/design-system/tokens.json), then call design_system_propose with the full tokens.json. Do not write tokens.json yourself: I review your proposal first.");
+        o.onSend("Update the design system from code. Read the theme file (for example src/theme.ts, or the paths in `source` of .loomden/design-system/tokens.json), then call design_system_propose with the full tokens.json. Do not write tokens.json yourself: I review your proposal first.");
       } else if (p[1] === "ds" && p[2] === "accept") await acceptProposal(ds);
       else if (p[1] === "ds" && p[2] === "discard") await discardProposal(ds);
       else if (p[1] === "send") await send(b.canvas, b.ids);

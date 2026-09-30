@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { type BrowserWindow, MessageChannelMain, type UtilityProcess, utilityProcess } from "electron";
-import { TAU_AGENT_DIR, FREE_CANVAS_DIR, NO_PROJECT_DIR } from "../core/paths";
+import { LOOMDEN_AGENT_DIR, FREE_CANVAS_DIR, NO_PROJECT_DIR } from "../core/paths";
 
 /** Starts the agent process and connects it to the window with a direct port. Main does not relay tokens. */
 export function startAgent(win: BrowserWindow, env: NodeJS.ProcessEnv) {
@@ -25,8 +25,8 @@ export function startAgent(win: BrowserWindow, env: NodeJS.ProcessEnv) {
   const spawn = () => {
     startedAt = Date.now();
     child = utilityProcess.fork(join(import.meta.dirname, "agent.js"), [], {
-      env: { ...env, PI_CODING_AGENT_DIR: TAU_AGENT_DIR, TAU_APP: "1", TAU_NO_PROJECT: NO_PROJECT_DIR, TAU_FREE_DIR: FREE_CANVAS_DIR },
-      serviceName: "Tau agent",
+      env: { ...env, PI_CODING_AGENT_DIR: LOOMDEN_AGENT_DIR, LOOMDEN_APP: "1", LOOMDEN_NO_PROJECT: NO_PROJECT_DIR, LOOMDEN_FREE_DIR: FREE_CANVAS_DIR },
+      serviceName: "Loomden agent",
       stdio: "inherit",
     });
     for (const g of grants) child.postMessage({ grant: g });
@@ -34,7 +34,7 @@ export function startAgent(win: BrowserWindow, env: NodeJS.ProcessEnv) {
       if (quitting || win.isDestroyed()) return;
       win.webContents.send("agent-exit");
       // ponytail: restart only after a run of 5s+, so a crash at startup does not loop. No backoff.
-      if (Date.now() - startedAt < 5000) return console.error(`Tau agent stopped at startup (code ${code})`);
+      if (Date.now() - startedAt < 5000) return console.error(`Loomden agent stopped at startup (code ${code})`);
       spawn();
       connect();
     });

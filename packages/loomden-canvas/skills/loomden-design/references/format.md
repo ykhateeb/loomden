@@ -1,7 +1,7 @@
 # Canvas file format
 
 ```
-.tau/
+.loomden/
   design-system/        tokens.json (source), tokens.css (generated), README.md
   canvases/<slug>/
     canvas.json         the index

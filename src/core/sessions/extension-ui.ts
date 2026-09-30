@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { ExtensionUIContext, ExtensionUIDialogOptions } from "@earendil-works/pi-coding-agent";
 import type { Send, UIRequest } from "../../protocol";
-import { STATUS_BUILD, STATUS_CANVAS } from "../../../packages/tau-canvas/src/store";
+import { STATUS_BUILD, STATUS_CANVAS } from "../../../packages/loomden-canvas/src/store";
 
 type Body = UIRequest extends infer R ? (R extends UIRequest ? Omit<R, "id"> : never) : never;
 
@@ -84,7 +84,7 @@ export function uiContextFor(key: string, send: Send): ExtensionUIContext {
     },
     getAllThemes: () => [],
     getTheme: () => undefined,
-    setTheme: () => ({ success: false, error: "Themes are not supported in Tau yet" }),
+    setTheme: () => ({ success: false, error: "Themes are not supported in Loomden yet" }),
     getToolsExpanded: () => false,
     setToolsExpanded: noop,
   };

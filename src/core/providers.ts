@@ -69,7 +69,7 @@ export function cancelLogin() {
 export const API_KINDS = ["openai-completions", "openai-responses", "anthropic-messages"] as const;
 const modelsFile = () => join(getAgentDir(), "models.json");
 
-/** A missing file is empty. Any other problem stops the change: a rewrite would drop what Tau could not read. */
+/** A missing file is empty. Any other problem stops the change: a rewrite would drop what Loomden could not read. */
 export function readModelsFile(): { providers?: Record<string, Record<string, unknown>> } {
   let text: string;
   try {
@@ -114,7 +114,7 @@ export async function findModels(baseUrl: string, api: string, apiKey?: string):
 }
 
 /**
- * Board 5a "Add provider": a provider in Tau's models.json, then pi reads the file again.
+ * Board 5a "Add provider": a provider in Loomden's models.json, then pi reads the file again.
  * The window is not trusted: the name, URL, API and model ids are checked.
  */
 export async function addCustomProvider(rt: ModelRuntime, p: CustomProvider) {

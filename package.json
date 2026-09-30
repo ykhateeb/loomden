@@ -1,12 +1,12 @@
 {
-  "name": "tauelectron",
+  "name": "loomden",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "main": "out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
-    "gallery": "TAU_GALLERY=1 electron-vite dev",
+    "gallery": "LOOMDEN_GALLERY=1 electron-vite dev",
     "build": "electron-vite build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

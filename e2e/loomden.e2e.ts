@@ -3,16 +3,16 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { _electron as electron, expect, test } from "@playwright/test";
-import { approve, createBoard } from "../packages/tau-canvas/src/store";
+import { approve, createBoard } from "../packages/loomden-canvas/src/store";
 
 // Needs a build first: npm run build
-test("/canvas in Tau opens the canvas panel next to the chat", async () => {
-  const tauDir = await mkdtemp(join(tmpdir(), "tau-app-"));
+test("/canvas in Loomden opens the canvas panel next to the chat", async () => {
+  const loomdenDir = await mkdtemp(join(tmpdir(), "loomden-app-"));
   const html = "<html><body style='margin:0;width:390px;height:844px'><h1>Cart</h1></body></html>";
 
   const app = await electron.launch({
     args: ["."],
-    env: { ...process.env, TAU_DIR: tauDir, TAU_PI_DIR: join(tauDir, "pi"), TAU_NO_OPEN: "1" },
+    env: { ...process.env, LOOMDEN_DIR: loomdenDir, LOOMDEN_PI_DIR: join(loomdenDir, "pi"), LOOMDEN_NO_OPEN: "1" },
   });
   try {
     const win = await app.firstWindow();
@@ -29,7 +29,7 @@ test("/canvas in Tau opens the canvas panel next to the chat", async () => {
     const empty = win.getByText(/^No canvas yet in .*\/sessions\/[\w-]+\/canvases\./);
     await expect(empty).toBeVisible();
     const root = (await empty.textContent())!.match(/in (.*)\. Ask/)![1];
-    expect(root).toContain(join(tauDir, "sessions"));
+    expect(root).toContain(join(loomdenDir, "sessions"));
     await createBoard(root, { canvas: "demo", board: "cart", title: "Cart", w: 390, h: 844, html });
     await run();
 
@@ -52,17 +52,17 @@ test("/canvas in Tau opens the canvas panel next to the chat", async () => {
 });
 
 test("Design page lists the project's canvases and opens one", async () => {
-  const tauDir = await mkdtemp(join(tmpdir(), "tau-app-"));
-  const project = join(await mkdtemp(join(tmpdir(), "tau-proj-")), "checkout-app");
-  const root = join(project, ".tau", "canvases");
+  const loomdenDir = await mkdtemp(join(tmpdir(), "loomden-app-"));
+  const project = join(await mkdtemp(join(tmpdir(), "loomden-proj-")), "checkout-app");
+  const root = join(project, ".loomden", "canvases");
   const html = "<html><body style='margin:0;width:390px;height:400px'><h1>Cart</h1></body></html>";
   await createBoard(root, { canvas: "checkout", board: "cart", title: "Cart", w: 390, h: 400, html, canvasTitle: "Checkout redesign" });
   await createBoard(root, { canvas: "checkout", board: "pay", title: "Payment", w: 390, h: 400, html });
   await createBoard(root, { canvas: "onboarding", board: "home", title: "Home", w: 390, h: 400, html, canvasTitle: "Onboarding" });
   await approve(root, "checkout", "cart");
-  await writeFile(join(tauDir, "projects.json"), JSON.stringify([project]));
+  await writeFile(join(loomdenDir, "projects.json"), JSON.stringify([project]));
 
-  const app = await electron.launch({ args: ["."], env: { ...process.env, TAU_DIR: tauDir, TAU_PI_DIR: join(tauDir, "pi") } });
+  const app = await electron.launch({ args: ["."], env: { ...process.env, LOOMDEN_DIR: loomdenDir, LOOMDEN_PI_DIR: join(loomdenDir, "pi") } });
   try {
     const win = await app.firstWindow();
     // sidebar: a Design row with the count, and each canvas under it
@@ -101,10 +101,10 @@ test("Design page lists the project's canvases and opens one", async () => {
   }
 });
 
-test("Start build session in Tau opens a new session for the design pack", async () => {
-  const tauDir = await mkdtemp(join(tmpdir(), "tau-app-"));
+test("Start build session in Loomden opens a new session for the design pack", async () => {
+  const loomdenDir = await mkdtemp(join(tmpdir(), "loomden-app-"));
   const html = "<html><body style='margin:0;width:390px;height:400px'><h1>Cart</h1></body></html>";
-  const app = await electron.launch({ args: ["."], env: { ...process.env, TAU_DIR: tauDir, TAU_PI_DIR: join(tauDir, "pi") } });
+  const app = await electron.launch({ args: ["."], env: { ...process.env, LOOMDEN_DIR: loomdenDir, LOOMDEN_PI_DIR: join(loomdenDir, "pi") } });
   try {
     const win = await app.firstWindow();
     await win.getByText("New session").first().click();
@@ -132,8 +132,8 @@ test("Start build session in Tau opens a new session for the design pack", async
 });
 
 test("+ Canvas starts a canvas from the session header", async () => {
-  const tauDir = await mkdtemp(join(tmpdir(), "tau-app-"));
-  const app = await electron.launch({ args: ["."], env: { ...process.env, TAU_DIR: tauDir, TAU_PI_DIR: join(tauDir, "pi") } });
+  const loomdenDir = await mkdtemp(join(tmpdir(), "loomden-app-"));
+  const app = await electron.launch({ args: ["."], env: { ...process.env, LOOMDEN_DIR: loomdenDir, LOOMDEN_PI_DIR: join(loomdenDir, "pi") } });
   try {
     const win = await app.firstWindow();
     await win.getByText("New session").first().click();
@@ -145,7 +145,7 @@ test("+ Canvas starts a canvas from the session header", async () => {
     await expect(panel.getByText("No boards yet")).toBeVisible();
     await expect(win.getByText("no canvas yet")).toBeHidden();
     await expect(win.getByRole("button", { name: /^Canvas/ })).toBeVisible();
-    const sessions = join(tauDir, "sessions");
+    const sessions = join(loomdenDir, "sessions");
     const [id] = readdirSync(sessions);
     expect(readdirSync(join(sessions, id, "canvases"))).toEqual(["new-session"]); // named for the session
   } finally {

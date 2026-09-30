@@ -76,7 +76,7 @@ function piPackages(): PackageEntry[] {
 }
 const sourceOf = (p: PackageEntry) => (typeof p === "string" ? p : p.source);
 
-/** Board 5c: what terminal pi has that Tau can take. Reads ~/.pi/agent; changes nothing there. */
+/** Board 5c: what terminal pi has that Loomden can take. Reads ~/.pi/agent; changes nothing there. */
 export function scanImport(): ImportScan {
   const settings = json(join(PI_AGENT_DIR, "settings.json"));
   const keys = Object.keys(json(join(PI_AGENT_DIR, "auth.json")));
@@ -89,7 +89,7 @@ export function scanImport(): ImportScan {
   return {
     found: existsSync(PI_AGENT_DIR),
     items: [
-      // Tau already uses pi's auth.json, so keys are linked from the start.
+      // Loomden already uses pi's auth.json, so keys are linked from the start.
       { id: "keys", label: "Keys and logins", action: "Linked", detail: n(keys.length, "provider"), count: keys.length, done: true },
       { id: "settings", label: "Default model, thinking, favorites", action: "Copy settings.json", detail: n(settingCount, "setting"), count: settingCount },
       { id: "providers", label: "Custom providers", action: "Copy", detail: n(providers.length, "provider"), count: providers.length },
@@ -100,12 +100,12 @@ export function scanImport(): ImportScan {
   };
 }
 
-/** Items that bring code into Tau: they need the confirmation in main's own dialog. */
+/** Items that bring code into Loomden: they need the confirmation in main's own dialog. */
 export const codeItems: ImportItem[] = ["files", "packages"];
 
 /** Board 5d: import the picked items, one result for each. A failure in one item does not stop the others. */
 export async function runImport(items: ImportItem[], onPackage: (e: ProgressEvent) => void): Promise<ImportResult[]> {
-  const tau = getAgentDir();
+  const loomden = getAgentDir();
   const results: ImportResult[] = [];
   const step = async (id: ImportItem, run: () => Promise<Omit<ImportResult, "id">> | Omit<ImportResult, "id">) => {
     if (!items.includes(id)) return;
@@ -122,7 +122,7 @@ export async function runImport(items: ImportItem[], onPackage: (e: ProgressEven
     let copied = 0;
     for (const k of SETTING_KEYS.filter((k) => s[k] !== undefined)) {
       try {
-        writeModelSettings({ [k]: s[k] }); // one by one: a value Tau refuses does not stop the others
+        writeModelSettings({ [k]: s[k] }); // one by one: a value Loomden refuses does not stop the others
         copied++;
       } catch (e) {
         errors.push(`${k}: ${(e as Error).message}`);
@@ -133,11 +133,11 @@ export async function runImport(items: ImportItem[], onPackage: (e: ProgressEven
 
   await step("providers", () => {
     const theirs = (json(join(PI_AGENT_DIR, "models.json")).providers ?? {}) as Record<string, unknown>;
-    const file = join(tau, "models.json");
+    const file = join(loomden, "models.json");
     const ours: { providers?: Record<string, unknown> } = readModelsFile(); // throws on a file it cannot read: nothing is lost
-    const added = Object.keys(theirs).filter((k) => !ours.providers?.[k]); // Tau's own entries win
+    const added = Object.keys(theirs).filter((k) => !ours.providers?.[k]); // Loomden's own entries win
     ours.providers = { ...ours.providers, ...Object.fromEntries(added.map((k) => [k, theirs[k]])) };
-    mkdirSync(tau, { recursive: true });
+    mkdirSync(loomden, { recursive: true });
     writeFileSync(file, `${JSON.stringify(ours, null, 2)}\n`, { mode: 0o600 });
     chmodSync(file, 0o600); // it can hold keys
     return { status: "done", detail: `copied · ${added.length} ${added.length === 1 ? "provider" : "providers"}`, errors: [] };
@@ -145,12 +145,12 @@ export async function runImport(items: ImportItem[], onPackage: (e: ProgressEven
 
   await step("trust", () => {
     const theirs = json(join(PI_AGENT_DIR, "trust.json"));
-    const ours = json(join(tau, "trust.json"));
-    // Tau's own decision wins: an import never turns "do not trust" into "trust" (that would run the project's code).
+    const ours = json(join(loomden, "trust.json"));
+    // Loomden's own decision wins: an import never turns "do not trust" into "trust" (that would run the project's code).
     const updates = Object.entries(theirs)
       .filter(([path, v]) => (v === true || v === false) && !(path in ours))
       .map(([path, decision]) => ({ path, decision: decision as boolean }));
-    new ProjectTrustStore(tau).setMany(updates);
+    new ProjectTrustStore(loomden).setMany(updates);
     return { status: "done", detail: `copied · ${updates.length} ${updates.length === 1 ? "project" : "projects"}`, errors: [] };
   });
 
@@ -162,8 +162,8 @@ export async function runImport(items: ImportItem[], onPackage: (e: ProgressEven
     const notes = [...deps].map((d) => `${d}: has dependencies (node_modules) that were not copied — run npm install there`);
     let copied = 0;
     for (const f of files) {
-      const to = join(tau, f);
-      if (existsSync(to)) continue; // Tau's own file wins
+      const to = join(loomden, f);
+      if (existsSync(to)) continue; // Loomden's own file wins
       try {
         mkdirSync(dirname(to), { recursive: true });
         copyFileSync(join(PI_AGENT_DIR, f), to);
@@ -176,7 +176,7 @@ export async function runImport(items: ImportItem[], onPackage: (e: ProgressEven
   });
 
   await step("packages", async () => {
-    const pm = new DefaultPackageManager({ cwd: tau, agentDir: tau, settingsManager: SettingsManager.create(tau, tau) });
+    const pm = new DefaultPackageManager({ cwd: loomden, agentDir: loomden, settingsManager: SettingsManager.create(loomden, loomden) });
     pm.setProgressCallback(onPackage);
     const errors: string[] = [];
     const all = piPackages();
@@ -191,11 +191,11 @@ export async function runImport(items: ImportItem[], onPackage: (e: ProgressEven
       }
     }
     // Keep pi's filters (which extensions, skills… load): the installs saved only the sources. One pass after all of
-    // them, because each install writes the whole list from memory. pi saves a local path relative to Tau's folder.
+    // them, because each install writes the whole list from memory. pi saves a local path relative to Loomden's folder.
     if (filtered.length) {
-      const path = join(tau, "settings.json");
+      const path = join(loomden, "settings.json");
       const s = json(path);
-      const same = (saved: string, source: string) => saved === source || (!/^(npm:|git:|https?:\/\/)/.test(saved) && resolve(tau, saved) === resolve(source));
+      const same = (saved: string, source: string) => saved === source || (!/^(npm:|git:|https?:\/\/)/.test(saved) && resolve(loomden, saved) === resolve(source));
       if (Array.isArray(s.packages)) {
         s.packages = s.packages.map((p) => {
           const hit = typeof p === "string" && filtered.find((f) => same(p, f.source));

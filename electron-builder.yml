@@ -1,10 +1,10 @@
-appId: dev.tau.app
-productName: Tau
+appId: dev.loomden.app
+productName: Loomden
 directories:
   output: dist
 files:
   - out/**
-  - packages/tau-canvas/skills/**
+  - packages/loomden-canvas/skills/**
 asarUnpack:
   # pi reads its own files (themes, export templates) and loads extensions with jiti.
   - node_modules/@earendil-works/**

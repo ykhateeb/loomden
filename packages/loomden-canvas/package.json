@@ -1,7 +1,7 @@
 {
-  "name": "tau-canvas",
+  "name": "loomden-canvas",
   "version": "0.1.0",
-  "description": "Design canvas for pi: the tau-design skill and the tau-canvas extension.",
+  "description": "Design canvas for pi: the loomden-design skill and the loomden-canvas extension.",
   "keywords": ["pi-package"],
   "type": "module",
   "pi": {

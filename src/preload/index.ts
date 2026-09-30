@@ -1,8 +1,8 @@
 import { contextBridge, ipcRenderer, webUtils } from "electron";
 
 // The agent port cannot cross contextBridge, so post it to the page.
-ipcRenderer.on("agent-port", (e) => window.postMessage("tau:agent-port", "*", e.ports));
-ipcRenderer.on("agent-exit", () => window.postMessage("tau:agent-exit", "*"));
+ipcRenderer.on("agent-port", (e) => window.postMessage("loomden:agent-port", "*", e.ports));
+ipcRenderer.on("agent-exit", () => window.postMessage("loomden:agent-exit", "*"));
 
 const host = {
   pickFolder: (): Promise<string | null> => ipcRenderer.invoke("host:pick-folder"),
@@ -23,6 +23,6 @@ const host = {
   trashSession: (path: string): Promise<void> => ipcRenderer.invoke("host:trash-session", path),
 };
 
-contextBridge.exposeInMainWorld("tau", host);
+contextBridge.exposeInMainWorld("loomden", host);
 
 export type Host = typeof host;

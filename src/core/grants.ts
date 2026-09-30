@@ -21,7 +21,7 @@ export const packageGrant = (action: string, source: string, cwd?: string) => `$
 export async function assertGranted(kind: Kind, path: string) {
   const full = norm(kind, path);
   for (let i = 0; i < 20 && !granted[kind].has(full); i++) await new Promise((r) => setTimeout(r, 25));
-  if (!granted[kind].has(full)) throw new Error(kind === "package" ? "Not confirmed in Tau's install dialog" : `Not a ${kind} you picked: ${path}`);
+  if (!granted[kind].has(full)) throw new Error(kind === "package" ? "Not confirmed in Loomden's install dialog" : `Not a ${kind} you picked: ${path}`);
   // A confirmation is for this one install or update: a later request for the same package asks again.
   if (kind === "package") granted.package.delete(full);
   return full;

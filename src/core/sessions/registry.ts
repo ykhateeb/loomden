@@ -24,8 +24,8 @@ import type { Entry as FileEntry } from "./summary";
 import { buildTree } from "./tree";
 import { settingsWithoutMissing } from "../packages";
 import { EXPORT_PREFIX, FREE_CANVAS_DIR, NO_PROJECT_DIR } from "../paths";
-import tauCanvas from "../../../packages/tau-canvas/src/extension";
-import { designSystemDir, ensureGitignore, freeRoot, moveCanvases, moveDesignSystem, projectRoot } from "../../../packages/tau-canvas/src/store";
+import loomdenCanvas from "../../../packages/loomden-canvas/src/extension";
+import { designSystemDir, ensureGitignore, freeRoot, moveCanvases, moveDesignSystem, projectRoot } from "../../../packages/loomden-canvas/src/store";
 
 type ThinkingLevel = AgentSessionRuntime["session"]["thinkingLevel"];
 
@@ -66,10 +66,10 @@ export function createRegistry(send: Send, modelRuntime: ModelRuntime) {
       cwd,
       modelRuntime,
       settingsManager,
-      // Tau ships the design canvas itself: no `pi install` needed. Bundle is out/main/agent.js.
+      // Loomden ships the design canvas itself: no `pi install` needed. Bundle is out/main/agent.js.
       resourceLoaderOptions: {
-        extensionFactories: [{ name: "tau-canvas", factory: tauCanvas }],
-        additionalSkillPaths: [join(import.meta.dirname, "../../packages/tau-canvas/skills")],
+        extensionFactories: [{ name: "loomden-canvas", factory: loomdenCanvas }],
+        additionalSkillPaths: [join(import.meta.dirname, "../../packages/loomden-canvas/skills")],
       },
       resourceLoaderReloadOptions: { resolveProjectTrust: async () => trusted },
     });
@@ -378,7 +378,7 @@ export function createRegistry(send: Send, modelRuntime: ModelRuntime) {
           await moveDesignSystem(designSystemDir(from), designSystemDir(projectRoot(cwd)));
           if (moved.length) {
             await ensureGitignore(cwd);
-            send({ type: "notify", key, level: "info", message: `Canvas moved to ${basename(cwd)}/.tau/canvases/${moved.join(", ")}` });
+            send({ type: "notify", key, level: "info", message: `Canvas moved to ${basename(cwd)}/.loomden/canvases/${moved.join(", ")}` });
           }
         } catch (e) {
           send({ type: "notify", key, level: "error", message: `The session moved, but its canvas did not: ${(e as Error).message}. It is still in ${from}` });

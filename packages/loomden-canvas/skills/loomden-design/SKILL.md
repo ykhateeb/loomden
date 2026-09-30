@@ -1,11 +1,11 @@
 ---
-name: tau-design
+name: loomden-design
 description: Design screens as boards on a canvas (one HTML file per board) that the person can watch, point at, and approve. Use when asked to design, mock up, redesign, or sketch a screen or flow, or when the person sends notes about a board.
 ---
 
-# Tau design
+# Loomden design
 
-You design screens as **boards**. A board is one self-contained HTML file. Boards live in a **canvas**, a folder in `.tau/canvases/<slug>/`. The person watches boards appear in the canvas viewer (`/canvas`).
+You design screens as **boards**. A board is one self-contained HTML file. Boards live in a **canvas**, a folder in `.loomden/canvases/<slug>/`. The person watches boards appear in the canvas viewer (`/canvas`).
 
 Read `references/format.md` before you write your first board. Read `references/craft.md` before you design.
 
@@ -17,7 +17,7 @@ Read `references/format.md` before you write your first board. Read `references/
 
 ## Steps
 
-1. Look for `.tau/design-system/tokens.json` and `README.md`. If they exist, use their tokens by name (`var(--link)`, `var(--space-4)`). Never write a raw hex value when a token exists.
+1. Look for `.loomden/design-system/tokens.json` and `README.md`. If they exist, use their tokens by name (`var(--link)`, `var(--space-4)`). Never write a raw hex value when a token exists.
 2. Make the first draft. Call `canvas_plan` once with every board you will make, then `canvas_create` for each board, in flow order. The person sees a place for each board ("writing", "waiting") and each board appear.
 3. Link boards with `<a href="payment.html">` so the flow can be played.
 4. When you get a note ("On board Delivery, element “+ Add new address” (tid 14): …"):

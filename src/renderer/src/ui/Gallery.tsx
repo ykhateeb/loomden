@@ -32,7 +32,7 @@ export function Gallery() {
   return (
     <div className="flex h-full flex-col bg-bg text-fg">
       <header className="drag flex h-12 shrink-0 items-center gap-3.5 border-b border-line bg-side pr-4 pl-[88px]">
-        <div className="flex items-center gap-2 text-md font-[650]"><Logo /><span>Tau · design system</span></div>
+        <div className="flex items-center gap-2 text-md font-[650]"><Logo /><span>Loomden · design system</span></div>
       </header>
       <div className="flex flex-col gap-7 overflow-auto p-7">
         <Section title="Colors">

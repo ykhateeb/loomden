@@ -13,7 +13,7 @@ export type Packages = {
 
 declare global {
   interface Window {
-    tau: Host;
+    loomden: Host;
   }
 }
 
@@ -111,12 +111,12 @@ function dropPort(reason: string) {
 
 window.addEventListener("message", (e) => {
   if (e.source !== window) return;
-  if (e.data === "tau:agent-exit") {
+  if (e.data === "loomden:agent-exit") {
     dropPort("pi stopped");
     // The host restarts pi unless it stopped at startup; a new port then arrives.
     return set({ agent: "stopped", live: {}, messages: {}, active: undefined, dialogs: [] });
   }
-  if (e.data !== "tau:agent-port" || !e.ports[0]) return;
+  if (e.data !== "loomden:agent-port" || !e.ports[0]) return;
   dropPort("The window got a new connection to pi");
   port = e.ports[0];
   port.onmessage = (m) => receive(m.data as AgentOut);
@@ -194,7 +194,7 @@ function receive(msg: AgentOut) {
       if (!state.login || state.login.providerId !== msg.providerId) return; // an older login that was replaced
       if (e.type === "done") return set({ login: undefined });
       if (e.type === "auth_url") {
-        window.tau.openExternal(e.url); // main opens only https links
+        window.loomden.openExternal(e.url); // main opens only https links
         return set((s) => ({ login: s.login && { ...s.login, url: e.url, message: e.instructions } }));
       }
       if (e.type === "device_code") return set((s) => ({ login: s.login && { ...s.login, code: { userCode: e.userCode, verificationUri: e.verificationUri } } }));
@@ -260,7 +260,7 @@ export const actions = {
   },
   /** "Open a folder…" in the Add to project menu: the folder becomes a project, then the session moves there. */
   moveToFolder: async (key: string) => {
-    const cwd = await window.tau.pickFolder();
+    const cwd = await window.loomden.pickFolder();
     if (!cwd) return;
     try {
       set(await call<Pick<State, "projects" | "sessions" | "noProject">>({ type: "project.add", cwd }));
@@ -364,7 +364,7 @@ export const actions = {
   scanImport: () => call<ImportScan>({ type: "import.scan" }),
   /** undefined = the user cancelled main's confirmation. */
   runImport: async (items: ImportItem[]) => {
-    if (!(await window.tau.confirmImport(items))) return undefined;
+    if (!(await window.loomden.confirmImport(items))) return undefined;
     const results = await call<ImportResult[]>({ type: "import.run", items });
     actions.refresh();
     return results;
@@ -388,7 +388,7 @@ export const actions = {
       .catch(report),
   /** Install asks main's own dialog first (installing runs code); the agent refuses an install main did not confirm. */
   changePackage: async (action: "install" | "remove" | "update", source: string, cwd?: string) => {
-    if (action !== "remove" && !(await window.tau.confirmInstall(action, source, cwd))) return false;
+    if (action !== "remove" && !(await window.loomden.confirmInstall(action, source, cwd))) return false;
     set((s) => ({ packageWork: { ...s.packageWork, [source]: { action } } }));
     try {
       set({ packages: await call<Packages>({ type: "packages.change", action, source, cwd }) });
@@ -420,7 +420,7 @@ export const actions = {
     set((s) => ({ mark: key && at ? { key, at } : undefined, view: key ? { ...s.view, [key]: "chat" } : s.view }));
   },
   addProject: async () => {
-    const cwd = await window.tau.pickFolder();
+    const cwd = await window.loomden.pickFolder();
     if (cwd) await call<Pick<State, "projects" | "sessions" | "noProject">>({ type: "project.add", cwd }).then(set).catch(report);
   },
   /** True when pi accepted it (the run itself may still fail later, as a notice). */
@@ -459,7 +459,7 @@ export const actions = {
   exportHtml: async (cwd: string, path: string, title: string) => {
     try {
       const temp = await call<string>({ type: "session.export", cwd, path });
-      const saved = await window.tau.saveHtml(temp, title);
+      const saved = await window.loomden.saveHtml(temp, title);
       if (saved) notice(`Exported to ${saved}`, "info");
     } catch (e) {
       report(e as Error);
@@ -469,14 +469,14 @@ export const actions = {
   deleteSession: async (path: string) => {
     try {
       await call({ type: "session.close", path });
-      await window.tau.trashSession(path);
+      await window.loomden.trashSession(path);
       notice("The session is in the Trash", "info");
       await actions.refresh();
     } catch (e) {
       report(e as Error);
     }
   },
-  showInFolder: (path: string) => window.tau.showInFolder(path),
+  showInFolder: (path: string) => window.loomden.showInFolder(path),
   removeProject: (cwd: string) =>
     call<Pick<State, "projects" | "sessions" | "noProject">>({ type: "project.remove", cwd })
       .then(set)

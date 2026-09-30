@@ -96,7 +96,7 @@ async function handle(cmd: Command): Promise<unknown> {
       return scanImport();
     case "import.run": {
       const items = cmd.items.filter((i): i is ImportItem => ["settings", "providers", "trust", "files", "packages"].includes(i));
-      // Copying extensions or installing packages brings code into Tau: only after main's own confirmation.
+      // Copying extensions or installing packages brings code into Loomden: only after main's own confirmation.
       const code = codeItems.filter((i) => items.includes(i));
       if (code.length) await assertGranted("package", packageGrant("import", code.join(",")));
       const results = await runImport(items, (e) => send({ type: "package.progress", source: e.source, action: e.action, phase: e.type, message: e.message }));

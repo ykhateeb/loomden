@@ -182,7 +182,7 @@ export function Packages() {
                 <dt className="text-muted">Source</dt>
                 <dd className="truncate text-sub">{current.where}</dd>
                 <dt className="text-muted">Saved in</dt>
-                <dd className="truncate font-mono text-xs text-sub">{current.scope === "global" ? "~/.tau/agent/settings.json" : `${current.cwd?.replace(/^\/Users\/[^/]+/, "~")}/.pi/settings.json`}</dd>
+                <dd className="truncate font-mono text-xs text-sub">{current.scope === "global" ? "~/.loomden/agent/settings.json" : `${current.cwd?.replace(/^\/Users\/[^/]+/, "~")}/.pi/settings.json`}</dd>
               </dl>
               <div className="grid grid-cols-2 gap-x-6 gap-y-4 xl:grid-cols-4">
                 {(
