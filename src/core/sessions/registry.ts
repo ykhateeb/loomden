@@ -27,7 +27,8 @@ import { EXPORT_PREFIX, FREE_CANVAS_DIR, NO_PROJECT_DIR } from "#core/paths";
 import loomdenCanvas from "#canvas/extension";
 import { designSystemDir, ensureGitignore, freeRoot, moveCanvases, moveDesignSystem, projectRoot } from "#canvas/store";
 
-type ThinkingLevel = AgentSessionRuntime["session"]["thinkingLevel"];
+type Session = AgentSessionRuntime["session"];
+type ThinkingLevel = Session["thinkingLevel"];
 
 type Entry = {
   rt: AgentSessionRuntime;
@@ -38,30 +39,23 @@ type Entry = {
   /** What the user queued, as typed and with image paths (pi keeps only the expanded text). */
   queued: { text: string; images: string[] }[];
 };
-const live = new Map<string, Entry>();
 
-async function gitBranch(cwd: string) {
-  try {
-    // symbolic-ref works in a repo with no commits, and fails on a detached HEAD (no branch to show).
-    const { stdout } = await promisify(execFile)("git", ["symbolic-ref", "--short", "HEAD"], { cwd, timeout: 3000 });
-    return stdout.trim() || undefined;
-  } catch {
-    return undefined; // not a git repository, or no git
-  }
-}
-// Session files the user opened (not only an export): an export never closes these.
-const wanted = new Set<string>();
-// Opens in progress, by session file.
-const opening = new Map<string, Promise<string | undefined>>();
-// "Open without project files" answers, for this app run only.
-const trustOnce = new Map<string, boolean>();
+const GIT_TIMEOUT_MS = 3000;
+const TITLE_MAX_LENGTH = 80;
 
 export function createRegistry(send: Send, modelRuntime: ModelRuntime) {
+  const live = new Map<string, Entry>();
+  // Session files the user opened (not only an export): an export never closes these.
+  const wanted = new Set<string>();
+  // Opens in progress, by session file.
+  const opening = new Map<string, Promise<string | undefined>>();
+  // "Open without project files" answers, for this app run only.
+  const trustOnce = new Map<string, boolean>();
+
   const factory: CreateAgentSessionRuntimeFactory = async ({ cwd, sessionManager, sessionStartEvent }) => {
     const trusted = new ProjectTrustStore(getAgentDir()).get(cwd) ?? trustOnce.get(cwd) ?? false;
     const { settingsManager, missing } = settingsWithoutMissing(cwd);
-    if (missing.length)
-      send({ type: "notify", level: "warning", message: `Not installed, so not loaded: ${missing.join(", ")}. Install them in Packages.` });
+    if (missing.length) notify("warning", `Not installed, so not loaded: ${missing.join(", ")}. Install them in Packages.`);
     const services = await createAgentSessionServices({
       cwd,
       modelRuntime,
@@ -80,7 +74,12 @@ export function createRegistry(send: Send, modelRuntime: ModelRuntime) {
     };
   };
 
-  /** Ask once for a folder with .pi/ extensions, skills or prompts. undefined = the user cancelled. */
+  const notify = (level: "info" | "warning" | "error", message: string, key?: string) => send({ type: "notify", key, level, message });
+  const sendMessages = (key: string, session: Session) => send({ type: "messages", key, messages: session.messages as AgentMessage[] });
+  // A run can end after its session was closed (deleted while it streamed): then there is nothing to send.
+  const sendState = (key: string) => live.has(key) && send({ type: "state", state: state(key) });
+
+  /** Ask once for a folder with .pi/ extensions, skills or prompts. false = the user cancelled. */
   async function ensureTrust(cwd: string): Promise<boolean> {
     const store = new ProjectTrustStore(getAgentDir());
     if (!hasTrustRequiringProjectResources(cwd) || store.get(cwd) !== null || trustOnce.has(cwd)) return true;
@@ -121,9 +120,6 @@ export function createRegistry(send: Send, modelRuntime: ModelRuntime) {
     };
   }
 
-  // A run can end after its session was closed (deleted while it streamed): then there is nothing to send.
-  const sendState = (key: string) => live.has(key) && send({ type: "state", state: state(key) });
-
   // Called on open and after pi replaces the session (fork, new, switch): subscriptions belong to the old one.
   async function bind(key: string) {
     const entry = get(key);
@@ -148,7 +144,7 @@ export function createRegistry(send: Send, modelRuntime: ModelRuntime) {
         switchSession: (path, options) => rt.switchSession(path, options),
         reload: () => session.reload(),
       },
-      onError: (err) => send({ type: "notify", key, level: "error", message: `${err.extensionPath}: ${err.error}` }),
+      onError: (err) => notify("error", `${err.extensionPath}: ${err.error}`, key),
     });
     const forward = forwardEvents(key, send, () => sendState(key));
     entry.unsubscribe = session.subscribe((event) => {
@@ -156,13 +152,16 @@ export function createRegistry(send: Send, modelRuntime: ModelRuntime) {
       if (event.type === "tool_execution_end") entry.runningTools.delete(event.toolCallId);
       if (event.type === "agent_start") entry.runStartedAt ??= Date.now();
       if (event.type === "agent_settled") entry.runStartedAt = undefined;
+      if (event.type === "compaction_end") sendMessages(key, session);
       // pi took queued messages into the run: drop them from the front of ours.
       // ponytail: assumes pi delivers in the order they were queued; mixed steer/follow-up can differ.
-      if (event.type === "compaction_end") send({ type: "messages", key, messages: session.messages as AgentMessage[] });
-      if (event.type === "queue_update") entry.queued = entry.queued.slice(entry.queued.length - (event.steering.length + event.followUp.length));
+      if (event.type === "queue_update") {
+        const stillQueued = event.steering.length + event.followUp.length;
+        entry.queued = entry.queued.slice(entry.queued.length - stillQueued);
+      }
       forward(event);
     });
-    send({ type: "messages", key, messages: session.messages as AgentMessage[] });
+    sendMessages(key, session);
     sendState(key);
   }
 
@@ -183,39 +182,56 @@ export function createRegistry(send: Send, modelRuntime: ModelRuntime) {
     return entry;
   }
 
-  return {
-    /**
-     * Returns the session key, or undefined if the user cancelled the trust dialog.
-     * `from` opens a session manager made elsewhere (a clone).
-     */
-    open(cwd: string, path?: string, from?: () => SessionManager, forExport = false): Promise<string | undefined> {
-      if (path && !forExport) wanted.add(path);
-      // Two quick opens of one file (a double-click) must not make two runtimes that both write to it.
-      if (!path) return this.openNow(cwd, path, from);
-      const pending = opening.get(path) ?? this.openNow(cwd, path, from).finally(() => opening.delete(path));
-      opening.set(path, pending);
-      return pending;
-    },
+  /** Two quick opens of one file (a double-click) must not make two runtimes that both write to it. */
+  function openOnce(cwd: string, path: string) {
+    const pending = opening.get(path) ?? openNow(cwd, path).finally(() => opening.delete(path));
+    opening.set(path, pending);
+    return pending;
+  }
 
-    async openNow(cwd: string, path?: string, from?: () => SessionManager): Promise<string | undefined> {
-      const found = path && keyOf(path);
-      if (found) {
-        // Already bound: only send it again. A new bind in the middle of a run would lose its timer and tool spinners.
-        send({ type: "messages", key: found, messages: get(found).rt.session.messages as AgentMessage[] });
-        sendState(found);
-        return found;
+  /** `createManager` opens a session manager made elsewhere (a clone). undefined = the user cancelled the trust dialog. */
+  async function openNow(cwd: string, path?: string, createManager?: () => SessionManager): Promise<string | undefined> {
+    const found = path && keyOf(path);
+    if (found) {
+      // Already bound: only send it again. A new bind in the middle of a run would lose its timer and tool spinners.
+      sendMessages(found, get(found).rt.session);
+      sendState(found);
+      return found;
+    }
+    if (!(await ensureTrust(cwd))) return undefined;
+    const rt = await createAgentSessionRuntime(factory, {
+      cwd,
+      agentDir: getAgentDir(),
+      sessionManager: createManager ? createManager() : path ? SessionManager.open(path) : SessionManager.create(cwd),
+    });
+    const key = randomUUID();
+    live.set(key, { rt, runningTools: new Set(), queued: [] });
+    rt.setRebindSession(() => bind(key));
+    await bind(key);
+    return key;
+  }
+
+  /** Board C14: the session's canvases move into the project, where the team gets them with git. */
+  async function moveFreeCanvases(key: string, sessionId: string, cwd: string) {
+    const freeDir = freeRoot(FREE_CANVAS_DIR, sessionId);
+    try {
+      const moved = await moveCanvases(freeDir, projectRoot(cwd));
+      await moveDesignSystem(designSystemDir(freeDir), designSystemDir(projectRoot(cwd)));
+      if (moved.length) {
+        await ensureGitignore(cwd);
+        notify("info", `Canvas moved to ${basename(cwd)}/.loomden/canvases/${moved.join(", ")}`, key);
       }
-      if (!(await ensureTrust(cwd))) return undefined;
-      const rt = await createAgentSessionRuntime(factory, {
-        cwd,
-        agentDir: getAgentDir(),
-        sessionManager: from ? from() : path ? SessionManager.open(path) : SessionManager.create(cwd),
-      });
-      const key = randomUUID();
-      live.set(key, { rt, runningTools: new Set(), queued: [] });
-      rt.setRebindSession(() => bind(key));
-      await bind(key);
-      return key;
+    } catch (e) {
+      notify("error", `The session moved, but its canvas did not: ${(e as Error).message}. It is still in ${freeDir}`, key);
+    }
+  }
+
+  return {
+    /** Returns the session key, or undefined if the user cancelled the trust dialog. No `path` = a new session. */
+    open(cwd: string, path?: string): Promise<string | undefined> {
+      if (!path) return openNow(cwd);
+      wanted.add(path);
+      return openOnce(cwd, path);
     },
 
     /**
@@ -240,7 +256,10 @@ export function createRegistry(send: Send, modelRuntime: ModelRuntime) {
         // A failed preflight is always followed by pi's throw, which carries the reason: settle on that.
         s.prompt(text, { images, streamingBehavior: streaming ? (behavior ?? "steer") : undefined, preflightResult: (ok) => ok && settle() })
           .then(() => settle())
-          .catch((e: Error) => settle(e) || (live.has(key) && send({ type: "notify", key, level: "error", message: e.message })))
+          .catch((e: Error) => {
+            // Already settled: pi accepted the message, so a later run error is only a notice.
+            if (!settle(e) && live.has(key)) notify("error", e.message, key);
+          })
           .finally(() => sendState(key));
       });
       // Only a message pi really queued gets a "Queued" row (an extension command runs at once, input handlers can take it).
@@ -286,7 +305,7 @@ export function createRegistry(send: Send, modelRuntime: ModelRuntime) {
     async navigate(key: string, id: string, summarize: boolean) {
       const s = get(key).rt.session;
       const r = await s.navigateTree(id, { summarize });
-      send({ type: "messages", key, messages: s.messages as AgentMessage[] });
+      sendMessages(key, s);
       sendState(key);
       return { editorText: r.editorText, tree: this.tree(key) };
     },
@@ -309,7 +328,7 @@ export function createRegistry(send: Send, modelRuntime: ModelRuntime) {
     /** Board 2: "Compact now". Long; the state shows it running, errors come as a notice. */
     compact(key: string) {
       const s = get(key).rt.session;
-      s.compact().catch((e: Error) => send({ type: "notify", key, level: "error", message: `Compact failed: ${e.message}` })).finally(() => sendState(key));
+      s.compact().catch((e: Error) => notify("error", `Compact failed: ${e.message}`, key)).finally(() => sendState(key));
       sendState(key);
     },
 
@@ -370,26 +389,13 @@ export function createRegistry(send: Send, modelRuntime: ModelRuntime) {
       }
       rmSync(from);
       if (wanted.delete(from)) wanted.add(to);
-      // Board C14: the session's canvases move into the project, where the team gets them with git.
-      if (freeId) {
-        const from = freeRoot(FREE_CANVAS_DIR, freeId);
-        try {
-          const moved = await moveCanvases(from, projectRoot(cwd));
-          await moveDesignSystem(designSystemDir(from), designSystemDir(projectRoot(cwd)));
-          if (moved.length) {
-            await ensureGitignore(cwd);
-            send({ type: "notify", key, level: "info", message: `Canvas moved to ${basename(cwd)}/.loomden/canvases/${moved.join(", ")}` });
-          }
-        } catch (e) {
-          send({ type: "notify", key, level: "error", message: `The session moved, but its canvas did not: ${(e as Error).message}. It is still in ${from}` });
-        }
-      }
+      if (freeId) await moveFreeCanvases(key, freeId, cwd);
       return key;
     },
 
     /** A copy of the whole session, opened. */
     clone(cwd: string, path: string) {
-      return this.open(cwd, undefined, () => SessionManager.forkFrom(path, cwd));
+      return openNow(cwd, undefined, () => SessionManager.forkFrom(path, cwd));
     },
 
     rename(path: string, name: string) {
@@ -403,7 +409,8 @@ export function createRegistry(send: Send, modelRuntime: ModelRuntime) {
     /** Export to a temporary file. The main process moves it to the path the user picks. */
     async exportHtml(cwd: string, path: string) {
       const wasOpen = keyOf(path);
-      const key = wasOpen ?? (await this.open(cwd, path, undefined, true));
+      // Not open() here: an export alone does not make the file one the user opened.
+      const key = wasOpen ?? (await openOnce(cwd, path));
       if (!key) throw new Error("Export cancelled");
       try {
         return await get(key).rt.session.exportToHtml(join(tmpdir(), `${EXPORT_PREFIX}${randomUUID()}.html`));
@@ -429,7 +436,7 @@ export function createRegistry(send: Send, modelRuntime: ModelRuntime) {
     /** A new window port knows nothing: send every open session again. */
     resendAll() {
       for (const [key, { rt }] of live) {
-        send({ type: "messages", key, messages: rt.session.messages as AgentMessage[] });
+        sendMessages(key, rt.session);
         sendState(key);
       }
     },
@@ -446,6 +453,22 @@ export function copyToFolder(from: string, dir: string, cwd: string) {
   return to;
 }
 
+/** "permission-gate" from ".../permission-gate/index.ts" or ".../permission-gate.ts". */
+export function extensionName(path: string) {
+  const file = basename(path, extname(path));
+  return file === "index" ? basename(dirname(path)) : file;
+}
+
+async function gitBranch(cwd: string) {
+  try {
+    // symbolic-ref works in a repo with no commits, and fails on a detached HEAD (no branch to show).
+    const { stdout } = await promisify(execFile)("git", ["symbolic-ref", "--short", "HEAD"], { cwd, timeout: GIT_TIMEOUT_MS });
+    return stdout.trim() || undefined;
+  } catch {
+    return undefined; // not a git repository, or no git
+  }
+}
+
 /** Board 1's trust dialog: what the project's .pi folder holds. */
 function piFiles(cwd: string) {
   try {
@@ -459,19 +482,13 @@ function piFiles(cwd: string) {
   }
 }
 
-function compactAt(s: AgentSessionRuntime["session"]) {
+function compactAt(s: Session) {
   const window = s.model?.contextWindow;
   if (!window || !s.autoCompactionEnabled) return undefined;
   return window - s.settingsManager.getCompactionSettings(s.model).reserveTokens;
 }
 
-/** "permission-gate" from ".../permission-gate/index.ts" or ".../permission-gate.ts". */
-export function extensionName(path: string) {
-  const file = basename(path, extname(path));
-  return file === "index" ? basename(dirname(path)) : file;
-}
-
-function resources(s: AgentSessionRuntime["session"]): LiveState["resources"] {
+function resources(s: Session): LiveState["resources"] {
   const loader = s.resourceLoader;
   const skills = loader.getSkills().skills.map((k) => k.name);
   const system = loader.getSystemPromptSource();
@@ -487,5 +504,5 @@ function firstUserText(messages: readonly AgentMessage[]): string | undefined {
   const m = messages.find((m) => m.role === "user");
   if (!m || m.role !== "user") return undefined;
   const text = typeof m.content === "string" ? m.content : m.content.find((c) => c.type === "text")?.text;
-  return text?.split("\n")[0].slice(0, 80);
+  return text?.split("\n")[0].slice(0, TITLE_MAX_LENGTH);
 }
