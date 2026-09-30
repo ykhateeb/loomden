@@ -8,11 +8,13 @@ Loomden is an Electron desktop app for pi (`@earendil-works/pi-coding-agent`), a
 
 - `npm run dev`: start the app with hot reload.
 - `npm run typecheck`: run `tsc` on `src/`, `packages/`, and `e2e/`. No lint tool exists.
+  - `tsc` does not report unused imports. After you move code, remove unused imports by hand.
 - `npm test`: run all Vitest unit tests (`*.test.ts` in `src/` and `packages/`).
   - One file: `npx vitest run src/core/sessions/tree.test.ts`. One test: add `-t "<name>"`.
 - `npm run test:e2e`: run the Playwright tests (`e2e/*.e2e.ts`, `packages/*/e2e/*.e2e.ts`).
   - `e2e/loomden.e2e.ts` launches the built app. Run `npm run build` before it.
   - `packages/loomden-canvas/e2e/` runs the canvas server in the test process and drives it with Chromium. It needs no build.
+  - One e2e test: `npx playwright test -g "<part of the title>"`.
 - `npm run dist`: build and package the app with electron-builder.
 
 ## Dev environment variables
@@ -29,7 +31,7 @@ Loomden is an Electron desktop app for pi (`@earendil-works/pi-coding-agent`), a
 The app has three processes:
 
 1. **Main** (`src/main/`): owns the window, native dialogs, and the host IPC (`host-ipc.ts`). It forks the agent process and gives the window a direct `MessagePort` to it (`agent-host.ts`). Main does not relay agent traffic.
-2. **Agent** (`src/agent/index.ts`, an Electron `utilityProcess`): pi and all pi extensions run here, never in the window. `handle()` is the one dispatcher for window commands. The logic lives in `src/core/`, and `src/core/sessions/registry.ts` holds the open pi sessions.
+2. **Agent** (`src/agent/index.ts`, an Electron `utilityProcess`): pi and all pi extensions run here, never in the window. `handle()` is the one dispatcher for window commands. The logic lives in `src/core/`. `src/core/sessions/registry.ts` holds the open pi sessions and their commands. Next to it: `runtime.ts` (project trust, pi runtime creation), `live-state.ts` (the `LiveState` of a session), `move.ts` (moving a session to a project).
 3. **Renderer** (`src/renderer/src/`): React UI. `store.ts` is one global store (`useSyncExternalStore`) that sends commands and applies agent messages.
 
 `src/protocol.ts` is the single source of truth for the window-to-agent contract: `Command` (window to agent, answered with a `reply` by `rid`) and `AgentOut` (agent to window). To add a feature, add a `Command` variant, a case in `handle()`, and a call in the renderer store.
@@ -49,12 +51,26 @@ The window shows model output, so the agent treats every window command as untru
 - Loomden shares only `auth.json` with terminal pi. The import feature copies other items from `~/.pi/agent`.
 - `src/core/paths.ts` reads `LOOMDEN_DIR` and `LOOMDEN_PI_DIR` when a module imports it. A test that touches these folders sets `process.env` first and then uses `await import(…)`. A static import uses the real `~/.loomden`.
 
+### Modular design
+
+- One module has one job. If a module gets a second job, split it by job, as in `src/core/sessions/`.
+- Keep state in a `create…()` factory (`createRegistry`, `createRuntimes`), not at module level. Old exceptions: `grants.ts`, `projects.ts`, `attachments.ts`, `design.ts`, `extension-ui.ts`.
+- A function with 3 or more parameters takes an object (for example, `designOpen(target, host)`).
+- Use the shared helpers. Do not copy them:
+  - `readJson()`, `MODEL_SETTING_KEYS`: `src/core/settings.ts`
+  - `manager()`, `resourceName()`: `src/core/packages.ts`
+  - `availableModels()`: `src/core/providers.ts`
+  - `contentText()`: `src/core/sessions/summary.ts`
+  - `packageGrant()`, `GrantKind`: `src/core/grants.ts` (main uses them too)
+  - `folderName()`: `src/renderer/src/chat/format.ts`
+
 ### loomden-canvas package
 
 `packages/loomden-canvas/` is a pi package: a design canvas extension (`src/extension.ts`) and the `loomden-design` skill. It also works in terminal pi, which loads it with jiti.
 
 - Loomden imports the extension in `src/core/sessions/runtime.ts` (`extensionFactories`), so it is bundled into `out/main/agent.js`. Rebuild before the app e2e test sees an extension change.
 - Loomden reads only `skills/` from disk, at a path relative to `out/main/`. If you move the skills folder, change `runtime.ts` and `electron-builder.yml` too.
+- Main and agent share build chunks in `out/main/chunks/`. Code that uses `import.meta.dirname` must stay agent-only, or its relative path breaks.
 - The host also imports `store.ts` and `server.ts` from the package (`src/core/sessions/move.ts`, `src/core/design.ts`).
 
 - Canvases live in `<project>/.loomden/canvases/<slug>/`. A session with no project keeps them in `~/.loomden/sessions/<id>/canvases`.
