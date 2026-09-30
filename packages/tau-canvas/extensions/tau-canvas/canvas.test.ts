@@ -63,7 +63,7 @@ describe("server", () => {
     const { root } = await setup();
     await createBoard(root, { canvas: "c1", board: "cart", title: "Cart", w: 390, h: 844, html });
     const sent: string[] = [];
-    const s = await startServer({ root, onSend: (t) => sent.push(t) });
+    const s = await startServer({ root, onSend: (t) => { sent.push(t); } });
     try {
       const url = s.url("c1");
       const origin = new URL(url).origin;

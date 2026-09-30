@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("typebox", () => ({ Type: new Proxy({}, { get: () => () => ({}) }) }));
 vi.mock("@earendil-works/pi-coding-agent", () => ({ defineTool: (t: unknown) => t }));
 
-const { default: ext } = await import("./tau-canvas.js");
+const { default: ext } = await import("./index.js");
 
 describe("extension", () => {
   it("registers tools, blocks raw board writes, tells pi about notes, stops cleanly", async () => {

@@ -1,7 +1,7 @@
 // Files are the truth. Everything here reads and writes `.tau/canvases/<slug>/`.
 import { appendFile, copyFile, cp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { extname, join } from "node:path";
+import { dirname, extname, join } from "node:path";
 
 export type Target = { tid: string; text: string; box: number[] };
 export type NoteState = "open" | "sent" | "work" | "done";
@@ -406,6 +406,14 @@ export async function canvasTabs(root: string) {
   }));
   return tabs.filter((t) => t !== undefined);
 }
+
+/** A project keeps its canvases in .tau/canvases. */
+export const projectRoot = (project: string) => join(project, ".tau", "canvases");
+/** The design system sits next to the canvases folder: for a project, and for a session with no project. */
+export const designSystemDir = (root: string) => join(dirname(root), "design-system");
+/** The status ids the extension uses to tell the host the canvas address and a build pack. */
+export const STATUS_CANVAS = "tau-canvas";
+export const STATUS_BUILD = "tau-canvas-build";
 
 /** Where a session with no project keeps its canvases, until it is added to a project. */
 export const freeRoot = (freeDir: string, sessionId: string) => join(freeDir, slug(sessionId), "canvases");

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { ExtensionUIContext, ExtensionUIDialogOptions } from "@earendil-works/pi-coding-agent";
 import type { Send, UIRequest } from "../../protocol";
+import { STATUS_BUILD, STATUS_CANVAS } from "../../../packages/tau-canvas/extensions/tau-canvas/store";
 
 type Body = UIRequest extends infer R ? (R extends UIRequest ? Omit<R, "id"> : never) : never;
 
@@ -54,8 +55,8 @@ export function uiContextFor(key: string, send: Send): ExtensionUIContext {
     onTerminalInput: () => noop,
     // The design canvas extension reports its server address here; the window shows it in a panel.
     setStatus: (id, text) => {
-      if (id === "tau-canvas" && text) send({ type: "canvas", key, url: text });
-      if (id === "tau-canvas-build" && text) {
+      if (id === STATUS_CANVAS && text) send({ type: "canvas", key, url: text });
+      if (id === STATUS_BUILD && text) {
         try {
           send({ type: "canvas.build", key, ...JSON.parse(text) }); // { title, text }
         } catch {

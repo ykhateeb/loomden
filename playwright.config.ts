@@ -1,8 +1,7 @@
 import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
-  testDir: "tau-canvas/e2e",
-  testMatch: "**/*.e2e.ts",
+  testMatch: ["e2e/*.e2e.ts", "packages/*/e2e/*.e2e.ts"],
   workers: 1,
   use: { browserName: "chromium" },
 });

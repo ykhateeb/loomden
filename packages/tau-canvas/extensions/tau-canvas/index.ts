@@ -5,7 +5,7 @@ import { Type } from "typebox";
 import { defineTool, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { startServer, type CanvasServer } from "./server.js";
 import {
-  RAW_BOARD, RAW_STATE, RAW_TOKENS, compareBoard, createBoard, clearDraftState, createCanvas, freeRoot, planBoards, setEditing, proposeTokens, editBoard, ensureGitignore, listCanvases, readBoard, readCanvas, setNoteState,
+  RAW_BOARD, RAW_STATE, RAW_TOKENS, STATUS_BUILD, STATUS_CANVAS, compareBoard, designSystemDir, projectRoot, createBoard, clearDraftState, createCanvas, freeRoot, planBoards, setEditing, proposeTokens, editBoard, ensureGitignore, listCanvases, readBoard, readCanvas, setNoteState,
 } from "./store.js";
 
 const text = (t: string) => ({ content: [{ type: "text" as const, text: t }], details: undefined });
@@ -16,8 +16,8 @@ export default function (pi: ExtensionAPI) {
   // A project keeps its canvases in .tau/. A Tau session with no project keeps them in its own folder until it is added to a project.
   type Ctx = { cwd: string; sessionManager: { getSessionId(): string } };
   const isFree = (ctx: Ctx) => !!process.env.TAU_NO_PROJECT && resolve(ctx.cwd) === resolve(process.env.TAU_NO_PROJECT);
-  const rootOf = (ctx: Ctx) => isFree(ctx) ? freeRoot(process.env.TAU_FREE_DIR!, ctx.sessionManager.getSessionId()) : join(ctx.cwd, ".tau", "canvases");
-  const dsOf = (ctx: Ctx) => join(rootOf(ctx), "..", "design-system");
+  const rootOf = (ctx: Ctx) => isFree(ctx) ? freeRoot(process.env.TAU_FREE_DIR!, ctx.sessionManager.getSessionId()) : projectRoot(ctx.cwd);
+  const dsOf = (ctx: Ctx) => designSystemDir(rootOf(ctx));
   // Tau shows the canvas in a panel and reads the address from the status. Terminal pi opens the browser.
   const inTau = () => !!process.env.TAU_APP;
   const announced = new Set<string>();
@@ -28,10 +28,10 @@ export default function (pi: ExtensionAPI) {
       root: rootOf(ctx),
       onSend: (t) => pi.sendUserMessage(t, { deliverAs: "followUp" }),
       // In Tau, "Start build session" opens a new session with the pack. In a terminal, the pack comes to this session.
-      onBuild: inTau() ? (_c, pack) => ui!.setStatus("tau-canvas-build", JSON.stringify(pack)) : undefined,
+      onBuild: inTau() ? (_c, pack) => ui!.setStatus(STATUS_BUILD, JSON.stringify(pack)) : undefined,
     });
     announced.add(name);
-    ctx.ui.setStatus("tau-canvas", server.url(name));
+    ctx.ui.setStatus(STATUS_CANVAS, server.url(name));
     return server.url(name);
   };
 

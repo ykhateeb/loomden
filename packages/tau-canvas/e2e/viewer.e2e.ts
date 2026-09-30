@@ -2,8 +2,8 @@ import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type Frame, type Page } from "@playwright/test";
-import { startServer, type CanvasServer } from "../extensions/server";
-import { compareBoard, createBoard, createCanvas, editBoard, planBoards, proposeTokens, readCanvas, setEditing } from "../extensions/store";
+import { startServer, type CanvasServer } from "../extensions/tau-canvas/server";
+import { compareBoard, createBoard, createCanvas, editBoard, planBoards, proposeTokens, readCanvas, setEditing } from "../extensions/tau-canvas/store";
 
 const board = (t: string) =>
   `<html><head><style>html,body{margin:0;width:390px;height:844px}button{margin:20px}</style></head><body><h1>${t}</h1><button>Pay now</button></body></html>`;
@@ -23,7 +23,7 @@ test.beforeEach(async () => {
   await createBoard(root, { canvas: "demo", board: "cart", title: "Cart", w: 390, h: 844, html: board("Cart") });
   await createBoard(root, { canvas: "demo", board: "pay", title: "Pay", w: 390, h: 844, html: board("Pay") });
   sent = [];
-  server = await startServer({ root, onSend: (t) => sent.push(t) });
+  server = await startServer({ root, onSend: (t) => { sent.push(t); } });
 });
 test.afterEach(() => server.close());
 
@@ -155,7 +155,7 @@ test("Edit mode: change text and token values, undo, history, custom value asks 
     color: { tokens: [{ name: "ink", value: "#1b1f24" }, { name: "link", value: "#4e6f94" }] },
     spacing: { tokens: [{ name: "space-4", value: "16px" }] },
   });
-  await (await import("../extensions/store")).acceptProposal(ds);
+  await (await import("../extensions/tau-canvas/store")).acceptProposal(ds);
   await page.goto(server.url("demo"));
   await page.keyboard.press("e");
   const frame = page.frameLocator("iframe").first();
@@ -267,7 +267,7 @@ test("App view: differences from design_compare, Fix the code and Board is wrong
   const ds = join(root, "..", "design-system");
   await editBoard(root, { canvas: "demo", board: "cart", baseRev: 1, edits: [{ find: "<h1", replace: '<h1 style="font-weight: var(--label-strong-font-weight)"' }] });
   await proposeTokens(ds, { name: "app", type: { styles: [{ name: "label-strong", fontSize: "12px", lineHeight: "16px", fontWeight: 650 }] } });
-  await (await import("../extensions/store")).acceptProposal(ds);
+  await (await import("../extensions/tau-canvas/store")).acceptProposal(ds);
   await page.goto(server.url("demo"));
   await page.getByRole("button", { name: "App", exact: true }).click();
   await expect(page.getByText("No comparison for Cart yet")).toBeVisible();

@@ -5,7 +5,7 @@
   "keywords": ["pi-package"],
   "type": "module",
   "pi": {
-    "extensions": ["./extensions/tau-canvas.ts"],
+    "extensions": ["./extensions/tau-canvas/index.ts"],
     "skills": ["./skills"]
   },
   "peerDependencies": {

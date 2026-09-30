@@ -6,7 +6,7 @@ import { randomBytes } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { watch, mkdirSync } from "node:fs";
 import { dirname, extname, join, sep } from "node:path";
-import { acceptProposal, addNote, approve, designPack, flow, readCompares, restoreRev, setDifferenceState, boardKey, canvasDir, canvasTabs, discardProposal, dsReport, patchBoard, readCanvas, readHistory, undoBoard, setNoteState, slug, tokensCss, type NoteState } from "./store.js";
+import { acceptProposal, addNote, approve, designPack, flow, readCompares, restoreRev, setDifferenceState, boardKey, canvasDir, canvasTabs, designSystemDir, discardProposal, dsReport, patchBoard, readCanvas, readHistory, undoBoard, setNoteState, slug, tokensCss, type NoteState } from "./store.js";
 import { POINT_SCRIPT, VIEWER } from "./web.js";
 
 const TYPES: Record<string, string> = {
@@ -21,7 +21,7 @@ export async function startServer(o: { root: string; onSend: (text: string) => v
   onBuild?: (canvas: string, pack: { title: string; text: string }) => void | Promise<void>;
 }): Promise<CanvasServer> {
   const token = randomBytes(16).toString("hex");
-  const ds = join(dirname(o.root), "design-system");
+  const ds = designSystemDir(o.root);
   const clients = new Set<ServerResponse>();
   const emit = (e: object) => { for (const r of clients) r.write(`data: ${JSON.stringify(e)}\n\n`); };
 

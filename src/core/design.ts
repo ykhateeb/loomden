@@ -2,14 +2,12 @@
 import { existsSync, readdirSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { startServer, type CanvasServer } from "../../tau-canvas/extensions/server";
-import { listCanvases, readCanvas, readHistory } from "../../tau-canvas/extensions/store";
+import { startServer, type CanvasServer } from "../../packages/tau-canvas/extensions/tau-canvas/server";
+import { designSystemDir, listCanvases, projectRoot, readCanvas, readHistory } from "../../packages/tau-canvas/extensions/tau-canvas/store";
 import type { DesignCanvas } from "../protocol";
 
-const rootOf = (cwd: string) => join(cwd, ".tau", "canvases");
-
 export async function designList(cwd: string): Promise<{ canvases: DesignCanvas[]; system?: string }> {
-  const root = rootOf(cwd);
+  const root = projectRoot(cwd);
   const canvases: DesignCanvas[] = [];
   for (const slug of await listCanvases(root)) {
     try {
@@ -33,7 +31,7 @@ export async function designList(cwd: string): Promise<{ canvases: DesignCanvas[
   canvases.sort((a, b) => b.updated - a.updated);
   let system: string | undefined;
   try {
-    system = JSON.parse(await readFile(join(cwd, ".tau", "design-system", "tokens.json"), "utf8")).name;
+    system = JSON.parse(await readFile(join(designSystemDir(projectRoot(cwd)), "tokens.json"), "utf8")).name;
   } catch {
     // no design system yet
   }
@@ -48,7 +46,7 @@ export async function designOpen(cwd: string, canvas: string, key: string | unde
   if (!s) {
     const entry: { server: CanvasServer; key?: string } = { key, server: undefined as never };
     entry.server = await startServer({
-      root: rootOf(cwd),
+      root: projectRoot(cwd),
       onBuild: (_c, pack) => build(cwd, pack),
       onSend: (t) => {
         if (!entry.key) throw new Error("Open a session in this project to send notes to pi");
