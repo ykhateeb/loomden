@@ -3,7 +3,7 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { _electron as electron, expect, test } from "@playwright/test";
-import { approve, createBoard } from "../packages/tau-canvas/extensions/tau-canvas/store";
+import { approve, createBoard } from "../packages/tau-canvas/src/store";
 
 // Needs a build first: npm run build
 test("/canvas in Tau opens the canvas panel next to the chat", async () => {

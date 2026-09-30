@@ -24,8 +24,8 @@ import type { Entry as FileEntry } from "./summary";
 import { buildTree } from "./tree";
 import { settingsWithoutMissing } from "../packages";
 import { EXPORT_PREFIX, FREE_CANVAS_DIR, NO_PROJECT_DIR } from "../paths";
-import tauCanvas from "../../../packages/tau-canvas/extensions/tau-canvas";
-import { designSystemDir, ensureGitignore, freeRoot, moveCanvases, moveDesignSystem, projectRoot } from "../../../packages/tau-canvas/extensions/tau-canvas/store";
+import tauCanvas from "../../../packages/tau-canvas/src/extension";
+import { designSystemDir, ensureGitignore, freeRoot, moveCanvases, moveDesignSystem, projectRoot } from "../../../packages/tau-canvas/src/store";
 
 type ThinkingLevel = AgentSessionRuntime["session"]["thinkingLevel"];
 

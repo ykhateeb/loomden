@@ -2,8 +2,8 @@
 import { existsSync, readdirSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { startServer, type CanvasServer } from "../../packages/tau-canvas/extensions/tau-canvas/server";
-import { designSystemDir, listCanvases, projectRoot, readCanvas, readHistory } from "../../packages/tau-canvas/extensions/tau-canvas/store";
+import { startServer, type CanvasServer } from "../../packages/tau-canvas/src/server";
+import { designSystemDir, listCanvases, projectRoot, readCanvas, readHistory } from "../../packages/tau-canvas/src/store";
 import type { DesignCanvas } from "../protocol";
 
 export async function designList(cwd: string): Promise<{ canvases: DesignCanvas[]; system?: string }> {
