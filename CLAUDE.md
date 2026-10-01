@@ -51,34 +51,6 @@ The window shows model output, so the agent treats every window command as untru
 - Loomden shares only `auth.json` with terminal pi. The import feature copies other items from `~/.pi/agent`.
 - `src/core/paths.ts` reads `LOOMDEN_DIR` and `LOOMDEN_PI_DIR` when a module imports it. A test that touches these folders sets `process.env` first and then uses `await import(…)`. A static import uses the real `~/.loomden`.
 
-### Modular design
-
-- One module has one job. If a module gets a second job, split it by job, as in `src/core/sessions/`.
-- Keep state in a `create…()` factory (`createRegistry`, `createRuntimes`, `createGrants`, `createDialogs`), not at module level. `src/agent/index.ts` makes each one once and passes it on. Old exceptions, marked `ponytail:`: `projects.ts`, `attachments.ts`, `design.ts`, `providers.ts`.
-- A new function with 3 or more parameters takes an object (for example, `createRegistry({ send, modelRuntime, grants, dialogs })`). Older functions with positional parameters remain. Change one when you change its signature for another reason.
-- Use the shared helpers. Do not copy them:
-  - `readJson()`, `MODEL_SETTING_KEYS`: `src/core/settings.ts`
-  - `manager()`, `resourceName()`: `src/core/packages.ts`
-  - `availableModels()`: `src/core/providers.ts`
-  - `contentText()`: `src/core/sessions/summary.ts`
-  - `packageGrant()`, `GrantKind`: `src/core/grants.ts` (main uses them too)
-  - `folderName()`: `src/renderer/src/chat/format.ts`
-
-### Code structure (Clean Code)
-
-- Use the stepdown rule: put the exported functions at the top of the file and their helpers below, in call order.
-  - Write module-level helpers as `function` declarations. They are hoisted, so a call can come before the definition.
-  - A helper that shares state with its caller (as `fork` and `connect` in `src/main/agent-host.ts`) stays a closure inside the caller.
-- Keep each function at one level of abstraction. If a function mixes high-level steps with low-level details, move the details to a named helper.
-
-### Types
-
-- `tsconfig.json` has `strict: true`. Write new code without `any`. Old uses remain in `packages/loomden-canvas/`.
-- Give data from outside the process (window commands, files, JSON) the type `unknown`, and narrow it before use.
-- Derive types from their source: use `Command` and `AgentOut` from `#protocol`, and `Extract<…>`, `Pick<…>`, or `ReturnType<…>`, instead of a second copy of the shape.
-- Use a union of string literals for a fixed set of values, not an `enum`.
-- Give each exported function an explicit parameter type. Let `tsc` infer local variables.
-
 ### Build
 
 - Main and agent share build chunks in `out/main/chunks/`. Code that uses `import.meta.dirname` must stay agent-only, or its relative path breaks.
@@ -89,21 +61,60 @@ The window shows model output, so the agent treats every window command as untru
 
 `packages/loomden-canvas/` is a pi package: a design canvas extension and the `loomden-design` skill. Before you change the package, or host code that imports `#canvas/*`, read `packages/loomden-canvas/CLAUDE.md`.
 
-## Before you start a task
+## Code rules
+
+### Modules
+
+- One module has one job. If a module gets a second job, split it by job, as in `src/core/sessions/`.
+- Keep state in a `create…()` factory (`createRegistry`, `createRuntimes`, `createGrants`, `createDialogs`), not at module level. `src/agent/index.ts` makes each one once and passes it on. Old exceptions, marked `ponytail:`: `projects.ts`, `attachments.ts`, `design.ts`, `providers.ts`.
+- Use the shared helpers. Do not copy them:
+  - `readJson()`, `MODEL_SETTING_KEYS`: `src/core/settings.ts`
+  - `manager()`, `resourceName()`: `src/core/packages.ts`
+  - `availableModels()`: `src/core/providers.ts`
+  - `contentText()`: `src/core/sessions/summary.ts`
+  - `packageGrant()`, `GrantKind`: `src/core/grants.ts` (main uses them too)
+  - `folderName()`: `src/renderer/src/chat/format.ts`
+
+### Functions
+
+- Use the stepdown rule: put the exported functions at the top of the file and their helpers below, in call order.
+  - Write module-level helpers as `function` declarations. They are hoisted, so a call can come before the definition.
+  - A helper that shares state with its caller (as `fork` and `connect` in `src/main/agent-host.ts`) stays a closure inside the caller.
+- Keep each function at one level of abstraction. If a function mixes high-level steps with low-level details, move the details to a named helper.
+- A new function with 3 or more parameters takes an object (for example, `createRegistry({ send, modelRuntime, grants, dialogs })`). Older functions with positional parameters remain. Change one when you change its signature for another reason.
+
+### Types
+
+- `tsconfig.json` has `strict: true`. Write new code without `any`. Old uses remain in `packages/loomden-canvas/`.
+- Give data from outside the process (window commands, files, JSON) the type `unknown`, and narrow it before use.
+- Derive types from their source: use `Command` and `AgentOut` from `#protocol`, and `Extract<…>`, `Pick<…>`, or `ReturnType<…>`, instead of a second copy of the shape.
+- Use a union of string literals for a fixed set of values, not an `enum`.
+- Give each exported function an explicit parameter type. Let `tsc` infer local variables.
+
+### Imports
+
+- Use `./x` in the same folder. For any other folder, use a `#` alias from the `"imports"` field of `package.json` (`#protocol`, `#preload`, `#core/*`, `#renderer/*`, `#canvas/*`). Do not use `../`.
+- `tsconfig.json` `paths` repeats the wildcard aliases, because `tsc` does not add `.ts`/`.tsx` to them. If you add an alias, change both files.
+- Import each file directly. The folders have no `index.ts` barrel files.
+- Code in `packages/loomden-canvas/` does not use the aliases. Terminal pi loads it without this app.
+
+## Workflow
+
+### Before you start a task
 
 - Run `git fetch origin`, then look for changes that you did not pull: `git status -sb` shows `behind` for the current branch, and `git rev-list --count main..origin/main` counts the new commits on `main`.
 - If there are such changes, get them first. Do not start work on an old copy. For the current branch: `git pull --ff-only`. For local `main` while you are on another branch: `git fetch origin main:main`.
 - Make each new branch from the remote, not from local `main`: `git switch -c <type>/<topic> origin/main`.
 - If the branch of your task is already on GitHub, pull its changes before you change it.
 
-## Change size
+### Change size
 
 - A reviewer must be able to review each commit in 5 minutes or less.
 - Ship small working parts. Each commit is one complete small cycle: the change, its tests, and a pass of `npm run typecheck`, `npm test`, and `npm run build`.
 - Split a large task into a series of such commits. Commit each part before you start the next one.
 - Put a refactor and a behavior change in different commits.
 
-## Pull requests
+### Pull requests
 
 - Do not commit directly to `main`. Make a branch for each task, push it, and open a pull request to `main`.
 - One pull request has one topic. It has the same size limit as a commit (see "Change size").
@@ -115,12 +126,8 @@ The window shows model output, so the agent treats every window command as untru
   - Each behavior change, marked `⚠ behavior change`.
 - Do not merge a pull request with a failing check, unless the description gives the failure and shows that the same failure occurs on `main`.
 
-## Conventions
+## Comments and commits
 
 - Comments like "board 2c" or "board C12" refer to numbered design boards of the product spec. That spec is not in this repo.
 - Write comments and commit messages in short, plain English. Feature commit subjects name the step and boards (for example, "(step 9, board C12)"), and bullet lists follow.
 - A `ponytail:` comment marks a deliberate simplification and states its limit.
-- Imports: use `./x` in the same folder. For any other folder, use a `#` alias from the `"imports"` field of `package.json` (`#protocol`, `#preload`, `#core/*`, `#renderer/*`, `#canvas/*`). Do not use `../`.
-  - `tsconfig.json` `paths` repeats the wildcard aliases, because `tsc` does not add `.ts`/`.tsx` to them. If you add an alias, change both files.
-  - Import each file directly. The folders have no `index.ts` barrel files.
-  - Code in `packages/loomden-canvas/` does not use the aliases. Terminal pi loads it without this app.
