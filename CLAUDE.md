@@ -55,7 +55,7 @@ The window shows model output, so the agent treats every window command as untru
 
 - One module has one job. If a module gets a second job, split it by job, as in `src/core/sessions/`.
 - Keep state in a `create…()` factory (`createRegistry`, `createRuntimes`, `createGrants`, `createDialogs`), not at module level. `src/agent/index.ts` makes each one once and passes it on. Old exceptions, marked `ponytail:`: `projects.ts`, `attachments.ts`, `design.ts`, `providers.ts`.
-- A function with 3 or more parameters takes an object (for example, `designOpen(target, host)`).
+- A new function with 3 or more parameters takes an object (for example, `createRegistry({ send, modelRuntime, grants, dialogs })`). Older functions with positional parameters remain. Change one when you change its signature for another reason.
 - Use the shared helpers. Do not copy them:
   - `readJson()`, `MODEL_SETTING_KEYS`: `src/core/settings.ts`
   - `manager()`, `resourceName()`: `src/core/packages.ts`
@@ -68,7 +68,7 @@ The window shows model output, so the agent treats every window command as untru
 
 - Use the stepdown rule: put the exported functions at the top of the file and their helpers below, in call order.
   - Write module-level helpers as `function` declarations. They are hoisted, so a call can come before the definition.
-  - A helper that shares state with its caller (as `connect` and `spawn` in `src/main/agent-host.ts`) stays a closure inside the caller.
+  - A helper that shares state with its caller (as `fork` and `connect` in `src/main/agent-host.ts`) stays a closure inside the caller.
 - Keep each function at one level of abstraction. If a function mixes high-level steps with low-level details, move the details to a named helper.
 
 ### Types
@@ -109,7 +109,7 @@ The window shows model output, so the agent treats every window command as untru
 ## Pull requests
 
 - Do not commit directly to `main`. Make a branch for each task, push it, and open a pull request to `main`.
-- One pull request has one topic. Keep it small: a reviewer must be able to review it in about 5 minutes, as each commit.
+- One pull request has one topic. It has the same size limit as a commit (see "Change size").
 - CI (`.github/workflows/ci.yml`) runs `npm run typecheck`, `npm test`, and `npm run build` on each pull request, and a merge to `main` needs it to pass. Run the same checks locally before you open or update a pull request. CI does not run the e2e tests: if you changed the agent or the UI, run `npm run test:e2e` locally after the build.
 - The description has these parts:
   - **What:** the change, in a few bullets.
