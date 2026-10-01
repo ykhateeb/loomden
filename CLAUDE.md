@@ -64,6 +64,21 @@ The window shows model output, so the agent treats every window command as untru
   - `packageGrant()`, `GrantKind`: `src/core/grants.ts` (main uses them too)
   - `folderName()`: `src/renderer/src/chat/format.ts`
 
+### Code structure (Clean Code)
+
+- Use the stepdown rule: put the exported functions at the top of the file and their helpers below, in call order.
+  - Write module-level helpers as `function` declarations. They are hoisted, so a call can come before the definition.
+  - A helper that shares state with its caller (as `connect` and `spawn` in `src/main/agent-host.ts`) stays a closure inside the caller.
+- Keep each function at one level of abstraction. If a function mixes high-level steps with low-level details, move the details to a named helper.
+
+### Types
+
+- `tsconfig.json` has `strict: true`. Write new code without `any`. Old uses remain in `packages/loomden-canvas/`.
+- Give data from outside the process (window commands, files, JSON) the type `unknown`, and narrow it before use.
+- Derive types from their source: use `Command` and `AgentOut` from `#protocol`, and `Extract<…>`, `Pick<…>`, or `ReturnType<…>`, instead of a second copy of the shape.
+- Use a union of string literals for a fixed set of values, not an `enum`.
+- Give each exported function an explicit parameter type. Let `tsc` infer local variables.
+
 ### loomden-canvas package
 
 `packages/loomden-canvas/` is a pi package: a design canvas extension (`src/extension.ts`) and the `loomden-design` skill. It also works in terminal pi, which loads it with jiti.
