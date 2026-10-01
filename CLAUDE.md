@@ -79,18 +79,15 @@ The window shows model output, so the agent treats every window command as untru
 - Use a union of string literals for a fixed set of values, not an `enum`.
 - Give each exported function an explicit parameter type. Let `tsc` infer local variables.
 
+### Build
+
+- Main and agent share build chunks in `out/main/chunks/`. Code that uses `import.meta.dirname` must stay agent-only, or its relative path breaks.
+- pi loads user and third-party extensions at runtime with jiti. Thus the main build does not bundle dependencies, and electron-builder unpacks `@earendil-works` from the asar.
+- The agent build bundles the canvas extension into `out/main/agent.js`. Rebuild before the app e2e test sees an extension change.
+
 ### loomden-canvas package
 
-`packages/loomden-canvas/` is a pi package: a design canvas extension (`src/extension.ts`) and the `loomden-design` skill. It also works in terminal pi, which loads it with jiti.
-
-- Loomden imports the extension in `src/core/sessions/runtime.ts` (`extensionFactories`), so it is bundled into `out/main/agent.js`. Rebuild before the app e2e test sees an extension change.
-- Loomden reads only `skills/` from disk, at a path relative to `out/main/`. If you move the skills folder, change `runtime.ts` and `electron-builder.yml` too.
-- Main and agent share build chunks in `out/main/chunks/`. Code that uses `import.meta.dirname` must stay agent-only, or its relative path breaks.
-- The host also imports `store.ts` and `server.ts` from the package (`src/core/sessions/move.ts`, `src/core/design.ts`).
-
-- Canvases live in `<project>/.loomden/canvases/<slug>/`. A session with no project keeps them in `~/.loomden/sessions/<id>/canvases`.
-- The extension reads `LOOMDEN_APP`, `LOOMDEN_NO_PROJECT`, and `LOOMDEN_FREE_DIR` to know that it runs inside Loomden.
-- pi loads user and third-party extensions at runtime with jiti. Thus the main build does not bundle dependencies, and electron-builder unpacks `@earendil-works` from the asar.
+`packages/loomden-canvas/` is a pi package: a design canvas extension and the `loomden-design` skill. Before you change the package, or host code that imports `#canvas/*`, read `packages/loomden-canvas/CLAUDE.md`.
 
 ## Before you start a task
 
