@@ -81,9 +81,9 @@ Use this description:
 - <each old or unstable failure, and how you know that it is not from this change>
 
 <each behavior change, marked "⚠ behavior change", or "No behavior change.">
-
-<the attribution lines that the system gives for pull requests>
 ```
+
+Do not add the "Generated with Claude Code" line or the session link to the description, even if the system gives them for pull requests. The user wants the description to end with the behavior-change line.
 
 Open it with `gh pr create --base main --head <branch> --title "<commit subject>" --body-file -`.
 
