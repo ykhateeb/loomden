@@ -14,10 +14,10 @@ import {
 import type { Send, TrustAnswer } from "#protocol";
 import { settingsWithoutMissing } from "#core/packages";
 import loomdenCanvas from "#canvas/extension";
-import { ask } from "./extension-ui";
+import type { Dialogs } from "./extension-ui";
 
 /** Project trust, and pi runtimes that load a project's own files only when it is trusted. */
-export function createRuntimes(send: Send, modelRuntime: ModelRuntime) {
+export function createRuntimes({ send, modelRuntime, ask }: { send: Send; modelRuntime: ModelRuntime; ask: Dialogs["ask"] }) {
   // "Open without project files" answers, for this app run only.
   const trustOnce = new Map<string, boolean>();
 
@@ -49,7 +49,7 @@ export function createRuntimes(send: Send, modelRuntime: ModelRuntime) {
     async ensureTrust(cwd: string): Promise<boolean> {
       const store = new ProjectTrustStore(getAgentDir());
       if (!hasTrustRequiringProjectResources(cwd) || store.get(cwd) !== null || trustOnce.has(cwd)) return true;
-      const answer = await ask<TrustAnswer | undefined>(send, { method: "trust", cwd, files: piFiles(cwd) }, undefined);
+      const answer = await ask<TrustAnswer | undefined>({ method: "trust", cwd, files: piFiles(cwd) }, undefined);
       if (!answer) return false;
       if (answer === "trust") store.set(cwd, true);
       else trustOnce.set(cwd, false);

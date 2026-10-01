@@ -39,6 +39,7 @@ export async function designList(cwd: string): Promise<{ canvases: DesignCanvas[
 }
 
 // One server for each project the Design page opened. Notes go to the session that opened it.
+// ponytail: module state, one copy per agent process; a factory when tests need a clean copy.
 const servers = new Map<string, { server: CanvasServer; key?: string }>();
 
 type DesignTarget = { cwd: string; canvas: string; key?: string; tab?: "ds" };

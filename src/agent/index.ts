@@ -1,7 +1,7 @@
 // The agent process (Electron utilityProcess). pi and every extension run here, never in the window's process.
 import { initTheme, ModelRuntime, type ProgressEvent } from "@earendil-works/pi-coding-agent";
 import { searchFiles } from "#core/attachments";
-import { assertGranted, grant, packageGrant } from "#core/grants";
+import { createGrants, packageGrant } from "#core/grants";
 import { codeItems, runImport, scanImport } from "#core/import";
 import { changePackage, listPackages, searchGallery, setTrust, trustList } from "#core/packages";
 import { addCustomProvider, availableModels, cancelLogin, findModels, listProviders, login } from "#core/providers";
@@ -10,7 +10,7 @@ import { designList, designOpen } from "#core/design";
 import { addProject, assertProject, listSessions, removeProject } from "#core/projects";
 import { mkdirSync } from "node:fs";
 import { NO_PROJECT_DIR, SHARED_AUTH_PATH, sessionFile } from "#core/paths";
-import { answer, resendPending } from "#core/sessions/extension-ui";
+import { createDialogs } from "#core/sessions/extension-ui";
 import { createRegistry } from "#core/sessions/registry";
 import { searchSessions } from "#core/sessions/search";
 import type { AgentOut, Command, ImportItem, Project, Request } from "#protocol";
@@ -24,7 +24,9 @@ const send = (msg: AgentOut) => {
 
 initTheme(); // extensions read ctx.ui.theme
 const modelRuntime = await ModelRuntime.create({ authPath: SHARED_AUTH_PATH });
-const sessions = createRegistry(send, modelRuntime);
+const grants = createGrants();
+const dialogs = createDialogs(send);
+const sessions = createRegistry({ send, modelRuntime, grants, dialogs });
 
 const sendPackageProgress = (e: ProgressEvent) => send({ type: "package.progress", source: e.source, action: e.action, phase: e.type, message: e.message });
 
@@ -42,7 +44,7 @@ async function handle(cmd: Command): Promise<unknown> {
     case "sessions.list":
       return listSessions();
     case "project.add":
-      await addProject(cmd.cwd);
+      await addProject(grants, cmd.cwd);
       return listSessions();
     case "session.open":
       await assertProject(cmd.cwd); // a folder becomes a project only through the folder picker
@@ -89,7 +91,7 @@ async function handle(cmd: Command): Promise<unknown> {
       if (cmd.cwd) await assertProject(cmd.cwd);
       return writeModelSettings(cmd.patch, cmd.cwd);
     case "providers.login":
-      await login(modelRuntime, cmd.providerId, cmd.method, send);
+      await login(modelRuntime, cmd.providerId, cmd.method, { send, ask: dialogs.ask });
       return listProviders(modelRuntime);
     case "providers.cancelLogin":
       return cancelLogin();
@@ -112,7 +114,7 @@ async function handle(cmd: Command): Promise<unknown> {
       const items = cmd.items.filter((i): i is ImportItem => ["settings", "providers", "trust", "files", "packages"].includes(i));
       // Copying extensions or installing packages brings code into Loomden: only after main's own confirmation.
       const code = codeItems.filter((i) => items.includes(i));
-      if (code.length) await assertGranted("package", packageGrant("import", code.join(",")));
+      if (code.length) await grants.assertGranted("package", packageGrant("import", code.join(",")));
       const results = await runImport(items, sendPackageProgress);
       await modelRuntime.refresh(); // imported providers and keys show at once
       return results;
@@ -123,7 +125,7 @@ async function handle(cmd: Command): Promise<unknown> {
       if (cmd.cwd) await assertProject(cmd.cwd);
       // Installing or updating runs new code (an update can install a missing package or a newer, unreviewed version):
       // only after the user confirmed it in main's own dialog. Removing needs no confirmation.
-      if (cmd.action !== "remove") await assertGranted("package", packageGrant(cmd.action, cmd.source, cmd.cwd));
+      if (cmd.action !== "remove") await grants.assertGranted("package", packageGrant(cmd.action, cmd.source, cmd.cwd));
       const { projects } = await listSessions();
       await changePackage(cmd.action, cmd.source, cmd.cwd, sendPackageProgress, projects[0]?.cwd ?? process.cwd());
       return packagesWithTrust(projects);
@@ -160,7 +162,7 @@ async function handle(cmd: Command): Promise<unknown> {
       await removeProject(cmd.cwd);
       return listSessions();
     case "ui.answer":
-      return answer(cmd.id, cmd.value);
+      return dialogs.answer(cmd.id, cmd.value);
     default:
       // The window shows model output, so treat what it sends as untrusted.
       throw new Error(`Unknown command ${(cmd as { type: unknown }).type}`);
@@ -170,7 +172,7 @@ async function handle(cmd: Command): Promise<unknown> {
 // One port for each window load. A reloaded window gets a new port and the open dialogs again.
 process.parentPort.on("message", ({ data, ports: [port] }) => {
   // Main sends the paths the user picked or dropped on this channel, which the window cannot use.
-  if (data?.grant) return grant(data.grant.kind, data.grant.path);
+  if (data?.grant) return grants.grant(data.grant.kind, data.grant.path);
   if (!port) return;
   ports.add(port);
   port.on("close", () => ports.delete(port));
@@ -185,5 +187,5 @@ process.parentPort.on("message", ({ data, ports: [port] }) => {
   });
   port.start();
   sessions.resendAll();
-  resendPending(send);
+  dialogs.resendPending();
 });

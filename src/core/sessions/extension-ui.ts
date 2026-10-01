@@ -4,53 +4,61 @@ import type { Send, UIRequest } from "#protocol";
 import { STATUS_BUILD, STATUS_CANVAS } from "#canvas/store";
 
 type Body = UIRequest extends infer R ? (R extends UIRequest ? Omit<R, "id"> : never) : never;
+type Ask = <T>(body: Body, fallback: T, opts?: ExtensionUIDialogOptions) => Promise<T>;
 
-// Open dialogs. Kept so that a reloaded window gets them again.
-const pending = new Map<string, { request: UIRequest; done: (value: unknown) => void }>();
+export type Dialogs = ReturnType<typeof createDialogs>;
 
-export function answer(id: string, value: unknown) {
-  pending.get(id)?.done(value);
-}
+/** Dialogs in the window: extension and login questions, answered by the user. */
+export function createDialogs(send: Send) {
+  // Open dialogs. Kept so that a reloaded window gets them again.
+  const pending = new Map<string, { request: UIRequest; done: (value: unknown) => void }>();
 
-/** A closed session answers nothing: its open dialogs resolve with their defaults. */
-export function cancelFor(key: string) {
-  for (const { request, done } of [...pending.values()]) if (request.key === key) done(undefined);
-}
+  /** Show a dialog in the window and wait. Timeout, abort or no answer → fallback. */
+  const ask: Ask = (body, fallback, opts) => {
+    if (opts?.signal?.aborted) return Promise.resolve(fallback);
+    const request = { id: randomUUID(), ...body } as UIRequest;
+    return new Promise((resolve) => {
+      const done = (value: unknown) => {
+        clearTimeout(timer);
+        opts?.signal?.removeEventListener("abort", cancel);
+        pending.delete(request.id);
+        send({ type: "ui.done", id: request.id });
+        resolve(value === undefined || value === null ? fallback : (value as typeof fallback));
+      };
+      const cancel = () => done(undefined);
+      const timer = opts?.timeout ? setTimeout(cancel, opts.timeout) : undefined;
+      opts?.signal?.addEventListener("abort", cancel, { once: true });
+      pending.set(request.id, { request, done });
+      send({ type: "ui.request", request });
+    });
+  };
 
-export function resendPending(send: Send) {
-  for (const { request } of pending.values()) send({ type: "ui.request", request });
-}
-
-/** Show a dialog in the window and wait. Timeout, abort or no answer → fallback. */
-export function ask<T>(send: Send, body: Body, fallback: T, opts?: ExtensionUIDialogOptions): Promise<T> {
-  if (opts?.signal?.aborted) return Promise.resolve(fallback);
-  const request = { id: randomUUID(), ...body } as UIRequest;
-  return new Promise<T>((resolve) => {
-    const done = (value: unknown) => {
-      clearTimeout(timer);
-      opts?.signal?.removeEventListener("abort", cancel);
-      pending.delete(request.id);
-      send({ type: "ui.done", id: request.id });
-      resolve(value === undefined || value === null ? fallback : (value as T));
-    };
-    const cancel = () => done(undefined);
-    const timer = opts?.timeout ? setTimeout(cancel, opts.timeout) : undefined;
-    opts?.signal?.addEventListener("abort", cancel, { once: true });
-    pending.set(request.id, { request, done });
-    send({ type: "ui.request", request });
-  });
+  return {
+    ask,
+    answer(id: string, value: unknown) {
+      pending.get(id)?.done(value);
+    },
+    /** A closed session answers nothing: its open dialogs resolve with their defaults. */
+    cancelFor(key: string) {
+      for (const { request, done } of [...pending.values()]) if (request.key === key) done(undefined);
+    },
+    resendPending() {
+      for (const { request } of pending.values()) send({ type: "ui.request", request });
+    },
+    uiContextFor: (key: string) => uiContext(key, send, ask),
+  };
 }
 
 const THEME_KEY = Symbol.for("@earendil-works/pi-coding-agent:theme");
 
 /** ctx.ui for extensions. Dialogs go to the window; terminal-only parts do nothing (as in pi's RPC mode). */
-export function uiContextFor(key: string, send: Send): ExtensionUIContext {
+function uiContext(key: string, send: Send, ask: Ask): ExtensionUIContext {
   const noop = () => {};
   return {
-    select: (title, options, opts) => ask(send, { key, method: "select", title, options }, undefined, opts),
-    confirm: (title, message, opts) => ask(send, { key, method: "confirm", title, message }, false, opts),
-    input: (title, placeholder, opts) => ask(send, { key, method: "input", title, placeholder }, undefined, opts),
-    editor: (title, prefill) => ask(send, { key, method: "editor", title, placeholder: prefill }, undefined),
+    select: (title, options, opts) => ask({ key, method: "select", title, options }, undefined, opts),
+    confirm: (title, message, opts) => ask({ key, method: "confirm", title, message }, false, opts),
+    input: (title, placeholder, opts) => ask({ key, method: "input", title, placeholder }, undefined, opts),
+    editor: (title, prefill) => ask({ key, method: "editor", title, placeholder: prefill }, undefined),
     notify: (message, level = "info") => send({ type: "notify", key, message, level }),
     onTerminalInput: () => noop,
     // The design canvas extension reports its server address here; the window shows it in a panel.

@@ -2,7 +2,7 @@ import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import type { Project, SessionRow } from "#protocol";
-import { assertGranted } from "./grants";
+import type { Grants } from "./grants";
 import { readEntries, summarize } from "./sessions/summary";
 import { NO_PROJECT_DIR, LOOMDEN_DIR } from "./paths";
 
@@ -17,8 +17,8 @@ function readAdded(): string[] {
 }
 
 /** Only a folder the user picked in the main process's folder dialog. */
-export async function addProject(path: string) {
-  const cwd = await assertGranted("folder", path);
+export async function addProject(grants: Grants, path: string) {
+  const cwd = await grants.assertGranted("folder", path);
   const added = readAdded();
   if (added.includes(cwd)) return;
   mkdirSync(LOOMDEN_DIR, { recursive: true });
@@ -48,6 +48,7 @@ function details(path: string) {
 }
 
 // The project folders from the last list, so a check does not read every session file again.
+// ponytail: module state (this and detailCache), one copy per agent process; a factory when tests need a clean copy.
 let known = new Set<string>();
 
 /** Only folders in the project list may be searched from the window. */

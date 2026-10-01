@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { extname, join, relative } from "node:path";
-import { assertGranted } from "./grants";
+import type { Grants } from "./grants";
 import { promisify } from "node:util";
 
 const IMAGE_TYPES: Record<string, string> = { ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif", ".webp": "image/webp" };
@@ -10,8 +10,8 @@ const MAX_IMAGE = 20 * 1024 * 1024;
 export const isImage = (path: string) => extname(path).toLowerCase() in IMAGE_TYPES;
 
 /** A dropped or picked image, as pi's ImageContent. Only image files the user picked or dropped, up to 20 MB. */
-export async function readImage(input: string) {
-  const path = await assertGranted("file", input);
+export async function readImage(grants: Grants, input: string) {
+  const path = await grants.assertGranted("file", input);
   const mimeType = IMAGE_TYPES[extname(path).toLowerCase()];
   if (!mimeType) throw new Error(`Not an image: ${path}`);
   if ((await stat(path)).size > MAX_IMAGE) throw new Error(`Image is larger than 20 MB: ${path}`);
@@ -20,6 +20,7 @@ export async function readImage(input: string) {
 
 const SKIP = new Set([".git", "node_modules", "dist", "out", "build", ".next", ".turbo", "coverage"]);
 const LIMIT = 20000;
+// ponytail: module-level cache, one copy per agent process; a factory when tests need a clean copy.
 const cache = new Map<string, { at: number; files: string[] }>();
 
 /** Files of a project: git's list (tracked + untracked, not ignored), else a folder walk. */

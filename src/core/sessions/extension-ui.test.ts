@@ -1,20 +1,21 @@
 import { expect, test, vi } from "vitest";
 import type { AgentOut } from "#protocol";
-import { answer, resendPending, uiContextFor } from "./extension-ui";
+import { createDialogs } from "./extension-ui";
 
 function setup() {
   const sent: AgentOut[] = [];
-  const ui = uiContextFor("k", (m) => sent.push(m));
+  const dialogs = createDialogs((m) => sent.push(m));
+  const ui = dialogs.uiContextFor("k");
   const lastRequest = () => {
     const r = sent.filter((m) => m.type === "ui.request").at(-1);
     if (r?.type !== "ui.request") throw new Error("no request");
     return r.request;
   };
-  return { sent, ui, lastRequest };
+  return { sent, ui, lastRequest, answer: dialogs.answer, resendPending: dialogs.resendPending };
 }
 
 test("confirm resolves with the answer and closes the dialog", async () => {
-  const { sent, ui, lastRequest } = setup();
+  const { sent, ui, lastRequest, answer } = setup();
   const result = ui.confirm("Run bash?", "git commit");
   const request = lastRequest();
   expect(request).toMatchObject({ key: "k", method: "confirm", message: "git commit" });
@@ -24,7 +25,7 @@ test("confirm resolves with the answer and closes the dialog", async () => {
 });
 
 test("cancel → the safe default (confirm false, select undefined)", async () => {
-  const { ui, lastRequest } = setup();
+  const { ui, lastRequest, answer } = setup();
   const confirm = ui.confirm("Run bash?", "rm -rf /");
   answer(lastRequest().id, undefined);
   expect(await confirm).toBe(false);
@@ -44,10 +45,10 @@ test("timeout resolves with the default and the dialog closes", async () => {
 });
 
 test("a reloaded window gets open dialogs again", () => {
-  const { ui, lastRequest } = setup();
+  const { sent, ui, lastRequest, answer, resendPending } = setup();
   void ui.input("Name?");
-  const again: AgentOut[] = [];
-  resendPending((m) => again.push(m));
-  expect(again).toContainEqual({ type: "ui.request", request: lastRequest() });
+  const before = sent.length;
+  resendPending();
+  expect(sent.slice(before)).toEqual([{ type: "ui.request", request: lastRequest() }]);
   answer(lastRequest().id, "x");
 });

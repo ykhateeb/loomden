@@ -54,7 +54,7 @@ The window shows model output, so the agent treats every window command as untru
 ### Modular design
 
 - One module has one job. If a module gets a second job, split it by job, as in `src/core/sessions/`.
-- Keep state in a `create…()` factory (`createRegistry`, `createRuntimes`), not at module level. Old exceptions: `grants.ts`, `projects.ts`, `attachments.ts`, `design.ts`, `extension-ui.ts`.
+- Keep state in a `create…()` factory (`createRegistry`, `createRuntimes`, `createGrants`, `createDialogs`), not at module level. `src/agent/index.ts` makes each one once and passes it on. Old exceptions, marked `ponytail:`: `projects.ts`, `attachments.ts`, `design.ts`, `providers.ts`.
 - A function with 3 or more parameters takes an object (for example, `designOpen(target, host)`).
 - Use the shared helpers. Do not copy them:
   - `readJson()`, `MODEL_SETTING_KEYS`: `src/core/settings.ts`

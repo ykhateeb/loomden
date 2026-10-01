@@ -2,7 +2,7 @@ import { chmodSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { getAgentDir, type ModelRuntime } from "@earendil-works/pi-coding-agent";
 import type { CustomProvider, FoundModel, ModelChoice, ProviderRow, Send } from "#protocol";
-import { ask } from "./sessions/extension-ui";
+import type { Dialogs } from "./sessions/extension-ui";
 
 /** Board 5's table: every provider pi knows, with how it is connected. */
 export function listProviders(rt: ModelRuntime): ProviderRow[] {
@@ -28,13 +28,14 @@ export function listProviders(rt: ModelRuntime): ProviderRow[] {
 export const availableModels = (rt: ModelRuntime): ModelChoice[] => rt.getAvailableSnapshot().map((m) => ({ provider: m.provider, id: m.id, name: m.name ?? m.id }));
 
 // One login at a time; Cancel in the window aborts it.
+// ponytail: module state, one copy per agent process; a factory when tests need a clean copy.
 let running: AbortController | undefined;
 
 /**
  * Board 5 "Add key" and 5b "Log in with a subscription": pi asks through the dialogs in the window and
  * reports links and codes as auth events. pi saves the credential in the shared auth.json itself.
  */
-export async function login(rt: ModelRuntime, providerId: string, type: "api_key" | "oauth", send: Send) {
+export async function login(rt: ModelRuntime, providerId: string, type: "api_key" | "oauth", { send, ask }: { send: Send; ask: Dialogs["ask"] }) {
   running?.abort();
   const controller = (running = new AbortController());
   const cancelled = () => new Error("Login cancelled");
@@ -45,12 +46,12 @@ export async function login(rt: ModelRuntime, providerId: string, type: "api_key
         // pi can cancel one prompt (the browser answered before you pasted a code): then its dialog closes too.
         const signal = p.signal ? AbortSignal.any([controller.signal, p.signal]) : controller.signal;
         if (p.type === "select") {
-          const label = await ask<string | undefined>(send, { method: "select", title: p.message, options: p.options.map((o) => o.label) }, undefined, { signal });
+          const label = await ask<string | undefined>({ method: "select", title: p.message, options: p.options.map((o) => o.label) }, undefined, { signal });
           const hit = p.options.find((o) => o.label === label);
           if (!hit) throw cancelled();
           return hit.id;
         }
-        const value = await ask<string | undefined>(send, { method: "input", title: p.message, placeholder: p.placeholder, secret: p.type === "secret" }, undefined, { signal });
+        const value = await ask<string | undefined>({ method: "input", title: p.message, placeholder: p.placeholder, secret: p.type === "secret" }, undefined, { signal });
         if (value === undefined) throw cancelled();
         return value;
       },

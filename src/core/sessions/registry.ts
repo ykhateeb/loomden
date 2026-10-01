@@ -7,10 +7,11 @@ import { join } from "node:path";
 import { type ModelRuntime, SessionManager } from "@earendil-works/pi-coding-agent";
 import type { AgentMessage, ModelChoice, Send, SlashCommand } from "#protocol";
 import { readImage } from "#core/attachments";
+import type { Grants } from "#core/grants";
 import { forwardEvents } from "./events";
 import { liveState, type OpenSession, type Session } from "./live-state";
 import { copyToFolder, moveFreeCanvases } from "./move";
-import { cancelFor, uiContextFor } from "./extension-ui";
+import type { Dialogs } from "./extension-ui";
 import { createRuntimes } from "./runtime";
 import type { Entry as FileEntry } from "./summary";
 import { buildTree } from "./tree";
@@ -21,13 +22,13 @@ type ThinkingLevel = Session["thinkingLevel"];
 
 const GIT_TIMEOUT_MS = 3000;
 
-export function createRegistry(send: Send, modelRuntime: ModelRuntime) {
+export function createRegistry({ send, modelRuntime, grants, dialogs }: { send: Send; modelRuntime: ModelRuntime; grants: Grants; dialogs: Dialogs }) {
   const live = new Map<string, OpenSession>();
   // Session files the user opened (not only an export): an export never closes these.
   const wanted = new Set<string>();
   // Opens in progress, by session file.
   const opening = new Map<string, Promise<string | undefined>>();
-  const runtimes = createRuntimes(send, modelRuntime);
+  const runtimes = createRuntimes({ send, modelRuntime, ask: dialogs.ask });
 
   const notify = (level: "info" | "warning" | "error", message: string, key?: string) => send({ type: "notify", key, level, message });
   const sendMessages = (key: string, session: Session) => send({ type: "messages", key, messages: session.messages as AgentMessage[] });
@@ -46,7 +47,7 @@ export function createRegistry(send: Send, modelRuntime: ModelRuntime) {
     entry.branch = await gitBranch(rt.cwd);
     const session = rt.session;
     await session.bindExtensions({
-      uiContext: uiContextFor(key, send),
+      uiContext: dialogs.uiContextFor(key),
       mode: "rpc",
       commandContextActions: {
         waitForIdle: () => session.waitForIdle(),
@@ -85,7 +86,7 @@ export function createRegistry(send: Send, modelRuntime: ModelRuntime) {
     const entry = get(key);
     entry.unsubscribe?.();
     live.delete(key);
-    cancelFor(key);
+    dialogs.cancelFor(key);
     await entry.rt.dispose();
     send({ type: "closed", key });
   }
@@ -136,7 +137,7 @@ export function createRegistry(send: Send, modelRuntime: ModelRuntime) {
     async prompt(key: string, text: string, behavior?: "steer" | "followUp", imagePaths: string[] = []) {
       const entry = get(key);
       const s = entry.rt.session;
-      const images = await Promise.all(imagePaths.map(readImage));
+      const images = await Promise.all(imagePaths.map((path) => readImage(grants, path)));
       const streaming = s.isStreaming;
       const queuedBefore = s.pendingMessageCount;
       await new Promise<void>((resolve, reject) => {
