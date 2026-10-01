@@ -1,5 +1,6 @@
 import { useEffect } from "react";
-import { actions, useStore } from "#renderer/store";
+import { actions } from "#renderer/actions";
+import { useStore } from "#renderer/store";
 import { Segmented } from "#renderer/ui/controls";
 import { Icon } from "#renderer/ui/Icon";
 import { Callout, Card, Table, Td, Th, Tr } from "#renderer/ui/surfaces";

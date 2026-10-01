@@ -1,4 +1,5 @@
-import { actions, useStore } from "#renderer/store";
+import { actions } from "#renderer/actions";
+import { useStore } from "#renderer/store";
 import { Label } from "#renderer/ui/base";
 import { Icon, type IconName } from "#renderer/ui/Icon";
 import { ListItem } from "#renderer/ui/surfaces";

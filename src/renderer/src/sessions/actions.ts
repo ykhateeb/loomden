@@ -1,0 +1,134 @@
+import type { SearchResult } from "#protocol";
+import { folderName } from "#renderer/chat/format";
+import { designActions } from "#renderer/design/actions";
+import { call } from "#renderer/port";
+import { getState, notice, report, type SessionList, set, type Tab } from "#renderer/store";
+
+export const sessionActions = {
+  refresh: () =>
+    call<SessionList>({ type: "sessions.list" })
+      .then((r) => {
+        set(r);
+        for (const p of r.projects) designActions.loadDesign(p.cwd);
+        openDevView(r);
+      })
+      .catch(report),
+  open: (cwd: string, path?: string) =>
+    call<string | undefined>({ type: "session.open", cwd, path })
+      .then((key) => {
+        if (key) set({ active: key, tab: "sessions", mark: undefined }); // openAt sets a new mark after this
+        return key;
+      })
+      .catch((e) => (report(e), undefined)),
+  /** Show an open session (from the running menu or "needs you"). */
+  focus: (key: string) => set({ tab: "sessions", active: key, mark: undefined }),
+  /** Board 1.1: a chat with no project. Add it to a project later. */
+  newSession: () => {
+    const { noProject } = getState();
+    return noProject && sessionActions.open(noProject);
+  },
+  setView: (key: string, view: "chat" | "tree") => set((s) => ({ view: { ...s.view, [key]: view } })),
+  /** Open a session at its tree (the Fork item in the session menus). */
+  openTree: async (cwd: string, path: string) => {
+    const key = await sessionActions.open(cwd, path);
+    if (key) sessionActions.setView(key, "tree");
+  },
+  /** Board 1.2 and 1.3: move a session to a project (or back, for Undo). The chat stays as it is. */
+  move: async (key: string, cwd: string, undo = false) => {
+    const from = getState().live[key]?.cwd;
+    try {
+      const moved = await call<string | undefined>({ type: "session.move", key, cwd });
+      if (!moved) return; // the trust dialog was cancelled
+      set({ active: moved, tab: "sessions" });
+      // The canvas moved with the session: its server is new, so ask for the address again.
+      const canvas = getState().canvas[moved];
+      if (canvas) {
+        const { [moved]: _, ...rest } = getState().canvas;
+        set({ canvas: rest });
+        if (canvas.open) designActions.canvas(moved);
+      }
+      await sessionActions.refresh();
+      if (undo || !from) return;
+      const name = getState().projects.find((p) => p.cwd === cwd)?.name ?? folderName(cwd);
+      notice(`Moved to ${name}`, "info", { label: "Undo", run: () => sessionActions.move(moved, from, true) });
+    } catch (e) {
+      report(e as Error);
+    }
+  },
+  /** "Open a folder…" in the Add to project menu: the folder becomes a project, then the session moves there. */
+  moveToFolder: async (key: string) => {
+    const cwd = await window.loomden.pickFolder();
+    if (!cwd) return;
+    try {
+      set(await call<SessionList>({ type: "project.add", cwd }));
+      await sessionActions.move(key, cwd);
+    } catch (e) {
+      report(e as Error);
+    }
+  },
+  search: (query: string, titlesOnly: boolean, cwd?: string) =>
+    call<SearchResult[]>({ type: "sessions.search", query, titlesOnly, cwd }).catch((e) => (report(e), [] as SearchResult[])),
+  setSearching: (searching: boolean) => set({ searching }),
+  /** Open a search result and mark the message (or only open it, for a title match). */
+  openAt: async (cwd: string, path: string, at?: number) => {
+    set({ searching: false });
+    const key = await sessionActions.open(cwd, path);
+    // The mark is in the chat: show the chat, also if this session was on its tree.
+    set((s) => ({ mark: key && at ? { key, at } : undefined, view: key ? { ...s.view, [key]: "chat" } : s.view }));
+  },
+  addProject: async () => {
+    const cwd = await window.loomden.pickFolder();
+    if (cwd) await call<SessionList>({ type: "project.add", cwd }).then(set).catch(report);
+  },
+  removeProject: (cwd: string) =>
+    call<SessionList>({ type: "project.remove", cwd })
+      .then(set)
+      .catch(report),
+  rename: (path: string, name: string) =>
+    call<SessionList>({ type: "session.rename", path, name })
+      .then((r) => (set(r), notice("Session renamed", "info")))
+      .catch(report),
+  clone: (cwd: string, path: string) =>
+    call<string | undefined>({ type: "session.clone", cwd, path })
+      .then((key) => {
+        if (!key) return;
+        set({ active: key, tab: "sessions" });
+        return sessionActions.refresh();
+      })
+      .catch(report),
+  exportHtml: async (cwd: string, path: string, title: string) => {
+    try {
+      const temp = await call<string>({ type: "session.export", cwd, path });
+      const saved = await window.loomden.saveHtml(temp, title);
+      if (saved) notice(`Exported to ${saved}`, "info");
+    } catch (e) {
+      report(e as Error);
+    }
+  },
+  /** Close it if it is open, then move its file to the Trash. */
+  deleteSession: async (path: string) => {
+    try {
+      await call({ type: "session.close", path });
+      await window.loomden.trashSession(path);
+      notice("The session is in the Trash", "info");
+      await sessionActions.refresh();
+    } catch (e) {
+      report(e as Error);
+    }
+  },
+  showInFolder: (path: string) => window.loomden.showInFolder(path),
+};
+
+/** Dev checks without clicks (see main/index.ts): #dev?open=latest|<title part>&view=tree&search=<text>, once. */
+function openDevView(list: SessionList) {
+  if (!location.hash.startsWith("#dev?")) return;
+  const dev = new URLSearchParams(location.hash.slice(5));
+  history.replaceState(null, "", location.pathname);
+  const want = dev.get("open")?.toLowerCase();
+  const s = want === "latest" ? list.sessions[0] : list.sessions.find((x) => want && x.title.toLowerCase().includes(want));
+  if (s) sessionActions.open(s.cwd, s.path).then((key) => key && dev.get("view") === "tree" && sessionActions.setView(key, "tree"));
+  if (dev.get("search")) set({ searching: true, devSearch: dev.get("search")! });
+  if (dev.get("tab")) set({ tab: dev.get("tab") as Tab });
+  if (dev.get("dialog") === "provider") set({ addingProvider: true });
+  if (dev.get("dialog") === "import") set({ importing: true });
+}

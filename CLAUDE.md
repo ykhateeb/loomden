@@ -32,9 +32,9 @@ The app has three processes:
 
 1. **Main** (`src/main/`): owns the window, native dialogs, and the host IPC (`host-ipc.ts`). It forks the agent process and gives the window a direct `MessagePort` to it (`agent-host.ts`). Main does not relay agent traffic.
 2. **Agent** (`src/agent/index.ts`, an Electron `utilityProcess`): pi and all pi extensions run here, never in the window. `handle()` is the one dispatcher for window commands. The logic lives in `src/core/`. `src/core/sessions/registry.ts` holds the open pi sessions and their commands. Next to it: `runtime.ts` (project trust, pi runtime creation), `live-state.ts` (the `LiveState` of a session), `move.ts` (moving a session to a project).
-3. **Renderer** (`src/renderer/src/`): React UI. `store.ts` is one global store (`useSyncExternalStore`) that sends commands and applies agent messages.
+3. **Renderer** (`src/renderer/src/`): React UI. `store.ts` is one global store (`useSyncExternalStore`): state, `set()`, notices. `port.ts` sends commands (`call()`), and `agent-messages.ts` applies agent messages. Each feature folder has an `actions.ts`, and `actions.ts` joins them into the `actions` object that components use.
 
-`src/protocol.ts` is the single source of truth for the window-to-agent contract: `Command` (window to agent, answered with a `reply` by `rid`) and `AgentOut` (agent to window). To add a feature, add a `Command` variant, a case in `handle()`, and a call in the renderer store.
+`src/protocol.ts` is the single source of truth for the window-to-agent contract: `Command` (window to agent, answered with a `reply` by `rid`) and `AgentOut` (agent to window). To add a feature, add a `Command` variant, a case in `handle()`, and an action in the feature's `actions.ts`.
 
 ### Trust model
 

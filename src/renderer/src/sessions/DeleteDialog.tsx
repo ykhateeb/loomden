@@ -1,6 +1,6 @@
 import type { SessionRow } from "#protocol";
 import { folderName } from "#renderer/chat/format";
-import { actions } from "#renderer/store";
+import { actions } from "#renderer/actions";
 import { Button, Kbd } from "#renderer/ui/base";
 import { Icon } from "#renderer/ui/Icon";
 import { Modal, ModalIcon } from "#renderer/ui/Modal";

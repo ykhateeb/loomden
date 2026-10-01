@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { folderName } from "./chat/format";
-import { actions, type Tab, useStore } from "./store";
+import { actions } from "./actions";
+import { type Tab, useStore } from "./store";
 import { cx, Dot, pill, Pill, Spinner } from "./ui/base";
 import { Icon, Logo } from "./ui/Icon";
 import { Menu, type MenuItem } from "./ui/Menu";

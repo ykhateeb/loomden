@@ -1,7 +1,8 @@
 import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import type { AgentMessage, LiveState } from "#protocol";
-import { actions, useStore } from "#renderer/store";
+import { actions } from "#renderer/actions";
+import { useStore } from "#renderer/store";
 import { TreeView } from "#renderer/tree/TreeView";
 import { Segmented } from "#renderer/ui/controls";
 import { Avatar, Button, cx, Kbd, Spinner } from "#renderer/ui/base";

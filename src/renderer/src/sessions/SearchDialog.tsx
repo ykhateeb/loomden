@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { SearchResult } from "#protocol";
 import { folderName } from "#renderer/chat/format";
-import { actions, useStore } from "#renderer/store";
+import { actions } from "#renderer/actions";
+import { useStore } from "#renderer/store";
 import { cx, Kbd, pill, Spinner } from "#renderer/ui/base";
 import { Segmented } from "#renderer/ui/controls";
 import { Icon } from "#renderer/ui/Icon";

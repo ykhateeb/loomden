@@ -1,6 +1,7 @@
 import { type ReactNode, useState } from "react";
 import type { DesignCanvas, LiveState, SessionRow } from "#protocol";
-import { actions, useStore } from "#renderer/store";
+import { actions } from "#renderer/actions";
+import { useStore } from "#renderer/store";
 import { Dot, IconButton, Kbd, Label, Spinner } from "#renderer/ui/base";
 import { Icon } from "#renderer/ui/Icon";
 import { ListItem } from "#renderer/ui/surfaces";

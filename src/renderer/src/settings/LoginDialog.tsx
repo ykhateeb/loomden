@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { actions, useStore } from "#renderer/store";
+import { actions } from "#renderer/actions";
+import { useStore } from "#renderer/store";
 import { Button, Kbd, Pill, Spinner } from "#renderer/ui/base";
 import { Icon } from "#renderer/ui/Icon";
 import { Modal, ModalIcon } from "#renderer/ui/Modal";

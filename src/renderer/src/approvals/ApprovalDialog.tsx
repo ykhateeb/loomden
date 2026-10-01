@@ -1,7 +1,8 @@
 import { useState } from "react";
 import type { UIRequest } from "#protocol";
 import { folderName } from "#renderer/chat/format";
-import { actions, useStore } from "#renderer/store";
+import { actions } from "#renderer/actions";
+import { useStore } from "#renderer/store";
 import { Button, Kbd } from "#renderer/ui/base";
 import { Modal } from "#renderer/ui/Modal";
 

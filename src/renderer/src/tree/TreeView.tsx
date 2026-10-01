@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { BranchCard, LiveState, PreviewRow, SessionTree } from "#protocol";
 import { time } from "#renderer/chat/format";
-import { actions, useStore } from "#renderer/store";
+import { actions } from "#renderer/actions";
+import { useStore } from "#renderer/store";
 import { Button, cx, Kbd, Pill, Spinner } from "#renderer/ui/base";
 import { Checkbox, Segmented } from "#renderer/ui/controls";
 import { Icon } from "#renderer/ui/Icon";

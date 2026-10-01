@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { FoundModel } from "#protocol";
-import { actions } from "#renderer/store";
+import { actions } from "#renderer/actions";
 import { Button, Kbd, Spinner } from "#renderer/ui/base";
 import { Checkbox, Segmented } from "#renderer/ui/controls";
 import { TextField } from "#renderer/ui/Field";

@@ -4,7 +4,8 @@ import { CanvasPanel } from "./canvas/CanvasPanel";
 import { DesignPage } from "./design/DesignPage";
 import { ContextRail } from "./context/ContextRail";
 import { Sidebar } from "./sessions/Sidebar";
-import { actions, useStore } from "./store";
+import { actions } from "./actions";
+import { useStore } from "./store";
 import { Button, Kbd } from "./ui/base";
 import { Icon } from "./ui/Icon";
 

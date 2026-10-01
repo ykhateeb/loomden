@@ -1,6 +1,6 @@
 import { type MouseEvent, useState } from "react";
 import type { Project, SessionRow } from "#protocol";
-import { actions } from "#renderer/store";
+import { actions } from "#renderer/actions";
 import { Icon } from "#renderer/ui/Icon";
 import { Menu, type MenuItem } from "#renderer/ui/Menu";
 import { DeleteDialog } from "./DeleteDialog";

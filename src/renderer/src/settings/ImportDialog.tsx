@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { ImportItem, ImportResult, ImportScan } from "#protocol";
-import { actions, useStore } from "#renderer/store";
+import { actions } from "#renderer/actions";
+import { useStore } from "#renderer/store";
 import { Button, cx, Kbd, Spinner } from "#renderer/ui/base";
 import { Checkbox } from "#renderer/ui/controls";
 import { Icon } from "#renderer/ui/Icon";

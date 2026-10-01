@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { LiveState, SessionTree } from "#protocol";
-import { actions, useStore } from "#renderer/store";
+import { actions } from "#renderer/actions";
+import { useStore } from "#renderer/store";
 import { cx, LinkButton, Pill, type PillTone, Spinner } from "#renderer/ui/base";
 import { Switch } from "#renderer/ui/controls";
 import { Icon, type IconName } from "#renderer/ui/Icon";

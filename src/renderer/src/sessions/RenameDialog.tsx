@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { SessionRow } from "#protocol";
 import { folderName } from "#renderer/chat/format";
-import { actions } from "#renderer/store";
+import { actions } from "#renderer/actions";
 import { Button, Kbd } from "#renderer/ui/base";
 import { TextField } from "#renderer/ui/Field";
 import { Modal } from "#renderer/ui/Modal";
