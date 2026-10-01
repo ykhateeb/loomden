@@ -77,6 +77,13 @@ The window shows model output, so the agent treats every window command as untru
 - The extension reads `LOOMDEN_APP`, `LOOMDEN_NO_PROJECT`, and `LOOMDEN_FREE_DIR` to know that it runs inside Loomden.
 - pi loads user and third-party extensions at runtime with jiti. Thus the main build does not bundle dependencies, and electron-builder unpacks `@earendil-works` from the asar.
 
+## Change size
+
+- A reviewer must be able to review each commit in 5 minutes or less.
+- Ship small working parts. Each commit is one complete small cycle: the change, its tests, and a pass of `npm run typecheck`, `npm test`, and `npm run build`.
+- Split a large task into a series of such commits. Commit each part before you start the next one.
+- Put a refactor and a behavior change in different commits.
+
 ## Conventions
 
 - Comments like "board 2c" or "board C12" refer to numbered design boards of the product spec. That spec is not in this repo.
