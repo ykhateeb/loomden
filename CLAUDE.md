@@ -84,6 +84,18 @@ The window shows model output, so the agent treats every window command as untru
 - Split a large task into a series of such commits. Commit each part before you start the next one.
 - Put a refactor and a behavior change in different commits.
 
+## Pull requests
+
+- Do not commit directly to `main`. Make a branch for each task, push it, and open a pull request to `main`.
+- One pull request has one topic. Keep it small: a reviewer must be able to review it in about 5 minutes, as each commit.
+- The project has no CI. Before you open or update a pull request, run `npm run typecheck`, `npm test`, and `npm run build`. If you changed the agent or the UI, also run `npm run test:e2e` after the build.
+- The description has these parts:
+  - **What:** the change, in a few bullets.
+  - **Why:** the reason for the change.
+  - **Tests:** the commands that you ran and their results, with each known failure and its cause.
+  - Each behavior change, marked `⚠ behavior change`.
+- Do not merge a pull request with a failing check, unless the description gives the failure and shows that the same failure occurs on `main`.
+
 ## Conventions
 
 - Comments like "board 2c" or "board C12" refer to numbered design boards of the product spec. That spec is not in this repo.
