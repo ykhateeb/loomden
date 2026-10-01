@@ -78,7 +78,7 @@ export function Icon({ name, size = 15, color = "currentColor" }: { name: IconNa
 
 /**
  * The Tenon mark, "Orbit": an open accent ring with an orange dot at its end (the ring is the spinner
- * shape — pi at work), and a τ in orange inside. Exact paths from the Logos asset (loomden-mark.svg).
+ * shape — pi at work), and a τ in orange inside. Exact paths from the Logos asset (tenon-mark.svg).
  */
 export function Logo({ size = 22 }: { size?: number }) {
   return (

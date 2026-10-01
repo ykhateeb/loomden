@@ -11,7 +11,7 @@ Tenon is a desktop app for [pi](https://www.npmjs.com/package/@earendil-works/pi
 - **Packages.** Install, update, and remove pi packages, for all projects or for one project. Find packages on npm.
 - **Settings.** Set the default model, add API keys, log in with a subscription, and add custom providers.
 - **Import from terminal pi.** Copy your settings, providers, trust decisions, extensions, and packages from `~/.pi/agent`.
-- **Design canvas.** The `loomden-canvas` package gives pi a canvas for UI design boards, with notes and approvals.
+- **Design canvas.** The `tenon-canvas` package gives pi a canvas for UI design boards, with notes and approvals.
 
 ## Requirements
 
@@ -76,13 +76,13 @@ The window shows model output, so the agent process does not trust the commands 
 | `src/core/` | The agent logic: projects, sessions, packages, providers, settings, and import. |
 | `src/renderer/` | The React UI. Each feature folder has its components and an `actions.ts`. |
 | `src/protocol.ts` | The messages between the window and the agent process. |
-| `packages/loomden-canvas/` | The design canvas: a pi extension and the `loomden-design` skill. |
+| `packages/tenon-canvas/` | The design canvas: a pi extension and the `tenon-design` skill. |
 | `e2e/` | The Playwright tests of the app. |
 
-`packages/loomden-canvas/` is also a usual pi package. To use it in terminal pi, do this command:
+`packages/tenon-canvas/` is also a usual pi package. To use it in terminal pi, do this command:
 
 ```sh
-pi install ./packages/loomden-canvas
+pi install ./packages/tenon-canvas
 ```
 
 ## License

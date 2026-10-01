@@ -1,5 +1,5 @@
 ---
-name: loomden-design
+name: tenon-design
 description: Design screens as boards on a canvas (one HTML file per board) that the person can watch, point at, and approve. Use when asked to design, mock up, redesign, or sketch a screen or flow, or when the person sends notes about a board.
 ---
 

@@ -7,7 +7,7 @@ import { RAW_BOARD, RAW_STATE, RAW_TOKENS, compareBoard, designPack, readCompare
 
 const html = `<html><head><title>x</title></head><body><button>Pay</button><a href="b.html">Next</a></body></html>`;
 const setup = async () => {
-  const proj = await mkdtemp(join(tmpdir(), "loomden-"));
+  const proj = await mkdtemp(join(tmpdir(), "tenon-"));
   return { proj, root: join(proj, ".loomden", "canvases") };
 };
 
@@ -222,7 +222,7 @@ describe("free session canvases", () => {
     expect(await readFile(join(toDs, "tokens.json"), "utf8")).toBe("{}");
 
     const guarded = "/h/.loomden/sessions/abc123/canvases/landing/boards/hero.html";
-    expect(RAW_BOARD.test("/data/loomden-home/sessions/abc123/canvases/landing/boards/hero.html")).toBe(true); // TENON_DIR need not be called .loomden
+    expect(RAW_BOARD.test("/data/tenon-home/sessions/abc123/canvases/landing/boards/hero.html")).toBe(true); // TENON_DIR need not be called .loomden
     expect(RAW_BOARD.test(guarded)).toBe(true);
     expect(RAW_STATE.test("/h/.loomden/sessions/abc123/canvases/landing/canvas.json")).toBe(true);
     expect(RAW_TOKENS.test("/h/.loomden/sessions/abc123/design-system/tokens.json")).toBe(true);

@@ -39,7 +39,7 @@ export default function (pi: ExtensionAPI) {
     defineTool({
       name: "canvas_create",
       label: "Canvas create",
-      description: "Create a design canvas, or add a board (one HTML file) to it. Writes rev 1. Read the loomden-design skill first.",
+      description: "Create a design canvas, or add a board (one HTML file) to it. Writes rev 1. Read the tenon-design skill first.",
       parameters: Type.Object({
         canvas: Type.String({ description: "Canvas slug, e.g. checkout-redesign" }),
         board: Type.String({ description: "Board file name, e.g. cart" }),
@@ -220,7 +220,7 @@ export default function (pi: ExtensionAPI) {
     if (!lines.length) return undefined;
     const ds = await readFile(join(dsOf(ctx), "tokens.json"), "utf8").then((s) => JSON.parse(s), () => undefined);
     if (ds) lines.push(`Design system: ${ds.name}. Use its tokens as var(--name).`);
-    return { message: { customType: "loomden-canvas", content: lines.join("\n"), display: false } };
+    return { message: { customType: "tenon-canvas", content: lines.join("\n"), display: false } };
   });
 
   pi.registerCommand("canvas", {

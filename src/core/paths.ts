@@ -17,7 +17,7 @@ export function sessionFile(path: unknown): string {
 }
 
 /** Temporary HTML exports start with this; the main process only moves such files. */
-export const EXPORT_PREFIX = "loomden-export-";
+export const EXPORT_PREFIX = "tenon-export-";
 
 /** Terminal pi's own folder. Tenon reads it (import) and shares only its auth.json. */
 export const PI_AGENT_DIR = process.env.TENON_PI_DIR ?? join(homedir(), ".pi", "agent");

@@ -4,7 +4,7 @@ directories:
   output: dist
 files:
   - out/**
-  - packages/loomden-canvas/skills/**
+  - packages/tenon-canvas/skills/**
 asarUnpack:
   # pi reads its own files (themes, export templates) and loads extensions with jiti.
   - node_modules/@earendil-works/**

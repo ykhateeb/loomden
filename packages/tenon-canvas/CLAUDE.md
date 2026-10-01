@@ -1,13 +1,13 @@
-# loomden-canvas
+# tenon-canvas
 
-This folder is a pi package: a design canvas extension (`src/extension.ts`) and the `loomden-design` skill (`skills/`). It works in Tenon and in terminal pi. Terminal pi loads it with jiti, without the app.
+This folder is a pi package: a design canvas extension (`src/extension.ts`) and the `tenon-design` skill (`skills/`). It works in Tenon and in terminal pi. Terminal pi loads it with jiti, without the app.
 
 ## How Tenon uses the package
 
 Paths in this section start at the repo root.
 
 - Tenon imports the extension in `src/core/sessions/runtime.ts` (`extensionFactories`). The agent build bundles it into `out/main/agent.js`.
-- Tenon reads only `packages/loomden-canvas/skills/` from disk, at a path relative to `out/main/`. If you move the skills folder, change `src/core/sessions/runtime.ts` and `electron-builder.yml` too.
+- Tenon reads only `packages/tenon-canvas/skills/` from disk, at a path relative to `out/main/`. If you move the skills folder, change `src/core/sessions/runtime.ts` and `electron-builder.yml` too.
 - The host also imports `store.ts` and `server.ts` of this package through the `#canvas/*` alias. Search for `#canvas/` to find these callers.
 - The extension reads `TENON_APP`, `TENON_NO_PROJECT`, and `TENON_FREE_DIR` to know that it runs inside Tenon.
 

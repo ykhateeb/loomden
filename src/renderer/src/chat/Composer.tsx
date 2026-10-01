@@ -168,7 +168,7 @@ export function Composer({ sessionKey, state }: { sessionKey: string; state: Liv
         onDrop={(e) => {
           e.preventDefault();
           setDragging(false);
-          attach([...e.dataTransfer.files].map((f) => window.loomden.pathForFile(f)).filter(Boolean));
+          attach([...e.dataTransfer.files].map((f) => window.tenon.pathForFile(f)).filter(Boolean));
         }}
       >
         {listOpen && <CommandMenu id={listId} title={trigger.kind === "/" ? "Commands" : "Files"} rows={rows} active={current} onPick={pick} onHover={setActive} />}
@@ -235,7 +235,7 @@ export function Composer({ sessionKey, state }: { sessionKey: string; state: Liv
                 <Icon name="chevronDown" size={12} />
               </button>
             )}
-            <IconButton size={28} label="Attach files" onClick={async () => attach(await window.loomden.pickFiles())}>
+            <IconButton size={28} label="Attach files" onClick={async () => attach(await window.tenon.pickFiles())}>
               <Icon name="clip" />
             </IconButton>
             <span className="flex-1" />

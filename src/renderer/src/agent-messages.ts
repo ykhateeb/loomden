@@ -65,7 +65,7 @@ function receive(msg: AgentMessageOut) {
       if (!login || login.providerId !== msg.providerId) return; // an older login that was replaced
       if (e.type === "done") return set({ login: undefined });
       if (e.type === "auth_url") {
-        window.loomden.openExternal(e.url); // main opens only https links
+        window.tenon.openExternal(e.url); // main opens only https links
         return set((s) => ({ login: s.login && { ...s.login, url: e.url, message: e.instructions } }));
       }
       if (e.type === "device_code") return set((s) => ({ login: s.login && { ...s.login, code: { userCode: e.userCode, verificationUri: e.verificationUri } } }));

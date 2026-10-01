@@ -7,7 +7,7 @@ import { Checkbox } from "#renderer/ui/controls";
 import { Icon } from "#renderer/ui/Icon";
 import { Modal, ModalIcon } from "#renderer/ui/Modal";
 
-const SEEN = "loomden.importOffered";
+const SEEN = "tenon.importOffered";
 
 /** Board 5c and 5d: bring settings, providers, trust, resources and packages over from terminal pi. */
 export function ImportDialog() {

@@ -412,8 +412,8 @@ export const projectRoot = (project: string) => join(project, ".loomden", "canva
 /** The design system sits next to the canvases folder: for a project, and for a session with no project. */
 export const designSystemDir = (root: string) => join(dirname(root), "design-system");
 /** The status ids the extension uses to tell the host the canvas address and a build pack. */
-export const STATUS_CANVAS = "loomden-canvas";
-export const STATUS_BUILD = "loomden-canvas-build";
+export const STATUS_CANVAS = "tenon-canvas";
+export const STATUS_BUILD = "tenon-canvas-build";
 
 /** Where a session with no project keeps its canvases, until it is added to a project. */
 export const freeRoot = (freeDir: string, sessionId: string) => join(freeDir, slug(sessionId), "canvases");

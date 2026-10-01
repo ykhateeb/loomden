@@ -48,7 +48,7 @@ export const settingsActions = {
   scanImport: () => call<ImportScan>({ type: "import.scan" }),
   /** undefined = the user cancelled main's confirmation. */
   runImport: async (items: ImportItem[]) => {
-    if (!(await window.loomden.confirmImport(items))) return undefined;
+    if (!(await window.tenon.confirmImport(items))) return undefined;
     const results = await call<ImportResult[]>({ type: "import.run", items });
     sessionActions.refresh();
     return results;

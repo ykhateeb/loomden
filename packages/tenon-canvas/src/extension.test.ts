@@ -20,7 +20,7 @@ describe("extension", () => {
     } as any);
     expect(Object.keys(tools)).toEqual(["canvas_create", "canvas_read", "canvas_edit", "canvas_note_done", "canvas_plan", "design_compare", "design_system_propose"]);
 
-    const cwd = await mkdtemp(join(tmpdir(), "loomden-ext-"));
+    const cwd = await mkdtemp(join(tmpdir(), "tenon-ext-"));
     const ctx = { cwd };
     const html = "<body><button>Pay</button></body>";
     await tools.canvas_create.execute("1", { canvas: "c1", board: "cart", title: "Cart", w: 390, h: 844, html }, null, null, ctx);
@@ -55,7 +55,7 @@ describe("free session", () => {
   it("keeps canvases in the session's own folder, not in no-project", async () => {
     const tools: Record<string, any> = {};
     ext({ registerTool: (t: any) => (tools[t.name] = t), registerCommand: () => {}, on: () => {}, sendUserMessage: () => {} } as any);
-    const dir = await mkdtemp(join(tmpdir(), "loomden-free-"));
+    const dir = await mkdtemp(join(tmpdir(), "tenon-free-"));
     process.env.TENON_NO_PROJECT = join(dir, "no-project");
     process.env.TENON_FREE_DIR = join(dir, "sessions");
     try {
@@ -78,7 +78,7 @@ describe("first draft", () => {
   it("plans boards, marks the board pi works on, and /canvas new makes a canvas and asks pi", async () => {
     const tools: Record<string, any> = {}, on: Record<string, any> = {}, cmds: Record<string, any> = {}, said: string[] = [];
     ext({ registerTool: (t: any) => (tools[t.name] = t), registerCommand: (n: string, o: any) => (cmds[n] = o), on: (n: string, f: any) => (on[n] = f), sendUserMessage: (t: string) => said.push(t) } as any);
-    const cwd = await mkdtemp(join(tmpdir(), "loomden-draft-"));
+    const cwd = await mkdtemp(join(tmpdir(), "tenon-draft-"));
     const notes: string[] = [];
     const ctx = { cwd, sessionManager: { getSessionId: () => "s" }, ui: { notify: (m: string) => notes.push(m), setStatus: () => {} } };
     const { readCanvas } = await import("./store.js");

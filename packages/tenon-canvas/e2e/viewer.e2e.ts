@@ -19,7 +19,7 @@ const armed = async (frame: ReturnType<Page["frameLocator"]>, target: string) =>
 let root: string, server: CanvasServer, sent: string[];
 
 test.beforeEach(async () => {
-  root = join(await mkdtemp(join(tmpdir(), "loomden-e2e-")), ".loomden", "canvases");
+  root = join(await mkdtemp(join(tmpdir(), "tenon-e2e-")), ".loomden", "canvases");
   await createBoard(root, { canvas: "demo", board: "cart", title: "Cart", w: 390, h: 844, html: board("Cart") });
   await createBoard(root, { canvas: "demo", board: "pay", title: "Pay", w: 390, h: 844, html: board("Pay") });
   sent = [];

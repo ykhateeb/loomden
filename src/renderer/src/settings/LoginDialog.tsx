@@ -31,12 +31,12 @@ export function LoginDialog() {
       aside={<Pill tone="dim">subscription</Pill>}
       icon={<ModalIcon tone="accent"><Icon name="key" size={18} /></ModalIcon>}
       onClose={actions.cancelLogin}
-      keys={link ? { o: () => window.loomden.openExternal(link) } : undefined}
+      keys={link ? { o: () => window.tenon.openExternal(link) } : undefined}
       footer={
         <>
           <Button variant="ghost" onClick={actions.cancelLogin}>Cancel<Kbd>esc</Kbd></Button>
           <span className="flex-1" />
-          {link && <Button onClick={() => window.loomden.openExternal(link)}><Icon name="external" size={14} />Open browser again<Kbd>O</Kbd></Button>}
+          {link && <Button onClick={() => window.tenon.openExternal(link)}><Icon name="external" size={14} />Open browser again<Kbd>O</Kbd></Button>}
         </>
       }
     >
