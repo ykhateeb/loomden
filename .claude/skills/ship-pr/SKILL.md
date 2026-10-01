@@ -22,9 +22,11 @@ Run `git status` and `git diff` (and `git diff --staged`). Find out what changed
 
 Do not commit directly to `main`.
 
-- If the current branch is `main`, make a branch from the newest `main`: `git fetch origin`, then `git switch -c <type>/<short-topic> origin/main`. Uncommitted changes move with you.
+Run `git fetch origin` first, and look for changes that you did not pull (`git status -sb` shows `behind`).
+
+- If the current branch is `main`, make a branch from the remote, not from local `main`: `git switch -c <type>/<short-topic> origin/main`. Uncommitted changes move with you. Then update local `main` too (`git fetch origin main:main`).
 - Types: `feat`, `fix`, `refactor`, `docs`, `chore`, `test`.
-- If the current branch is already for this topic, stay on it.
+- If the current branch is already for this topic, stay on it. If it is behind its remote branch, pull first (`git pull --ff-only`).
 
 ## 3. Run the checks
 
