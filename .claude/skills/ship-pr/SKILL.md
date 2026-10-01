@@ -66,8 +66,9 @@ git push -u origin <branch>
 
 Use `.github/pull_request_template.md` for the description. Fill each section, and keep these rules:
 
-- **Problem:** what was wrong, what it caused, and how you found it.
-- **Fix:** how the change solves it, and why you chose this way.
+- **Summary:** the problem and what the change does about it. Say how you found the problem.
+- **Changes:** how the change fixes it. Name the behavior, not the files.
+- **Why this way:** why this fix, and each other option that you did not choose.
 - **Checks:** the result of each command. Name each old or unstable failure, give its cause, and show that it is not from this change.
 - **Behavior change:** "None", or each change marked "⚠".
 

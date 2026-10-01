@@ -141,8 +141,9 @@ The window shows model output, so the agent and main treat each value from the w
 - One pull request has one topic. It has the same size limit as a commit (see "Change size").
 - CI (`.github/workflows/ci.yml`) runs `npm run typecheck`, `npm test`, and `npm run build` on each pull request, and a merge to `main` needs it to pass. Run the same checks locally before you open or update a pull request. CI does not run the e2e tests: if you changed the agent or the UI, run `npm run test:e2e` locally after the build.
 - The description follows `.github/pull_request_template.md`. Its parts are:
-  - **Problem:** what was wrong, and what it caused.
-  - **Fix:** how the change solves it, and why you chose this way.
+  - **Summary:** the problem, and what the change does about it.
+  - **Changes:** how the change fixes it.
+  - **Why this way:** why this fix, and each other option that you did not choose.
   - **How to verify:** steps for the reviewer.
   - **Checks:** the commands that you ran and their results, with each known failure and its cause.
   - **Behavior change:** "None", or each change marked `⚠`.

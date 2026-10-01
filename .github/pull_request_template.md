@@ -1,10 +1,14 @@
 <!-- Keep it short. A focused pull request needs fewer than 150 words. -->
 
-## Problem
-<!-- What was wrong, and what it caused. Say how you found it. For a feature: the need. -->
+## Summary
+<!-- The problem, then what this change does about it. 1-3 sentences. Say how you found the problem. For a feature: the need. -->
 
-## Fix
-<!-- How this change solves it, and why you chose this way. Name the behavior, not the files. -->
+## Changes
+<!-- How we fixed it. Name the behavior, not the files. -->
+-
+
+## Why this way
+<!-- Why this fix and not another. Name each other option that you did not choose, and why. -->
 
 ## How to verify
 <!-- Steps for the reviewer. Example: run `npm run dev`, then click "New session". -->
