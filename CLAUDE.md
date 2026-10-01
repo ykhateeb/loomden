@@ -19,7 +19,7 @@ Tenon is an Electron desktop app for pi (`@earendil-works/pi-coding-agent`), a c
 
 ## Dev environment variables
 
-- `TENON_DIR` (default `~/.loomden`) and `TENON_PI_DIR` (default `~/.pi/agent`): set both to a temp folder to keep a test run away from real data. The e2e tests do this.
+- `TENON_DIR` (default `~/.tenon`) and `TENON_PI_DIR` (default `~/.pi/agent`): set both to a temp folder to keep a test run away from real data. The e2e tests do this.
 - Open the app on a given view with no clicks. Main puts these in the URL hash, and `src/renderer/src/store.ts` reads them:
   - `TENON_OPEN=latest|<part of a title>` opens a session. Add `TENON_VIEW=tree` to show its tree.
   - `TENON_SEARCH=<text>`, `TENON_TAB=sessions|packages|settings`, `TENON_DIALOG=provider|import`.
@@ -62,9 +62,9 @@ The window shows model output, so the agent and main treat each value from the w
 
 ### Data locations
 
-- Tenon keeps its own pi agent folder at `~/.loomden/agent`. Main sets `PI_CODING_AGENT_DIR` to it.
+- Tenon keeps its own pi agent folder at `~/.tenon/agent`. Main sets `PI_CODING_AGENT_DIR` to it.
 - Tenon shares only `auth.json` with terminal pi. The import feature copies other items from `~/.pi/agent`.
-- `src/core/paths.ts` reads `TENON_DIR` and `TENON_PI_DIR` when a module imports it. A test that touches these folders sets `process.env` first and then uses `await import(…)`. A static import uses the real `~/.loomden`.
+- `src/core/paths.ts` reads `TENON_DIR` and `TENON_PI_DIR` when a module imports it. A test that touches these folders sets `process.env` first and then uses `await import(…)`. A static import uses the real `~/.tenon`.
 
 ### Build
 

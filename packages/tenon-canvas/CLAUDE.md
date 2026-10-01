@@ -13,8 +13,8 @@ Paths in this section start at the repo root.
 
 ## Data
 
-- Canvases live in `<project>/.loomden/canvases/<slug>/`.
-- A session with no project keeps them in `~/.loomden/sessions/<id>/canvases`.
+- Canvases live in `<project>/.tenon/canvases/<slug>/`.
+- A session with no project keeps them in `~/.tenon/sessions/<id>/canvases`.
 
 ## Code rules
 

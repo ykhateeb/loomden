@@ -1,4 +1,4 @@
-// Files are the truth. Everything here reads and writes `.loomden/canvases/<slug>/`.
+// Files are the truth. Everything here reads and writes `.tenon/canvases/<slug>/`.
 import { appendFile, copyFile, cp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { dirname, extname, join } from "node:path";
@@ -27,9 +27,9 @@ export const slug = (s: string) => {
 export const boardKey = (b: string) => `boards/${slug(b.replace(/^boards\//, "").replace(/\.html$/, ""))}.html`;
 const nameOf = (key: string) => key.slice(7, -5);
 export const canvasDir = (root: string, canvas: string) => join(root, slug(canvas));
-export const RAW_BOARD = /(?:\.loomden|\/sessions\/[^/]+)\/canvases\/[^/]+\/boards\/[^/]+\.html$/;
+export const RAW_BOARD = /(?:\.tenon|\/sessions\/[^/]+)\/canvases\/[^/]+\/boards\/[^/]+\.html$/;
 /** canvas.json (it holds approvals), approved/ and history/ change only through the tools and the viewer. */
-export const RAW_STATE = /(?:\.loomden|\/sessions\/[^/]+)\/canvases\/[^/]+\/(canvas\.json|approved\/.+|history\/.+)$/;
+export const RAW_STATE = /(?:\.tenon|\/sessions\/[^/]+)\/canvases\/[^/]+\/(canvas\.json|approved\/.+|history\/.+)$/;
 
 // One read-modify-write at a time per canvas.
 const tails = new Map<string, Promise<unknown>>();
@@ -347,7 +347,7 @@ export async function tokensCss(ds: string): Promise<string> {
   return css;
 }
 
-export const RAW_TOKENS = /(?:\.loomden|\/sessions\/[^/]+)\/design-system\/tokens\.json$/;
+export const RAW_TOKENS = /(?:\.tenon|\/sessions\/[^/]+)\/design-system\/tokens\.json$/;
 
 /** pi proposes; a person accepts. The proposal is a file next to tokens.json. */
 export async function proposeTokens(ds: string, t: any) {
@@ -407,8 +407,8 @@ export async function canvasTabs(root: string) {
   return tabs.filter((t) => t !== undefined);
 }
 
-/** A project keeps its canvases in .loomden/canvases. */
-export const projectRoot = (project: string) => join(project, ".loomden", "canvases");
+/** A project keeps its canvases in .tenon/canvases. */
+export const projectRoot = (project: string) => join(project, ".tenon", "canvases");
 /** The design system sits next to the canvases folder: for a project, and for a session with no project. */
 export const designSystemDir = (root: string) => join(dirname(root), "design-system");
 /** The status ids the extension uses to tell the host the canvas address and a build pack. */
@@ -592,7 +592,7 @@ export async function ensureGitignore(project: string): Promise<boolean> {
   if (!existsSync(join(project, ".git"))) return false;
   const f = join(project, ".gitignore");
   const cur = await readFile(f, "utf8").catch(() => "");
-  const line = ".loomden/canvases/*/history/";
+  const line = ".tenon/canvases/*/history/";
   if (cur.split("\n").includes(line)) return false;
   await writeFile(f, cur + (cur && !cur.endsWith("\n") ? "\n" : "") + line + "\n");
   return true;

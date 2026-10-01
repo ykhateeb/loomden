@@ -2,7 +2,7 @@ import { homedir } from "node:os";
 import { join, resolve, sep } from "node:path";
 
 /** Tenon's own folder. Its pi agent folder is TENON_DIR/agent (the host sets PI_CODING_AGENT_DIR to it). */
-export const TENON_DIR = process.env.TENON_DIR ?? join(homedir(), ".loomden");
+export const TENON_DIR = process.env.TENON_DIR ?? join(homedir(), ".tenon");
 export const TENON_AGENT_DIR = join(TENON_DIR, "agent");
 /** The folder of sessions with no project (board 1.1). pi needs a folder; this one is empty, so it has no project files. */
 export const NO_PROJECT_DIR = join(TENON_DIR, "no-project");

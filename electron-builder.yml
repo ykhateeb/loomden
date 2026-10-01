@@ -1,4 +1,4 @@
-appId: dev.loomden.app
+appId: dev.tenon.app
 productName: Tenon
 directories:
   output: dist

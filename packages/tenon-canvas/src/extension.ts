@@ -13,7 +13,7 @@ const text = (t: string) => ({ content: [{ type: "text" as const, text: t }], de
 export default function (pi: ExtensionAPI) {
   let server: CanvasServer | undefined;
   let lastTurn = new Date().toISOString();
-  // A project keeps its canvases in .loomden/. A Tenon session with no project keeps them in its own folder until it is added to a project.
+  // A project keeps its canvases in .tenon/. A Tenon session with no project keeps them in its own folder until it is added to a project.
   type Ctx = { cwd: string; sessionManager: { getSessionId(): string } };
   const isFree = (ctx: Ctx) => !!process.env.TENON_NO_PROJECT && resolve(ctx.cwd) === resolve(process.env.TENON_NO_PROJECT);
   const rootOf = (ctx: Ctx) => isFree(ctx) ? freeRoot(process.env.TENON_FREE_DIR!, ctx.sessionManager.getSessionId()) : projectRoot(ctx.cwd);
@@ -54,7 +54,7 @@ export default function (pi: ExtensionAPI) {
         const ignored = r.isNew && (await ensureGitignore(ctx.cwd));
         if (inTenon() && !announced.has(a.canvas)) await show(ctx, a.canvas); // the panel opens as the first board appears
         return text(`Created ${a.canvas}/${a.board} at rev ${r.rev}.` +
-          (ignored ? " Added .loomden/canvases/*/history/ to .gitignore; show this change in the review." : ""));
+          (ignored ? " Added .tenon/canvases/*/history/ to .gitignore; show this change in the review." : ""));
       },
     }),
     defineTool({
@@ -144,7 +144,7 @@ export default function (pi: ExtensionAPI) {
   canvasTools.push(defineTool({
     name: "design_system_propose",
     label: "Propose design system",
-    description: "Propose a new .loomden/design-system/tokens.json, read from the project's code (for example src/theme.ts). Give the full tokens object. A person reviews it in the canvas and accepts it; you cannot write tokens.json.",
+    description: "Propose a new .tenon/design-system/tokens.json, read from the project's code (for example src/theme.ts). Give the full tokens object. A person reviews it in the canvas and accepts it; you cannot write tokens.json.",
     parameters: Type.Object({
       tokens: Type.Any({ description: "tokens.json content: { name, version, source, color:{tokens:[{name,value,usage}]}, type:{families,styles}, spacing:{tokens}, radius:{tokens} }" }),
     }),

@@ -52,9 +52,9 @@ Tenon is a desktop app for [pi](https://www.npmjs.com/package/@earendil-works/pi
 
 ## Data
 
-- Tenon keeps its data in `~/.loomden`. Its own pi agent folder is `~/.loomden/agent`.
+- Tenon keeps its data in `~/.tenon`. Its own pi agent folder is `~/.tenon/agent`.
 - Tenon shares only `~/.pi/agent/auth.json` with terminal pi. Thus your API keys and logins work in both.
-- A project's canvases are in `<project>/.loomden/canvases/`.
+- A project's canvases are in `<project>/.tenon/canvases/`.
 
 To keep a test run away from your real data, set `TENON_DIR` and `TENON_PI_DIR` to a temporary folder.
 

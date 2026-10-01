@@ -54,7 +54,7 @@ test("/canvas in Tenon opens the canvas panel next to the chat", async () => {
 test("Design page lists the project's canvases and opens one", async () => {
   const tenonDir = await mkdtemp(join(tmpdir(), "tenon-app-"));
   const project = join(await mkdtemp(join(tmpdir(), "tenon-proj-")), "checkout-app");
-  const root = join(project, ".loomden", "canvases");
+  const root = join(project, ".tenon", "canvases");
   const html = "<html><body style='margin:0;width:390px;height:400px'><h1>Cart</h1></body></html>";
   await createBoard(root, { canvas: "checkout", board: "cart", title: "Cart", w: 390, h: 400, html, canvasTitle: "Checkout redesign" });
   await createBoard(root, { canvas: "checkout", board: "pay", title: "Payment", w: 390, h: 400, html });

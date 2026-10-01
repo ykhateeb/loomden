@@ -56,7 +56,7 @@ export function AddProviderDialog() {
   return (
     <Modal
       title="Add a custom provider"
-      subtitle={<>A server pi calls with one of these APIs · saved in <span className="font-mono">~/.loomden/agent/models.json</span></>}
+      subtitle={<>A server pi calls with one of these APIs · saved in <span className="font-mono">~/.tenon/agent/models.json</span></>}
       icon={<ModalIcon tone="accent"><Icon name="server" size={18} /></ModalIcon>}
       width={640}
       onClose={close}
