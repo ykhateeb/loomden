@@ -32,7 +32,7 @@ The app has three processes:
 
 1. **Main** (`src/main/`): owns the window, native dialogs, and the host IPC (`host-ipc.ts`). It forks the agent process and gives the window a direct `MessagePort` to it (`agent-host.ts`). Main does not relay agent traffic.
 2. **Agent** (`src/agent/index.ts`, an Electron `utilityProcess`): pi and all pi extensions run here, never in the window. `createHandle()` (`src/agent/handlers.ts`) dispatches each window command to its handler in `src/agent/<area>-commands.ts`. The logic lives in `src/core/`. `src/core/sessions/registry.ts` holds the open pi sessions and their commands. Next to it: `runtime.ts` (project trust, pi runtime creation), `live-state.ts` (the `LiveState` of a session), `move.ts` (moving a session to a project).
-3. **Renderer** (`src/renderer/src/`): React UI. `store.ts` is one global store (`useSyncExternalStore`): state, `set()`, notices. `port.ts` sends commands (`call()`), and `agent-messages.ts` applies agent messages. Each feature folder has an `actions.ts`, and `actions.ts` joins them into the `actions` object that components use.
+3. **Renderer** (`src/renderer/src/`): React UI. `store.ts` is one global store (`useSyncExternalStore`): state, `set()`, notices. `port.ts` sends commands (`call()`), and `agent-messages.ts` applies agent messages. Each feature folder has an `actions.ts`, and `actions.ts` joins them into the `actions` object that components use. Before you change the UI, read `src/renderer/CLAUDE.md`.
 
 `src/protocol.ts` is the single source of truth for the window-to-agent contract: `Command` (window to agent, answered with a `reply` by `rid`) and `AgentOut` (agent to window).
 
@@ -112,6 +112,12 @@ The window shows model output, so the agent and main treat each value from the w
 - `tsconfig.json` `paths` repeats the wildcard aliases, because `tsc` does not add `.ts`/`.tsx` to them. If you add an alias, change both files.
 - Import each file directly. The folders have no `index.ts` barrel files.
 - Code in `packages/loomden-canvas/` does not use the aliases. Terminal pi loads it without this app.
+
+### Tests
+
+- Put a unit test next to its module, as `<module>.test.ts`.
+- For files on disk, use a new temp folder from `mkdtempSync(join(tmpdir(), "loomden-<area>-"))`. For code that imports `src/core/paths.ts`, see "Data locations".
+- The unit tests have no DOM. Test renderer logic as pure functions. Test the UI with the app e2e test or the gallery.
 
 ## Workflow
 
