@@ -2,6 +2,7 @@
   "name": "loomden",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "imports": {
     "#protocol": "./src/protocol.ts",

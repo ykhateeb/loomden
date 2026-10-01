@@ -84,3 +84,7 @@ The window shows model output, so the agent process does not trust the commands 
 ```sh
 pi install ./packages/loomden-canvas
 ```
+
+## License
+
+Loomden is under the MIT License. See [LICENSE](LICENSE).

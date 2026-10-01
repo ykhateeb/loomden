@@ -2,6 +2,7 @@
   "name": "loomden-canvas",
   "version": "0.1.0",
   "description": "Design canvas for pi: the loomden-design skill and the loomden-canvas extension.",
+  "license": "MIT",
   "keywords": ["pi-package"],
   "type": "module",
   "pi": {
