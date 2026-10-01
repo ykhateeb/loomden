@@ -27,6 +27,7 @@ export function Workspace() {
   const state = useStore((s) => (s.active ? s.live[s.active] : undefined));
   const page = useStore((s) => s.designPage);
   const canvas = useStore((s) => (s.active ? s.canvas[s.active] : undefined));
+  const noProject = useStore((s) => s.noProject); // the session list has loaded, so New session can start a chat
   const [width, setWidthRaw] = useState(savedWidth);
   const [dragging, setDragging] = useState(false);
 
@@ -54,7 +55,7 @@ export function Workspace() {
       ) : (
         <main className="col-span-2 flex flex-col items-center justify-center gap-3 bg-bg text-muted">
           <span>Pick a session, or start a new one.</span>
-          <Button variant="primary" onClick={actions.newSession}><Icon name="plus" />New session<Kbd onFill>⌘N</Kbd></Button>
+          <Button variant="primary" disabled={!noProject} onClick={actions.newSession}><Icon name="plus" />New session<Kbd onFill>⌘N</Kbd></Button>
         </main>
       )}
 

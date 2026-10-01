@@ -72,7 +72,7 @@ export function Sidebar() {
       </button>
 
       <nav aria-label="Sessions" className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-auto [&>*]:shrink-0">
-        <ListItem className="mb-0.5 border border-line2 bg-panel font-medium text-fg" meta={<Kbd>⌘N</Kbd>} onClick={actions.newSession}>
+        <ListItem className="mb-0.5 border border-line2 bg-panel font-medium text-fg disabled:opacity-50" meta={<Kbd>⌘N</Kbd>} disabled={!noProject} onClick={actions.newSession}>
           <Icon name="plus" />New session
         </ListItem>
         <div className="flex items-center px-1.5 pt-3 pb-1.5">
