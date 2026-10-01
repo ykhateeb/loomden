@@ -3,7 +3,7 @@ import { basename, dirname, extname } from "node:path";
 import { DefaultPackageManager, getAgentDir, ProjectTrustStore, type ProgressEvent, SettingsManager } from "@earendil-works/pi-coding-agent";
 import type { GalleryItem, InstalledPackage, Project } from "#protocol";
 
-/** pi's package manager for Loomden's agent folder, working in `cwd`. */
+/** pi's package manager for Tenon's agent folder, working in `cwd`. */
 export const manager = (cwd: string) => new DefaultPackageManager({ cwd, agentDir: getAgentDir(), settingsManager: SettingsManager.create(cwd, getAgentDir()) });
 
 /** "npm:pi-prompts-review@1.4.2" → name and version; "git:github.com/me/pi-ext@main" → repo and ref; "./path" → local. */

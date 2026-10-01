@@ -201,7 +201,7 @@ function render(){
   const draft=!plan.length&&Object.values(cv.boards).length&&Object.values(cv.boards).every(b=>b.rev===1)&&!notes.length&&tab==="canvas"&&!hintOff;
   $("#hint").style.display=draft?"flex":"none";
   const open=notes.filter(([,n])=>n.state==="open").length;
-  $("#foot").replaceChildren(h("code",{},".loomden/canvases/"+C),h("span",{},open+" saved note"+(open===1?"":"s")))
+  $("#foot").replaceChildren(h("code",{},".tenon/canvases/"+C),h("span",{},open+" saved note"+(open===1?"":"s")))
 }
 $("#hint-x").onclick=()=>{hintOff=true;$("#hint").style.display="none"};
 function renderSide(notes){
@@ -317,7 +317,7 @@ function renderCmp(b,hist){
       h("b",{},"Handoff to code"),h("small",{},"When every board is approved, pi gets a pack to build from: the boards at their approved revs, done notes, and the tokens used."),
       h("button",{class:pending?"":"primary",...(pending?{disabled:""}:{}),onclick:e=>{const t=e.currentTarget;t.disabled=true;post("build",{}).then(()=>toast("Design pack sent")).finally(()=>setTimeout(()=>t.disabled=false,3000))}},"Start build session"),
       h("small",{},pending?"Approve "+pending.title+" first.":"All boards are approved."),
-      h("small",{},"Saved in the project: .loomden/canvases/"+C+"/. Boards, notes and approvals are files, so they go into git.")))}
+      h("small",{},"Saved in the project: .tenon/canvases/"+C+"/. Boards, notes and approvals are files, so they go into git.")))}
 
 // compare with the app (board C12): pi runs design_compare; you decide each difference
 let appSeq=0;
@@ -343,7 +343,7 @@ async function loadApp(){
         d.state==="open"?h("div",{class:"row",style:"display:flex;gap:6px;margin-top:6px"},
           h("button",{class:"primary",onclick:()=>post("compare",{board:cmp.board,id:d.id,action:"fix"}).then(loadApp)},"Fix the code"),
           h("button",{onclick:()=>post("compare",{board:cmp.board,id:d.id,action:"wrong"}).then(loadApp)},"Board is wrong")):h("small",{},d.state==="fix"?"Sent to pi: fix the code":"Sent to pi: the board is wrong"))),
-      h("small",{},".loomden/canvases/"+C+"/compare/ · this computer only")))}
+      h("small",{},".tenon/canvases/"+C+"/compare/ · this computer only")))}
 
 // point -> note box
 addEventListener("message",e=>{

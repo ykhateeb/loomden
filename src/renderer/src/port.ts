@@ -20,11 +20,11 @@ export function call<T = unknown>(cmd: Command): Promise<T> {
 export function listenForAgent(on: { connect: () => void; message: (msg: AgentMessageOut) => void; exit: () => void }) {
   window.addEventListener("message", (e) => {
     if (e.source !== window) return;
-    if (e.data === "loomden:agent-exit") {
+    if (e.data === "tenon:agent-exit") {
       dropPort("pi stopped");
       return on.exit();
     }
-    if (e.data !== "loomden:agent-port" || !e.ports[0]) return;
+    if (e.data !== "tenon:agent-port" || !e.ports[0]) return;
     dropPort("The window got a new connection to pi");
     port = e.ports[0];
     port.onmessage = (m) => {

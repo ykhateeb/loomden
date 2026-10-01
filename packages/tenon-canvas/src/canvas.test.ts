@@ -7,8 +7,8 @@ import { RAW_BOARD, RAW_STATE, RAW_TOKENS, compareBoard, designPack, readCompare
 
 const html = `<html><head><title>x</title></head><body><button>Pay</button><a href="b.html">Next</a></body></html>`;
 const setup = async () => {
-  const proj = await mkdtemp(join(tmpdir(), "loomden-"));
-  return { proj, root: join(proj, ".loomden", "canvases") };
+  const proj = await mkdtemp(join(tmpdir(), "tenon-"));
+  return { proj, root: join(proj, ".tenon", "canvases") };
 };
 
 describe("store", () => {
@@ -39,8 +39,8 @@ describe("store", () => {
   it("rejects path tricks and blocks raw board writes", async () => {
     const { root } = await setup();
     await expect(createBoard(root, { canvas: "../x", board: "a", title: "", w: 1, h: 1, html })).rejects.toThrow(/Bad name/);
-    expect(RAW_BOARD.test("/p/.loomden/canvases/c1/boards/cart.html")).toBe(true);
-    expect(RAW_BOARD.test("/p/.loomden/canvases/c1/canvas.json")).toBe(false);
+    expect(RAW_BOARD.test("/p/.tenon/canvases/c1/boards/cart.html")).toBe(true);
+    expect(RAW_BOARD.test("/p/.tenon/canvases/c1/canvas.json")).toBe(false);
   });
 
   it("keeps notes, tokens and gitignore", async () => {
@@ -48,7 +48,7 @@ describe("store", () => {
     await createBoard(root, { canvas: "c1", board: "cart", title: "Cart", w: 390, h: 844, html });
     const id = await addNote(root, "c1", { board: "cart", target: { tid: "2", text: "Pay", box: [1, 2, 3, 4] }, text: "bigger" });
     expect((await readCanvas(root, "c1")).notes[id].state).toBe("open");
-    const ds = join(proj, ".loomden", "design-system");
+    const ds = join(proj, ".tenon", "design-system");
     await mkdir(ds, { recursive: true });
     await writeFile(join(ds, "tokens.json"), JSON.stringify({ color: { tokens: [{ name: "link", value: "#4e6f94" }] } }));
     expect(await tokensCss(ds)).toContain("--link: #4e6f94;");
@@ -104,7 +104,7 @@ describe("design system", () => {
 
   it("proposes, reports changes and usage, accepts", async () => {
     const { proj, root } = await setup();
-    const ds = join(proj, ".loomden", "design-system");
+    const ds = join(proj, ".tenon", "design-system");
     await createBoard(root, { canvas: "c1", board: "cart", title: "Cart", w: 1, h: 1, html: `<a style="color:var(--link)">x</a><b style="color:var(--link, red)">y</b>` });
     await expect(proposeTokens(ds, { name: "app", color: { tokens: [{ name: "bad", value: "red; }" }] } })).rejects.toThrow(/Bad value/);
     await proposeTokens(ds, tokens("#111111"));
@@ -194,8 +194,8 @@ describe("play, restore, approve", () => {
   });
 
   it("guards canvas.json, approved/ and history/ from raw writes", () => {
-    for (const f of ["canvas.json", "approved/cart.html", "history/log.jsonl"]) expect(RAW_STATE.test(`/p/.loomden/canvases/c1/${f}`)).toBe(true);
-    expect(RAW_STATE.test("/p/.loomden/canvases/c1/assets/a.png")).toBe(false);
+    for (const f of ["canvas.json", "approved/cart.html", "history/log.jsonl"]) expect(RAW_STATE.test(`/p/.tenon/canvases/c1/${f}`)).toBe(true);
+    expect(RAW_STATE.test("/p/.tenon/canvases/c1/assets/a.png")).toBe(false);
   });
 });
 
@@ -212,7 +212,7 @@ describe("free session canvases", () => {
     expect(await moveCanvases(free, root)).toEqual([]);
 
     // the session's design system comes too, but never over the project's own
-    const fromDs = join(free, "..", "design-system"), toDs = join(proj, ".loomden", "design-system");
+    const fromDs = join(free, "..", "design-system"), toDs = join(proj, ".tenon", "design-system");
     await mkdir(fromDs, { recursive: true });
     await writeFile(join(fromDs, "tokens.json"), "{}");
     await mkdir(toDs, { recursive: true });
@@ -221,11 +221,11 @@ describe("free session canvases", () => {
     expect(await moveDesignSystem(fromDs, toDs)).toBe(true);
     expect(await readFile(join(toDs, "tokens.json"), "utf8")).toBe("{}");
 
-    const guarded = "/h/.loomden/sessions/abc123/canvases/landing/boards/hero.html";
-    expect(RAW_BOARD.test("/data/loomden-home/sessions/abc123/canvases/landing/boards/hero.html")).toBe(true); // LOOMDEN_DIR need not be called .loomden
+    const guarded = "/h/.tenon/sessions/abc123/canvases/landing/boards/hero.html";
+    expect(RAW_BOARD.test("/data/tenon-home/sessions/abc123/canvases/landing/boards/hero.html")).toBe(true); // TENON_DIR need not be called .tenon
     expect(RAW_BOARD.test(guarded)).toBe(true);
-    expect(RAW_STATE.test("/h/.loomden/sessions/abc123/canvases/landing/canvas.json")).toBe(true);
-    expect(RAW_TOKENS.test("/h/.loomden/sessions/abc123/design-system/tokens.json")).toBe(true);
+    expect(RAW_STATE.test("/h/.tenon/sessions/abc123/canvases/landing/canvas.json")).toBe(true);
+    expect(RAW_TOKENS.test("/h/.tenon/sessions/abc123/design-system/tokens.json")).toBe(true);
   });
 });
 
@@ -256,7 +256,7 @@ describe("build pack and compare with the app", () => {
 
   it("makes the pack only when every board is approved", async () => {
     const { proj, root } = await setup();
-    const ds = join(proj, ".loomden", "design-system");
+    const ds = join(proj, ".tenon", "design-system");
     await proposeTokens(ds, tokens);
     await acceptProposal(ds);
     await createBoard(root, { canvas: "c1", board: "cart", title: "Cart", w: 1, h: 1, html: cart });
@@ -280,7 +280,7 @@ describe("build pack and compare with the app", () => {
 
   it("finds differences between the approved board and the app", async () => {
     const { proj, root } = await setup();
-    const ds = join(proj, ".loomden", "design-system");
+    const ds = join(proj, ".tenon", "design-system");
     await proposeTokens(ds, tokens);
     await acceptProposal(ds);
     await createBoard(root, { canvas: "c1", board: "cart", title: "Cart", w: 1, h: 1, html: cart });
@@ -313,7 +313,7 @@ describe("build pack and compare with the app", () => {
 
   it("pairs repeated text in order, ignores line breaks, and keeps decisions when it runs again", async () => {
     const { proj, root } = await setup();
-    const ds = join(proj, ".loomden", "design-system");
+    const ds = join(proj, ".tenon", "design-system");
     await proposeTokens(ds, tokens);
     await acceptProposal(ds);
     const html2 = `<body><h2 style="font-weight: var(--label-strong-font-weight)">Pay</h2><button style="font-weight: 400">Pay</button><p>Pay
@@ -340,7 +340,7 @@ describe("build pack and compare with the app", () => {
 describe("server: ask and compare decisions", () => {
   it("refuses an empty ask, and a decision is sent to pi once", async () => {
     const { proj, root } = await setup();
-    const ds = join(proj, ".loomden", "design-system");
+    const ds = join(proj, ".tenon", "design-system");
     await proposeTokens(ds, tokens0);
     await acceptProposal(ds);
     await createBoard(root, { canvas: "c1", board: "cart", title: "Cart", w: 1, h: 1, html: `<p style="font-weight: 400">Pay</p>` });

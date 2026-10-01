@@ -38,10 +38,10 @@ function createWindow() {
   win.on("closed", agent.stop);
   grantTo = agent.grant;
 
-  // Dev checks without clicks: LOOMDEN_GALLERY=1|open shows the design system page; LOOMDEN_OPEN=latest|<part of a title>
-  // opens that session, LOOMDEN_VIEW=tree in its tree, LOOMDEN_SEARCH=<text> opens ⌘K with that text.
-  const dev = new URLSearchParams(Object.entries({ open: process.env.LOOMDEN_OPEN, view: process.env.LOOMDEN_VIEW, search: process.env.LOOMDEN_SEARCH, tab: process.env.LOOMDEN_TAB, dialog: process.env.LOOMDEN_DIALOG }).filter((e): e is [string, string] => !!e[1]));
-  const hash = process.env.LOOMDEN_GALLERY ? `gallery${process.env.LOOMDEN_GALLERY === "open" ? "-open" : ""}` : dev.size ? `dev?${dev}` : undefined;
+  // Dev checks without clicks: TENON_GALLERY=1|open shows the design system page; TENON_OPEN=latest|<part of a title>
+  // opens that session, TENON_VIEW=tree in its tree, TENON_SEARCH=<text> opens ⌘K with that text.
+  const dev = new URLSearchParams(Object.entries({ open: process.env.TENON_OPEN, view: process.env.TENON_VIEW, search: process.env.TENON_SEARCH, tab: process.env.TENON_TAB, dialog: process.env.TENON_DIALOG }).filter((e): e is [string, string] => !!e[1]));
+  const hash = process.env.TENON_GALLERY ? `gallery${process.env.TENON_GALLERY === "open" ? "-open" : ""}` : dev.size ? `dev?${dev}` : undefined;
   if (process.env.ELECTRON_RENDERER_URL) win.loadURL(process.env.ELECTRON_RENDERER_URL + (hash ? `#${hash}` : ""));
   else win.loadFile(join(import.meta.dirname, "../renderer/index.html"), { hash });
 }

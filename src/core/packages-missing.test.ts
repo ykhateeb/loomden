@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { expect, test, vi } from "vitest";
 
 test("a session's settings hide packages that are not installed, and keep the rest", async () => {
-  const root = mkdtempSync(join(tmpdir(), "loomden-missing-"));
+  const root = mkdtempSync(join(tmpdir(), "tenon-missing-"));
   const agent = join(root, "agent");
   const local = join(root, "pkg");
   mkdirSync(join(local, "extensions"), { recursive: true });
@@ -21,7 +21,7 @@ test("a session's settings hide packages that are not installed, and keep the re
 });
 
 test("the check runs on each read: a package installed later is no longer hidden", async () => {
-  const root = mkdtempSync(join(tmpdir(), "loomden-missing2-"));
+  const root = mkdtempSync(join(tmpdir(), "tenon-missing2-"));
   const agent = join(root, "agent");
   const later = join(root, "later-pkg");
   mkdirSync(agent, { recursive: true });

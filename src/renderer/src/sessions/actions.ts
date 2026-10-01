@@ -57,7 +57,7 @@ export const sessionActions = {
   },
   /** "Open a folder…" in the Add to project menu: the folder becomes a project, then the session moves there. */
   moveToFolder: async (key: string) => {
-    const cwd = await window.loomden.pickFolder();
+    const cwd = await window.tenon.pickFolder();
     if (!cwd) return;
     try {
       set(await call<SessionList>({ type: "project.add", cwd }));
@@ -77,7 +77,7 @@ export const sessionActions = {
     set((s) => ({ mark: key && at ? { key, at } : undefined, view: key ? { ...s.view, [key]: "chat" } : s.view }));
   },
   addProject: async () => {
-    const cwd = await window.loomden.pickFolder();
+    const cwd = await window.tenon.pickFolder();
     if (cwd) await call<SessionList>({ type: "project.add", cwd }).then(set).catch(report);
   },
   removeProject: (cwd: string) =>
@@ -99,7 +99,7 @@ export const sessionActions = {
   exportHtml: async (cwd: string, path: string, title: string) => {
     try {
       const temp = await call<string>({ type: "session.export", cwd, path });
-      const saved = await window.loomden.saveHtml(temp, title);
+      const saved = await window.tenon.saveHtml(temp, title);
       if (saved) notice(`Exported to ${saved}`, "info");
     } catch (e) {
       report(e as Error);
@@ -109,14 +109,14 @@ export const sessionActions = {
   deleteSession: async (path: string) => {
     try {
       await call({ type: "session.close", path });
-      await window.loomden.trashSession(path);
+      await window.tenon.trashSession(path);
       notice("The session is in the Trash", "info");
       await sessionActions.refresh();
     } catch (e) {
       report(e as Error);
     }
   },
-  showInFolder: (path: string) => window.loomden.showInFolder(path),
+  showInFolder: (path: string) => window.tenon.showInFolder(path),
 };
 
 /** Dev checks without clicks (see main/index.ts): #dev?open=latest|<title part>&view=tree&search=<text>, once. */

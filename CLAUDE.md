@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Loomden is an Electron desktop app for pi (`@earendil-works/pi-coding-agent`), a coding agent. It is built with electron-vite, React 19, and Tailwind 4.
+Tenon is an Electron desktop app for pi (`@earendil-works/pi-coding-agent`), a coding agent. It is built with electron-vite, React 19, and Tailwind 4.
 
 ## Commands
 
@@ -12,19 +12,19 @@ Loomden is an Electron desktop app for pi (`@earendil-works/pi-coding-agent`), a
 - `npm test`: run all Vitest unit tests (`*.test.ts` in `src/` and `packages/`).
   - One file: `npx vitest run src/core/sessions/tree.test.ts`. One test: add `-t "<name>"`.
 - `npm run test:e2e`: run the Playwright tests (`e2e/*.e2e.ts`, `packages/*/e2e/*.e2e.ts`).
-  - `e2e/loomden.e2e.ts` launches the built app. Run `npm run build` before it.
-  - `packages/loomden-canvas/e2e/` runs the canvas server in the test process and drives it with Chromium. It needs no build.
+  - `e2e/tenon.e2e.ts` launches the built app. Run `npm run build` before it.
+  - `packages/tenon-canvas/e2e/` runs the canvas server in the test process and drives it with Chromium. It needs no build.
   - One e2e test: `npx playwright test -g "<part of the title>"`.
 - `npm run dist`: build and package the app with electron-builder.
 
 ## Dev environment variables
 
-- `LOOMDEN_DIR` (default `~/.loomden`) and `LOOMDEN_PI_DIR` (default `~/.pi/agent`): set both to a temp folder to keep a test run away from real data. The e2e tests do this.
+- `TENON_DIR` (default `~/.tenon`) and `TENON_PI_DIR` (default `~/.pi/agent`): set both to a temp folder to keep a test run away from real data. The e2e tests do this.
 - Open the app on a given view with no clicks. Main puts these in the URL hash, and `src/renderer/src/store.ts` reads them:
-  - `LOOMDEN_OPEN=latest|<part of a title>` opens a session. Add `LOOMDEN_VIEW=tree` to show its tree.
-  - `LOOMDEN_SEARCH=<text>`, `LOOMDEN_TAB=sessions|packages|settings`, `LOOMDEN_DIALOG=provider|import`.
-- `npm run gallery` (`LOOMDEN_GALLERY=1`): show the UI design system page (`src/renderer/src/ui/Gallery.tsx`). `LOOMDEN_GALLERY=open` also opens its menu and dialog.
-- `LOOMDEN_NO_OPEN=1`: the canvas extension does not open a browser.
+  - `TENON_OPEN=latest|<part of a title>` opens a session. Add `TENON_VIEW=tree` to show its tree.
+  - `TENON_SEARCH=<text>`, `TENON_TAB=sessions|packages|settings`, `TENON_DIALOG=provider|import`.
+- `npm run gallery` (`TENON_GALLERY=1`): show the UI design system page (`src/renderer/src/ui/Gallery.tsx`). `TENON_GALLERY=open` also opens its menu and dialog.
+- `TENON_NO_OPEN=1`: the canvas extension does not open a browser.
 
 ## Architecture
 
@@ -62,9 +62,9 @@ The window shows model output, so the agent and main treat each value from the w
 
 ### Data locations
 
-- Loomden keeps its own pi agent folder at `~/.loomden/agent`. Main sets `PI_CODING_AGENT_DIR` to it.
-- Loomden shares only `auth.json` with terminal pi. The import feature copies other items from `~/.pi/agent`.
-- `src/core/paths.ts` reads `LOOMDEN_DIR` and `LOOMDEN_PI_DIR` when a module imports it. A test that touches these folders sets `process.env` first and then uses `await import(…)`. A static import uses the real `~/.loomden`.
+- Tenon keeps its own pi agent folder at `~/.tenon/agent`. Main sets `PI_CODING_AGENT_DIR` to it.
+- Tenon shares only `auth.json` with terminal pi. The import feature copies other items from `~/.pi/agent`.
+- `src/core/paths.ts` reads `TENON_DIR` and `TENON_PI_DIR` when a module imports it. A test that touches these folders sets `process.env` first and then uses `await import(…)`. A static import uses the real `~/.tenon`.
 
 ### Build
 
@@ -72,9 +72,9 @@ The window shows model output, so the agent and main treat each value from the w
 - pi loads user and third-party extensions at runtime with jiti. Thus the main build does not bundle dependencies, and electron-builder unpacks `@earendil-works` from the asar.
 - The agent build bundles the canvas extension into `out/main/agent.js`. Rebuild before the app e2e test sees an extension change.
 
-### loomden-canvas package
+### tenon-canvas package
 
-`packages/loomden-canvas/` is a pi package: a design canvas extension and the `loomden-design` skill. Before you change the package, or host code that imports `#canvas/*`, read `packages/loomden-canvas/CLAUDE.md`.
+`packages/tenon-canvas/` is a pi package: a design canvas extension and the `tenon-design` skill. Before you change the package, or host code that imports `#canvas/*`, read `packages/tenon-canvas/CLAUDE.md`.
 
 ## Code rules
 
@@ -100,7 +100,7 @@ The window shows model output, so the agent and main treat each value from the w
 
 ### Types
 
-- `tsconfig.json` has `strict: true`. Write new code without `any`. Old uses remain in `packages/loomden-canvas/`.
+- `tsconfig.json` has `strict: true`. Write new code without `any`. Old uses remain in `packages/tenon-canvas/`.
 - Give data from outside the process (window commands, files, JSON) the type `unknown`, and narrow it before use.
 - Derive types from their source: use `Command` and `AgentOut` from `#protocol`, and `Extract<…>`, `Pick<…>`, or `ReturnType<…>`, instead of a second copy of the shape.
 - Use a union of string literals for a fixed set of values, not an `enum`.
@@ -111,12 +111,12 @@ The window shows model output, so the agent and main treat each value from the w
 - Use `./x` in the same folder. For any other folder, use a `#` alias from the `"imports"` field of `package.json` (`#protocol`, `#preload`, `#core/*`, `#renderer/*`, `#canvas/*`). Do not use `../`.
 - `tsconfig.json` `paths` repeats the wildcard aliases, because `tsc` does not add `.ts`/`.tsx` to them. If you add an alias, change both files.
 - Import each file directly. The folders have no `index.ts` barrel files.
-- Code in `packages/loomden-canvas/` does not use the aliases. Terminal pi loads it without this app.
+- Code in `packages/tenon-canvas/` does not use the aliases. Terminal pi loads it without this app.
 
 ### Tests
 
 - Put a unit test next to its module, as `<module>.test.ts`.
-- For files on disk, use a new temp folder from `mkdtempSync(join(tmpdir(), "loomden-<area>-"))`. For code that imports `src/core/paths.ts`, see "Data locations".
+- For files on disk, use a new temp folder from `mkdtempSync(join(tmpdir(), "tenon-<area>-"))`. For code that imports `src/core/paths.ts`, see "Data locations".
 - The unit tests have no DOM. Test renderer logic as pure functions. Test the UI with the app e2e test or the gallery.
 
 ## Workflow

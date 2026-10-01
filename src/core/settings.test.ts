@@ -5,7 +5,7 @@ import { expect, test } from "vitest";
 import { readModelSettings, writeModelSettings } from "./settings";
 
 test("project settings: change only the model keys, keep the rest, null removes, bad values refused", () => {
-  const cwd = mkdtempSync(join(tmpdir(), "loomden-settings-"));
+  const cwd = mkdtempSync(join(tmpdir(), "tenon-settings-"));
   mkdirSync(join(cwd, ".pi"));
   writeFileSync(join(cwd, ".pi", "settings.json"), JSON.stringify({ packages: ["npm:x"], defaultModel: "old" }));
   expect(writeModelSettings({ defaultProvider: "anthropic", defaultModel: "claude-sonnet-5", enabledModels: ["anthropic/*"] }, cwd)).toEqual({

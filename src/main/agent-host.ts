@@ -1,14 +1,14 @@
 import { join } from "node:path";
 import { type BrowserWindow, MessageChannelMain, utilityProcess } from "electron";
 import type { GrantKind } from "#core/grants";
-import { LOOMDEN_AGENT_DIR, FREE_CANVAS_DIR, NO_PROJECT_DIR } from "#core/paths";
+import { TENON_AGENT_DIR, FREE_CANVAS_DIR, NO_PROJECT_DIR } from "#core/paths";
 
 /** A crash sooner than this after a start is a startup crash: no restart, so it does not loop. */
 const MIN_RUN_MS = 5000;
 
 /** Starts the agent process and connects it to the window with a direct port. Main does not relay tokens. */
 export function startAgent(win: BrowserWindow, env: NodeJS.ProcessEnv) {
-  const agentEnv = { ...env, PI_CODING_AGENT_DIR: LOOMDEN_AGENT_DIR, LOOMDEN_APP: "1", LOOMDEN_NO_PROJECT: NO_PROJECT_DIR, LOOMDEN_FREE_DIR: FREE_CANVAS_DIR };
+  const agentEnv = { ...env, PI_CODING_AGENT_DIR: TENON_AGENT_DIR, TENON_APP: "1", TENON_NO_PROJECT: NO_PROJECT_DIR, TENON_FREE_DIR: FREE_CANVAS_DIR };
   const grantsToReplay: { kind: GrantKind; path: string }[] = []; // a restarted agent gets them again
   let quitting = false;
   let child = fork();
@@ -28,7 +28,7 @@ export function startAgent(win: BrowserWindow, env: NodeJS.ProcessEnv) {
 
   function fork() {
     const startedAt = Date.now();
-    const next = utilityProcess.fork(join(import.meta.dirname, "agent.js"), [], { env: agentEnv, serviceName: "Loomden agent", stdio: "inherit" });
+    const next = utilityProcess.fork(join(import.meta.dirname, "agent.js"), [], { env: agentEnv, serviceName: "Tenon agent", stdio: "inherit" });
     for (const g of grantsToReplay) next.postMessage({ grant: g });
     next.on("exit", (code) => onExit(code, Date.now() - startedAt));
     return next;
@@ -38,7 +38,7 @@ export function startAgent(win: BrowserWindow, env: NodeJS.ProcessEnv) {
     if (quitting || win.isDestroyed()) return;
     win.webContents.send("agent-exit");
     // ponytail: no backoff. A crash after MIN_RUN_MS restarts at once, each time.
-    if (ranMs < MIN_RUN_MS) return console.error(`Loomden agent stopped at startup (code ${code})`);
+    if (ranMs < MIN_RUN_MS) return console.error(`Tenon agent stopped at startup (code ${code})`);
     child = fork();
     connect();
   }

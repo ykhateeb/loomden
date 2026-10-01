@@ -13,7 +13,7 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import type { Send, TrustAnswer } from "#protocol";
 import { settingsWithoutMissing } from "#core/packages";
-import loomdenCanvas from "#canvas/extension";
+import tenonCanvas from "#canvas/extension";
 import type { Dialogs } from "./extension-ui";
 
 /** Project trust, and pi runtimes that load a project's own files only when it is trusted. */
@@ -30,10 +30,10 @@ export function createRuntimes({ send, modelRuntime, ask }: { send: Send; modelR
       cwd,
       modelRuntime,
       settingsManager,
-      // Loomden ships the design canvas itself: no `pi install` needed. Bundle is out/main/agent.js.
+      // Tenon ships the design canvas itself: no `pi install` needed. Bundle is out/main/agent.js.
       resourceLoaderOptions: {
-        extensionFactories: [{ name: "loomden-canvas", factory: loomdenCanvas }],
-        additionalSkillPaths: [join(import.meta.dirname, "../../packages/loomden-canvas/skills")],
+        extensionFactories: [{ name: "tenon-canvas", factory: tenonCanvas }],
+        additionalSkillPaths: [join(import.meta.dirname, "../../packages/tenon-canvas/skills")],
       },
       resourceLoaderReloadOptions: { resolveProjectTrust: async () => trusted },
     });

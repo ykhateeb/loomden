@@ -1,5 +1,5 @@
 {
-  "name": "loomden",
+  "name": "tenon",
   "version": "0.1.0",
   "private": true,
   "license": "MIT",
@@ -9,12 +9,12 @@
     "#preload": "./src/preload/index.ts",
     "#core/*": "./src/core/*",
     "#renderer/*": "./src/renderer/src/*",
-    "#canvas/*": "./packages/loomden-canvas/src/*"
+    "#canvas/*": "./packages/tenon-canvas/src/*"
   },
   "main": "out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
-    "gallery": "LOOMDEN_GALLERY=1 electron-vite dev",
+    "gallery": "TENON_GALLERY=1 electron-vite dev",
     "build": "electron-vite build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

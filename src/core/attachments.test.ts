@@ -6,7 +6,7 @@ import { isImage, readImage, searchFiles } from "./attachments";
 import { createGrants } from "./grants";
 
 test("@ search: name starts, then name contains, then path; skips node_modules", async () => {
-  const dir = mkdtempSync(join(tmpdir(), "loomden-files-"));
+  const dir = mkdtempSync(join(tmpdir(), "tenon-files-"));
   for (const f of ["src/auth/refresh.ts", "src/auth/refresh.test.ts", "docs/auth.md", "src/prefresh.ts", "node_modules/x/refresh.js"]) {
     mkdirSync(join(dir, f, ".."), { recursive: true });
     writeFileSync(join(dir, f), "");

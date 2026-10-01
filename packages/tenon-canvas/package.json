@@ -1,7 +1,7 @@
 {
-  "name": "loomden-canvas",
+  "name": "tenon-canvas",
   "version": "0.1.0",
-  "description": "Design canvas for pi: the loomden-design skill and the loomden-canvas extension.",
+  "description": "Design canvas for pi: the tenon-design skill and the tenon-canvas extension.",
   "license": "MIT",
   "keywords": ["pi-package"],
   "type": "module",

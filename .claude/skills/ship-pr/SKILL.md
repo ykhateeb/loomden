@@ -1,11 +1,11 @@
 ---
 name: ship-pr
-description: Commit the current work in the Loomden repo and open a pull request to main, by the "Change size" and "Pull requests" rules of CLAUDE.md. It checks the size, runs the checks, makes the branch, writes the commit and the pull request description, pushes, and opens the pull request. Use this skill whenever the user says "commit", "commit and push", "open a PR", "make a pull request", "ship this", "send this for review", or asks to put finished work on GitHub, even if they do not say "pull request". Do not use it to merge or review a pull request.
+description: Commit the current work in the Tenon repo and open a pull request to main, by the "Change size" and "Pull requests" rules of CLAUDE.md. It checks the size, runs the checks, makes the branch, writes the commit and the pull request description, pushes, and opens the pull request. Use this skill whenever the user says "commit", "commit and push", "open a PR", "make a pull request", "ship this", "send this for review", or asks to put finished work on GitHub, even if they do not say "pull request". Do not use it to merge or review a pull request.
 ---
 
 # Ship a pull request
 
-Loomden reviews every change in a pull request. A reviewer must be able to review each commit and each pull request in about 5 minutes. Thus each pull request is one small, complete, working part. The steps below make sure of that before the code leaves this computer.
+Tenon reviews every change in a pull request. A reviewer must be able to review each commit and each pull request in about 5 minutes. Thus each pull request is one small, complete, working part. The steps below make sure of that before the code leaves this computer.
 
 The skill stops when the pull request is open. The user merges it.
 

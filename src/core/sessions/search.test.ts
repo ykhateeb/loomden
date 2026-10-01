@@ -15,7 +15,7 @@ test("snippet: words around the match, marked", () => {
 });
 
 test("search: title counts, messages give lines, other sessions skipped without a read", () => {
-  const dir = mkdtempSync(join(tmpdir(), "loomden-search-"));
+  const dir = mkdtempSync(join(tmpdir(), "tenon-search-"));
   const file = join(dir, "a.jsonl");
   const line = (o: object) => JSON.stringify(o);
   writeFileSync(

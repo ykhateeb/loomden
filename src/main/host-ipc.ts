@@ -30,7 +30,7 @@ export function registerHostIpc(grant: (kind: GrantKind, path: string) => void) 
 
   ipcMain.handle("host:save-html", async (e, temp: unknown, name: unknown) => {
     const from = typeof temp === "string" ? resolve(temp) : "";
-    if (dirname(from) !== resolve(tmpdir()) || !basename(from).startsWith(EXPORT_PREFIX) || !from.endsWith(".html")) throw new Error("Not a Loomden export");
+    if (dirname(from) !== resolve(tmpdir()) || !basename(from).startsWith(EXPORT_PREFIX) || !from.endsWith(".html")) throw new Error("Not a Tenon export");
     const options: Electron.SaveDialogOptions = { defaultPath: `${String(name).replace(/[/\\:]/g, "-")}.html`, filters: [{ name: "HTML", extensions: ["html"] }] };
     const win = parent(e);
     const result = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options);
@@ -65,7 +65,7 @@ export function registerHostIpc(grant: (kind: GrantKind, path: string) => void) 
     return true;
   });
 
-  // Import from pi (board 5c): copying extensions or installing packages brings code into Loomden. Confirmed here.
+  // Import from pi (board 5c): copying extensions or installing packages brings code into Tenon. Confirmed here.
   ipcMain.handle("host:confirm-import", async (e, items: unknown) => {
     const code = (Array.isArray(items) ? items : []).filter((i): i is string => i === "files" || i === "packages").sort();
     if (!code.length) return true;
@@ -74,7 +74,7 @@ export function registerHostIpc(grant: (kind: GrantKind, path: string) => void) 
       buttons: ["Import", "Cancel"],
       defaultId: 1,
       cancelId: 1,
-      message: "Bring terminal pi's extensions and packages into Loomden?",
+      message: "Bring terminal pi's extensions and packages into Tenon?",
       detail: `${code.includes("files") ? "Your extensions, skills and prompts are copied. " : ""}${code.includes("packages") ? "Your global packages are installed again. " : ""}Extensions run code on your computer with your own permissions.`,
     };
     const win = parent(e);
@@ -93,6 +93,6 @@ export function registerHostIpc(grant: (kind: GrantKind, path: string) => void) 
     if (typeof path === "string") shell.showItemInFolder(resolve(path));
   });
 
-  // The window shows model output, so it is not trusted: only a Loomden session file may go to the Trash.
+  // The window shows model output, so it is not trusted: only a Tenon session file may go to the Trash.
   ipcMain.handle("host:trash-session", (_e, path: unknown) => shell.trashItem(sessionFile(path)));
 }

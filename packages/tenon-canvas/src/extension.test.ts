@@ -20,7 +20,7 @@ describe("extension", () => {
     } as any);
     expect(Object.keys(tools)).toEqual(["canvas_create", "canvas_read", "canvas_edit", "canvas_note_done", "canvas_plan", "design_compare", "design_system_propose"]);
 
-    const cwd = await mkdtemp(join(tmpdir(), "loomden-ext-"));
+    const cwd = await mkdtemp(join(tmpdir(), "tenon-ext-"));
     const ctx = { cwd };
     const html = "<body><button>Pay</button></body>";
     await tools.canvas_create.execute("1", { canvas: "c1", board: "cart", title: "Cart", w: 390, h: 844, html }, null, null, ctx);
@@ -28,12 +28,12 @@ describe("extension", () => {
     expect(read.content[0].text).toContain("rev 1");
     await expect(tools.canvas_edit.execute("3", { canvas: "c1", board: "cart", baseRev: 0, html }, null, null, ctx)).rejects.toThrow(/Read it again/);
 
-    const blocked = await on.tool_call({ toolName: "write", input: { path: ".loomden/canvases/c1/boards/cart.html" } }, ctx);
+    const blocked = await on.tool_call({ toolName: "write", input: { path: ".tenon/canvases/c1/boards/cart.html" } }, ctx);
     expect(blocked.block).toBe(true);
-    expect((await on.tool_call({ toolName: "write", input: { path: ".loomden/canvases/c1/canvas.json" } }, ctx)).block).toBe(true); // approvals live there
+    expect((await on.tool_call({ toolName: "write", input: { path: ".tenon/canvases/c1/canvas.json" } }, ctx)).block).toBe(true); // approvals live there
     expect(await on.tool_call({ toolName: "write", input: { path: "src/a.ts" } }, ctx)).toBeUndefined();
 
-    expect((await on.tool_call({ toolName: "write", input: { path: ".loomden/design-system/tokens.json" } }, ctx)).block).toBe(true);
+    expect((await on.tool_call({ toolName: "write", input: { path: ".tenon/design-system/tokens.json" } }, ctx)).block).toBe(true);
     await tools.design_system_propose.execute("4", { tokens: { name: "app", color: { tokens: [{ name: "link", value: "#4e6f94" }] } } }, null, null, ctx);
     const cmp = await tools.design_compare.execute("5", { canvas: "c1", board: "cart", app: [{ text: "Pay", styles: {} }, { text: "Other" }] }, null, null, ctx);
     expect(cmp.content[0].text).toContain("“Other” is not on the board");
@@ -41,10 +41,10 @@ describe("extension", () => {
     expect(before.message.content).toContain("Canvas c1: boards/cart.html rev 1");
     // what you changed in edit mode reaches pi with its next turn, unless you turned "tell pi" off
     const { patchBoard, readBoard } = await import("./store.js");
-    const tid = (await readBoard(join(cwd, ".loomden", "canvases"), "c1", "cart")).html.match(/<button[^>]*data-tid="(\d+)"/)![1];
-    await patchBoard(join(cwd, ".loomden", "canvases"), { canvas: "c1", board: "cart", tid, text: "Pay now" });
+    const tid = (await readBoard(join(cwd, ".tenon", "canvases"), "c1", "cart")).html.match(/<button[^>]*data-tid="(\d+)"/)![1];
+    await patchBoard(join(cwd, ".tenon", "canvases"), { canvas: "c1", board: "cart", tid, text: "Pay now" });
     expect((await on.before_agent_start({}, ctx)).message.content).toContain("You changed boards/cart.html (rev 2)");
-    await patchBoard(join(cwd, ".loomden", "canvases"), { canvas: "c1", board: "cart", tid, text: "Pay", tell: false });
+    await patchBoard(join(cwd, ".tenon", "canvases"), { canvas: "c1", board: "cart", tid, text: "Pay", tell: false });
     expect((await on.before_agent_start({}, ctx)).message.content).not.toContain("You changed boards/cart.html (rev 3)");
     on.session_shutdown();
     on.session_shutdown();
@@ -55,21 +55,21 @@ describe("free session", () => {
   it("keeps canvases in the session's own folder, not in no-project", async () => {
     const tools: Record<string, any> = {};
     ext({ registerTool: (t: any) => (tools[t.name] = t), registerCommand: () => {}, on: () => {}, sendUserMessage: () => {} } as any);
-    const dir = await mkdtemp(join(tmpdir(), "loomden-free-"));
-    process.env.LOOMDEN_NO_PROJECT = join(dir, "no-project");
-    process.env.LOOMDEN_FREE_DIR = join(dir, "sessions");
+    const dir = await mkdtemp(join(tmpdir(), "tenon-free-"));
+    process.env.TENON_NO_PROJECT = join(dir, "no-project");
+    process.env.TENON_FREE_DIR = join(dir, "sessions");
     try {
       const ctx = { cwd: join(dir, "no-project"), sessionManager: { getSessionId: () => "s1" } };
       await tools.canvas_create.execute("1", { canvas: "c1", board: "a", title: "A", w: 1, h: 1, html: "<p>x</p>" }, null, null, ctx);
       const { listCanvases } = await import("./store.js");
       expect(await listCanvases(join(dir, "sessions", "s1", "canvases"))).toEqual(["c1"]);
-      expect(await listCanvases(join(dir, "no-project", ".loomden", "canvases"))).toEqual([]);
+      expect(await listCanvases(join(dir, "no-project", ".tenon", "canvases"))).toEqual([]);
       // another free session does not see it
       const other = { ...ctx, sessionManager: { getSessionId: () => "s2" } };
       await expect(tools.canvas_read.execute("2", { canvas: "c1" }, null, null, other)).rejects.toThrow(/not found/);
     } finally {
-      delete process.env.LOOMDEN_NO_PROJECT;
-      delete process.env.LOOMDEN_FREE_DIR;
+      delete process.env.TENON_NO_PROJECT;
+      delete process.env.TENON_FREE_DIR;
     }
   });
 });
@@ -78,14 +78,14 @@ describe("first draft", () => {
   it("plans boards, marks the board pi works on, and /canvas new makes a canvas and asks pi", async () => {
     const tools: Record<string, any> = {}, on: Record<string, any> = {}, cmds: Record<string, any> = {}, said: string[] = [];
     ext({ registerTool: (t: any) => (tools[t.name] = t), registerCommand: (n: string, o: any) => (cmds[n] = o), on: (n: string, f: any) => (on[n] = f), sendUserMessage: (t: string) => said.push(t) } as any);
-    const cwd = await mkdtemp(join(tmpdir(), "loomden-draft-"));
+    const cwd = await mkdtemp(join(tmpdir(), "tenon-draft-"));
     const notes: string[] = [];
     const ctx = { cwd, sessionManager: { getSessionId: () => "s" }, ui: { notify: (m: string) => notes.push(m), setStatus: () => {} } };
     const { readCanvas } = await import("./store.js");
-    const root = join(cwd, ".loomden", "canvases");
+    const root = join(cwd, ".tenon", "canvases");
 
     // /canvas new: an empty canvas named for the title, then a message to pi
-    process.env.LOOMDEN_NO_OPEN = "1";
+    process.env.TENON_NO_OPEN = "1";
     await cmds.canvas.handler("new Checkout redesign", ctx);
     expect((await readCanvas(root, "checkout-redesign")).boards).toEqual({});
     expect(said[0]).toContain("Created the canvas “Checkout redesign”");
@@ -122,6 +122,6 @@ describe("first draft", () => {
     expect((await readCanvas(root, "checkout-redesign")).editing).toEqual(["boards/cart.html"]);
     await on.agent_end();
     expect((await readCanvas(root, "checkout-redesign")).editing).toEqual([]);
-    delete process.env.LOOMDEN_NO_OPEN;
+    delete process.env.TENON_NO_OPEN;
   });
 });

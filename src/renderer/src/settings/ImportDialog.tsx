@@ -7,7 +7,7 @@ import { Checkbox } from "#renderer/ui/controls";
 import { Icon } from "#renderer/ui/Icon";
 import { Modal, ModalIcon } from "#renderer/ui/Modal";
 
-const SEEN = "loomden.importOffered";
+const SEEN = "tenon.importOffered";
 
 /** Board 5c and 5d: bring settings, providers, trust, resources and packages over from terminal pi. */
 export function ImportDialog() {
@@ -104,7 +104,7 @@ export function ImportDialog() {
         </>
       }
     >
-      <span>Loomden keeps its own pi folder. Pick what to bring over from terminal pi. Loomden reads <span className="font-mono">~/.pi</span> and never changes it, except the shared keys file.</span>
+      <span>Tenon keeps its own pi folder. Pick what to bring over from terminal pi. Tenon reads <span className="font-mono">~/.pi</span> and never changes it, except the shared keys file.</span>
       {!scan && !error && <span className="flex items-center gap-2 text-muted"><Spinner size={11} />Reading ~/.pi/agent…</span>}
       {scan && !scan.found && <span className="text-muted">No terminal pi folder was found. There is nothing to import.</span>}
       {scan?.found && (
@@ -127,7 +127,7 @@ export function ImportDialog() {
         </ul>
       )}
       <span className="text-sm text-muted">
-        Keys and logins stay one file, so a new key shows in both apps. Packages install again for Loomden’s pi version. This can take a minute. Sessions stay in terminal pi.
+        Keys and logins stay one file, so a new key shows in both apps. Packages install again for Tenon’s pi version. This can take a minute. Sessions stay in terminal pi.
       </span>
       {error && <span className="text-sm text-danger">{error}</span>}
     </Modal>

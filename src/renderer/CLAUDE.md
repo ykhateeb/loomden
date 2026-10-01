@@ -7,7 +7,7 @@ The React UI of the window. Paths below start at `src/renderer/src/`.
 - `store.ts` holds all state. Read it in a component with `useStore((s) => …)`, and change it with `set()`.
 - Components call the `actions` object (`actions.ts`). Only `actions.ts` files and `agent-messages.ts` use `call()` from `port.ts`.
 - An action that can fail catches the error and gives it to `report`, which shows it as a toast. For other messages, use `notice()`.
-- `window.loomden` is the host API from main (`#preload`). Use it for native dialogs and the shell.
+- `window.tenon` is the host API from main (`#preload`). Use it for native dialogs and the shell.
 
 ## UI
 

@@ -21,7 +21,7 @@ export async function moveFreeCanvases(sessionId: string, cwd: string, notify: N
     await moveDesignSystem(designSystemDir(freeDir), designSystemDir(projectRoot(cwd)));
     if (moved.length) {
       await ensureGitignore(cwd);
-      notify("info", `Canvas moved to ${basename(cwd)}/.loomden/canvases/${moved.join(", ")}`);
+      notify("info", `Canvas moved to ${basename(cwd)}/.tenon/canvases/${moved.join(", ")}`);
     }
   } catch (e) {
     notify("error", `The session moved, but its canvas did not: ${(e as Error).message}. It is still in ${freeDir}`);

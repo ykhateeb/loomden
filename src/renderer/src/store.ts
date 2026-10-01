@@ -13,7 +13,7 @@ export type Packages = {
 
 declare global {
   interface Window {
-    loomden: Host;
+    tenon: Host;
   }
 }
 

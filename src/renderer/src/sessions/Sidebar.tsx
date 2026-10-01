@@ -127,7 +127,7 @@ export function Sidebar() {
 
       <div className="flex items-center gap-2 border-t border-line px-2 pt-2.5 text-xs text-muted">
         <Icon name="box" size={14} />
-        <span>Loomden 0.1 · pi 0.87</span>
+        <span>Tenon 0.1 · pi 0.87</span>
         <span className="flex-1" />
         <span className="text-dim">unofficial</span>
       </div>

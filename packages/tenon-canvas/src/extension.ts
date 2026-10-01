@@ -13,13 +13,13 @@ const text = (t: string) => ({ content: [{ type: "text" as const, text: t }], de
 export default function (pi: ExtensionAPI) {
   let server: CanvasServer | undefined;
   let lastTurn = new Date().toISOString();
-  // A project keeps its canvases in .loomden/. A Loomden session with no project keeps them in its own folder until it is added to a project.
+  // A project keeps its canvases in .tenon/. A Tenon session with no project keeps them in its own folder until it is added to a project.
   type Ctx = { cwd: string; sessionManager: { getSessionId(): string } };
-  const isFree = (ctx: Ctx) => !!process.env.LOOMDEN_NO_PROJECT && resolve(ctx.cwd) === resolve(process.env.LOOMDEN_NO_PROJECT);
-  const rootOf = (ctx: Ctx) => isFree(ctx) ? freeRoot(process.env.LOOMDEN_FREE_DIR!, ctx.sessionManager.getSessionId()) : projectRoot(ctx.cwd);
+  const isFree = (ctx: Ctx) => !!process.env.TENON_NO_PROJECT && resolve(ctx.cwd) === resolve(process.env.TENON_NO_PROJECT);
+  const rootOf = (ctx: Ctx) => isFree(ctx) ? freeRoot(process.env.TENON_FREE_DIR!, ctx.sessionManager.getSessionId()) : projectRoot(ctx.cwd);
   const dsOf = (ctx: Ctx) => designSystemDir(rootOf(ctx));
-  // Loomden shows the canvas in a panel and reads the address from the status. Terminal pi opens the browser.
-  const inLoomden = () => !!process.env.LOOMDEN_APP;
+  // Tenon shows the canvas in a panel and reads the address from the status. Terminal pi opens the browser.
+  const inTenon = () => !!process.env.TENON_APP;
   const announced = new Set<string>();
   let ui: { setStatus(id: string, text: string | undefined): void } | undefined;
   const show = async (ctx: Ctx & { ui: { setStatus(id: string, text: string | undefined): void } }, name: string) => {
@@ -27,8 +27,8 @@ export default function (pi: ExtensionAPI) {
     server ??= await startServer({
       root: rootOf(ctx),
       onSend: (t) => pi.sendUserMessage(t, { deliverAs: "followUp" }),
-      // In Loomden, "Start build session" opens a new session with the pack. In a terminal, the pack comes to this session.
-      onBuild: inLoomden() ? (_c, pack) => ui!.setStatus(STATUS_BUILD, JSON.stringify(pack)) : undefined,
+      // In Tenon, "Start build session" opens a new session with the pack. In a terminal, the pack comes to this session.
+      onBuild: inTenon() ? (_c, pack) => ui!.setStatus(STATUS_BUILD, JSON.stringify(pack)) : undefined,
     });
     announced.add(name);
     ctx.ui.setStatus(STATUS_CANVAS, server.url(name));
@@ -39,7 +39,7 @@ export default function (pi: ExtensionAPI) {
     defineTool({
       name: "canvas_create",
       label: "Canvas create",
-      description: "Create a design canvas, or add a board (one HTML file) to it. Writes rev 1. Read the loomden-design skill first.",
+      description: "Create a design canvas, or add a board (one HTML file) to it. Writes rev 1. Read the tenon-design skill first.",
       parameters: Type.Object({
         canvas: Type.String({ description: "Canvas slug, e.g. checkout-redesign" }),
         board: Type.String({ description: "Board file name, e.g. cart" }),
@@ -52,9 +52,9 @@ export default function (pi: ExtensionAPI) {
       async execute(_id, a, _s, _u, ctx) {
         const r = await createBoard(rootOf(ctx), a);
         const ignored = r.isNew && (await ensureGitignore(ctx.cwd));
-        if (inLoomden() && !announced.has(a.canvas)) await show(ctx, a.canvas); // the panel opens as the first board appears
+        if (inTenon() && !announced.has(a.canvas)) await show(ctx, a.canvas); // the panel opens as the first board appears
         return text(`Created ${a.canvas}/${a.board} at rev ${r.rev}.` +
-          (ignored ? " Added .loomden/canvases/*/history/ to .gitignore; show this change in the review." : ""));
+          (ignored ? " Added .tenon/canvases/*/history/ to .gitignore; show this change in the review." : ""));
       },
     }),
     defineTool({
@@ -117,7 +117,7 @@ export default function (pi: ExtensionAPI) {
       planned.add(a.canvas);
       const r = await planBoards(rootOf(ctx), a.canvas, a.boards, a.canvasTitle);
       if (r.isNew) await ensureGitignore(ctx.cwd);
-      if (inLoomden() && !announced.has(a.canvas)) await show(ctx, a.canvas); // the panel opens with the places for the boards
+      if (inTenon() && !announced.has(a.canvas)) await show(ctx, a.canvas); // the panel opens with the places for the boards
       return text(`Planned ${r.planned} boards. Now call canvas_create for each, in this order.`);
     },
   }));
@@ -144,7 +144,7 @@ export default function (pi: ExtensionAPI) {
   canvasTools.push(defineTool({
     name: "design_system_propose",
     label: "Propose design system",
-    description: "Propose a new .loomden/design-system/tokens.json, read from the project's code (for example src/theme.ts). Give the full tokens object. A person reviews it in the canvas and accepts it; you cannot write tokens.json.",
+    description: "Propose a new .tenon/design-system/tokens.json, read from the project's code (for example src/theme.ts). Give the full tokens object. A person reviews it in the canvas and accepts it; you cannot write tokens.json.",
     parameters: Type.Object({
       tokens: Type.Any({ description: "tokens.json content: { name, version, source, color:{tokens:[{name,value,usage}]}, type:{families,styles}, spacing:{tokens}, radius:{tokens} }" }),
     }),
@@ -220,7 +220,7 @@ export default function (pi: ExtensionAPI) {
     if (!lines.length) return undefined;
     const ds = await readFile(join(dsOf(ctx), "tokens.json"), "utf8").then((s) => JSON.parse(s), () => undefined);
     if (ds) lines.push(`Design system: ${ds.name}. Use its tokens as var(--name).`);
-    return { message: { customType: "loomden-canvas", content: lines.join("\n"), display: false } };
+    return { message: { customType: "tenon-canvas", content: lines.join("\n"), display: false } };
   });
 
   pi.registerCommand("canvas", {
@@ -228,11 +228,11 @@ export default function (pi: ExtensionAPI) {
     async handler(args, ctx) {
       const root = rootOf(ctx);
       const open = async (name: string) => {
-        if (inLoomden()) return void (await show(ctx, name));
+        if (inTenon()) return void (await show(ctx, name));
         server ??= await startServer({ root, onSend: (t) => pi.sendUserMessage(t, { deliverAs: "followUp" }) });
         const url = server.url(name);
         ctx.ui.notify(`Canvas: ${url}`, "info");
-        if (!process.env.LOOMDEN_NO_OPEN) spawn(process.platform === "darwin" ? "open" : process.platform === "win32" ? "explorer" : "xdg-open", [url], { stdio: "ignore", detached: true }).unref();
+        if (!process.env.TENON_NO_OPEN) spawn(process.platform === "darwin" ? "open" : process.platform === "win32" ? "explorer" : "xdg-open", [url], { stdio: "ignore", detached: true }).unref();
       };
       // Board C3: "/canvas new <title>" (the + Canvas button) makes an empty canvas and asks pi to draft its boards.
       // "/canvas auto <title>" (Canvas ⇧C) opens the first canvas, or makes one when there is none.

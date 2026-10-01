@@ -1,6 +1,6 @@
-# Loomden
+# Tenon
 
-Loomden is a desktop app for [pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent), a coding agent. It gives pi a window with sessions, a session tree, packages, and a design canvas. Loomden uses Electron, electron-vite, React 19, and Tailwind 4.
+Tenon is a desktop app for [pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent), a coding agent. It gives pi a window with sessions, a session tree, packages, and a design canvas. Tenon uses Electron, electron-vite, React 19, and Tailwind 4.
 
 ## Features
 
@@ -11,7 +11,7 @@ Loomden is a desktop app for [pi](https://www.npmjs.com/package/@earendil-works/
 - **Packages.** Install, update, and remove pi packages, for all projects or for one project. Find packages on npm.
 - **Settings.** Set the default model, add API keys, log in with a subscription, and add custom providers.
 - **Import from terminal pi.** Copy your settings, providers, trust decisions, extensions, and packages from `~/.pi/agent`.
-- **Design canvas.** The `loomden-canvas` package gives pi a canvas for UI design boards, with notes and approvals.
+- **Design canvas.** The `tenon-canvas` package gives pi a canvas for UI design boards, with notes and approvals.
 
 ## Requirements
 
@@ -52,11 +52,11 @@ Loomden is a desktop app for [pi](https://www.npmjs.com/package/@earendil-works/
 
 ## Data
 
-- Loomden keeps its data in `~/.loomden`. Its own pi agent folder is `~/.loomden/agent`.
-- Loomden shares only `~/.pi/agent/auth.json` with terminal pi. Thus your API keys and logins work in both.
-- A project's canvases are in `<project>/.loomden/canvases/`.
+- Tenon keeps its data in `~/.tenon`. Its own pi agent folder is `~/.tenon/agent`.
+- Tenon shares only `~/.pi/agent/auth.json` with terminal pi. Thus your API keys and logins work in both.
+- A project's canvases are in `<project>/.tenon/canvases/`.
 
-To keep a test run away from your real data, set `LOOMDEN_DIR` and `LOOMDEN_PI_DIR` to a temporary folder.
+To keep a test run away from your real data, set `TENON_DIR` and `TENON_PI_DIR` to a temporary folder.
 
 ## Security
 
@@ -64,8 +64,8 @@ The window shows model output, so the agent process does not trust the commands 
 
 - A folder becomes a project only when you pick it in the folder dialog.
 - The window can attach a file only when you pick it or drop it.
-- A package install or update runs code. Loomden asks you in its own dialog first.
-- Loomden loads a project's `.pi/` extensions, skills, and prompts only after you trust the project.
+- A package install or update runs code. Tenon asks you in its own dialog first.
+- Tenon loads a project's `.pi/` extensions, skills, and prompts only after you trust the project.
 
 ## Project structure
 
@@ -76,15 +76,15 @@ The window shows model output, so the agent process does not trust the commands 
 | `src/core/` | The agent logic: projects, sessions, packages, providers, settings, and import. |
 | `src/renderer/` | The React UI. Each feature folder has its components and an `actions.ts`. |
 | `src/protocol.ts` | The messages between the window and the agent process. |
-| `packages/loomden-canvas/` | The design canvas: a pi extension and the `loomden-design` skill. |
+| `packages/tenon-canvas/` | The design canvas: a pi extension and the `tenon-design` skill. |
 | `e2e/` | The Playwright tests of the app. |
 
-`packages/loomden-canvas/` is also a usual pi package. To use it in terminal pi, do this command:
+`packages/tenon-canvas/` is also a usual pi package. To use it in terminal pi, do this command:
 
 ```sh
-pi install ./packages/loomden-canvas
+pi install ./packages/tenon-canvas
 ```
 
 ## License
 
-Loomden is under the MIT License. See [LICENSE](LICENSE).
+Tenon is under the MIT License. See [LICENSE](LICENSE).
