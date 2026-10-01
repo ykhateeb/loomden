@@ -18,6 +18,15 @@ export type OpenSession = {
 
 const TITLE_MAX_LENGTH = 80;
 
+/**
+ * pi took queued messages into the run: drop them from the front of ours. pi reports a new message before
+ * prompt() adds it to ours, so `stillQueued` can be more than we hold: then we keep all.
+ * ponytail: assumes pi delivers in the order they were queued; mixed steer/follow-up can differ.
+ */
+export function trimQueued(queued: OpenSession["queued"], stillQueued: number) {
+  return queued.slice(Math.max(0, queued.length - stillQueued));
+}
+
 /** Everything the window shows about an open session, except its messages. */
 export function liveState(key: string, { rt, runningTools, branch, runStartedAt, queued }: OpenSession): LiveState {
   const s = rt.session;
