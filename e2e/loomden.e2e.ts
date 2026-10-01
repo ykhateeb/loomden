@@ -12,7 +12,7 @@ test("/canvas in Tenon opens the canvas panel next to the chat", async () => {
 
   const app = await electron.launch({
     args: ["."],
-    env: { ...process.env, LOOMDEN_DIR: loomdenDir, LOOMDEN_PI_DIR: join(loomdenDir, "pi"), LOOMDEN_NO_OPEN: "1" },
+    env: { ...process.env, TENON_DIR: loomdenDir, TENON_PI_DIR: join(loomdenDir, "pi"), TENON_NO_OPEN: "1" },
   });
   try {
     const win = await app.firstWindow();
@@ -62,7 +62,7 @@ test("Design page lists the project's canvases and opens one", async () => {
   await approve(root, "checkout", "cart");
   await writeFile(join(loomdenDir, "projects.json"), JSON.stringify([project]));
 
-  const app = await electron.launch({ args: ["."], env: { ...process.env, LOOMDEN_DIR: loomdenDir, LOOMDEN_PI_DIR: join(loomdenDir, "pi") } });
+  const app = await electron.launch({ args: ["."], env: { ...process.env, TENON_DIR: loomdenDir, TENON_PI_DIR: join(loomdenDir, "pi") } });
   try {
     const win = await app.firstWindow();
     // sidebar: a Design row with the count, and each canvas under it
@@ -104,7 +104,7 @@ test("Design page lists the project's canvases and opens one", async () => {
 test("Start build session in Tenon opens a new session for the design pack", async () => {
   const loomdenDir = await mkdtemp(join(tmpdir(), "loomden-app-"));
   const html = "<html><body style='margin:0;width:390px;height:400px'><h1>Cart</h1></body></html>";
-  const app = await electron.launch({ args: ["."], env: { ...process.env, LOOMDEN_DIR: loomdenDir, LOOMDEN_PI_DIR: join(loomdenDir, "pi") } });
+  const app = await electron.launch({ args: ["."], env: { ...process.env, TENON_DIR: loomdenDir, TENON_PI_DIR: join(loomdenDir, "pi") } });
   try {
     const win = await app.firstWindow();
     await win.getByText("New session").first().click();
@@ -133,7 +133,7 @@ test("Start build session in Tenon opens a new session for the design pack", asy
 
 test("+ Canvas starts a canvas from the session header", async () => {
   const loomdenDir = await mkdtemp(join(tmpdir(), "loomden-app-"));
-  const app = await electron.launch({ args: ["."], env: { ...process.env, LOOMDEN_DIR: loomdenDir, LOOMDEN_PI_DIR: join(loomdenDir, "pi") } });
+  const app = await electron.launch({ args: ["."], env: { ...process.env, TENON_DIR: loomdenDir, TENON_PI_DIR: join(loomdenDir, "pi") } });
   try {
     const win = await app.firstWindow();
     await win.getByText("New session").first().click();

@@ -56,8 +56,8 @@ describe("free session", () => {
     const tools: Record<string, any> = {};
     ext({ registerTool: (t: any) => (tools[t.name] = t), registerCommand: () => {}, on: () => {}, sendUserMessage: () => {} } as any);
     const dir = await mkdtemp(join(tmpdir(), "loomden-free-"));
-    process.env.LOOMDEN_NO_PROJECT = join(dir, "no-project");
-    process.env.LOOMDEN_FREE_DIR = join(dir, "sessions");
+    process.env.TENON_NO_PROJECT = join(dir, "no-project");
+    process.env.TENON_FREE_DIR = join(dir, "sessions");
     try {
       const ctx = { cwd: join(dir, "no-project"), sessionManager: { getSessionId: () => "s1" } };
       await tools.canvas_create.execute("1", { canvas: "c1", board: "a", title: "A", w: 1, h: 1, html: "<p>x</p>" }, null, null, ctx);
@@ -68,8 +68,8 @@ describe("free session", () => {
       const other = { ...ctx, sessionManager: { getSessionId: () => "s2" } };
       await expect(tools.canvas_read.execute("2", { canvas: "c1" }, null, null, other)).rejects.toThrow(/not found/);
     } finally {
-      delete process.env.LOOMDEN_NO_PROJECT;
-      delete process.env.LOOMDEN_FREE_DIR;
+      delete process.env.TENON_NO_PROJECT;
+      delete process.env.TENON_FREE_DIR;
     }
   });
 });
@@ -85,7 +85,7 @@ describe("first draft", () => {
     const root = join(cwd, ".loomden", "canvases");
 
     // /canvas new: an empty canvas named for the title, then a message to pi
-    process.env.LOOMDEN_NO_OPEN = "1";
+    process.env.TENON_NO_OPEN = "1";
     await cmds.canvas.handler("new Checkout redesign", ctx);
     expect((await readCanvas(root, "checkout-redesign")).boards).toEqual({});
     expect(said[0]).toContain("Created the canvas “Checkout redesign”");
@@ -122,6 +122,6 @@ describe("first draft", () => {
     expect((await readCanvas(root, "checkout-redesign")).editing).toEqual(["boards/cart.html"]);
     await on.agent_end();
     expect((await readCanvas(root, "checkout-redesign")).editing).toEqual([]);
-    delete process.env.LOOMDEN_NO_OPEN;
+    delete process.env.TENON_NO_OPEN;
   });
 });

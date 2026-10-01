@@ -1,14 +1,14 @@
 import { join } from "node:path";
 import { type BrowserWindow, MessageChannelMain, utilityProcess } from "electron";
 import type { GrantKind } from "#core/grants";
-import { LOOMDEN_AGENT_DIR, FREE_CANVAS_DIR, NO_PROJECT_DIR } from "#core/paths";
+import { TENON_AGENT_DIR, FREE_CANVAS_DIR, NO_PROJECT_DIR } from "#core/paths";
 
 /** A crash sooner than this after a start is a startup crash: no restart, so it does not loop. */
 const MIN_RUN_MS = 5000;
 
 /** Starts the agent process and connects it to the window with a direct port. Main does not relay tokens. */
 export function startAgent(win: BrowserWindow, env: NodeJS.ProcessEnv) {
-  const agentEnv = { ...env, PI_CODING_AGENT_DIR: LOOMDEN_AGENT_DIR, LOOMDEN_APP: "1", LOOMDEN_NO_PROJECT: NO_PROJECT_DIR, LOOMDEN_FREE_DIR: FREE_CANVAS_DIR };
+  const agentEnv = { ...env, PI_CODING_AGENT_DIR: TENON_AGENT_DIR, TENON_APP: "1", TENON_NO_PROJECT: NO_PROJECT_DIR, TENON_FREE_DIR: FREE_CANVAS_DIR };
   const grantsToReplay: { kind: GrantKind; path: string }[] = []; // a restarted agent gets them again
   let quitting = false;
   let child = fork();

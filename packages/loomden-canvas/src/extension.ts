@@ -15,11 +15,11 @@ export default function (pi: ExtensionAPI) {
   let lastTurn = new Date().toISOString();
   // A project keeps its canvases in .loomden/. A Tenon session with no project keeps them in its own folder until it is added to a project.
   type Ctx = { cwd: string; sessionManager: { getSessionId(): string } };
-  const isFree = (ctx: Ctx) => !!process.env.LOOMDEN_NO_PROJECT && resolve(ctx.cwd) === resolve(process.env.LOOMDEN_NO_PROJECT);
-  const rootOf = (ctx: Ctx) => isFree(ctx) ? freeRoot(process.env.LOOMDEN_FREE_DIR!, ctx.sessionManager.getSessionId()) : projectRoot(ctx.cwd);
+  const isFree = (ctx: Ctx) => !!process.env.TENON_NO_PROJECT && resolve(ctx.cwd) === resolve(process.env.TENON_NO_PROJECT);
+  const rootOf = (ctx: Ctx) => isFree(ctx) ? freeRoot(process.env.TENON_FREE_DIR!, ctx.sessionManager.getSessionId()) : projectRoot(ctx.cwd);
   const dsOf = (ctx: Ctx) => designSystemDir(rootOf(ctx));
   // Tenon shows the canvas in a panel and reads the address from the status. Terminal pi opens the browser.
-  const inTenon = () => !!process.env.LOOMDEN_APP;
+  const inTenon = () => !!process.env.TENON_APP;
   const announced = new Set<string>();
   let ui: { setStatus(id: string, text: string | undefined): void } | undefined;
   const show = async (ctx: Ctx & { ui: { setStatus(id: string, text: string | undefined): void } }, name: string) => {
@@ -232,7 +232,7 @@ export default function (pi: ExtensionAPI) {
         server ??= await startServer({ root, onSend: (t) => pi.sendUserMessage(t, { deliverAs: "followUp" }) });
         const url = server.url(name);
         ctx.ui.notify(`Canvas: ${url}`, "info");
-        if (!process.env.LOOMDEN_NO_OPEN) spawn(process.platform === "darwin" ? "open" : process.platform === "win32" ? "explorer" : "xdg-open", [url], { stdio: "ignore", detached: true }).unref();
+        if (!process.env.TENON_NO_OPEN) spawn(process.platform === "darwin" ? "open" : process.platform === "win32" ? "explorer" : "xdg-open", [url], { stdio: "ignore", detached: true }).unref();
       };
       // Board C3: "/canvas new <title>" (the + Canvas button) makes an empty canvas and asks pi to draft its boards.
       // "/canvas auto <title>" (Canvas ⇧C) opens the first canvas, or makes one when there is none.

@@ -7,7 +7,7 @@ test("import from pi: scan, then copy settings, providers, trust and files; one 
   const root = mkdtempSync(join(tmpdir(), "loomden-import-"));
   const pi = join(root, "pi");
   const loomden = join(root, "loomden");
-  process.env.LOOMDEN_PI_DIR = pi;
+  process.env.TENON_PI_DIR = pi;
   process.env.PI_CODING_AGENT_DIR = loomden;
   const w = (path: string, body: string) => (mkdirSync(join(path, ".."), { recursive: true }), writeFileSync(path, body));
   w(join(pi, "settings.json"), JSON.stringify({ defaultProvider: "anthropic", defaultModel: "claude-sonnet-5", theme: "dark", packages: ["npm:a", "npm:b"] }));
@@ -40,7 +40,7 @@ test("import from pi: symlinks followed, node_modules noted, Tenon's trust wins,
   const pi = join(root, "pi");
   const loomden = join(root, "loomden");
   const dev = join(root, "dev-ext");
-  process.env.LOOMDEN_PI_DIR = pi;
+  process.env.TENON_PI_DIR = pi;
   process.env.PI_CODING_AGENT_DIR = loomden;
   const w = (path: string, body: string) => (mkdirSync(join(path, ".."), { recursive: true }), writeFileSync(path, body));
   w(join(dev, "index.ts"), "export default () => {}");
@@ -66,7 +66,7 @@ test("import keeps the filters of every filtered package, local paths too", asyn
   const root = mkdtempSync(join(tmpdir(), "loomden-import3-"));
   const pi = join(root, "pi");
   const loomden = join(root, "loomden");
-  process.env.LOOMDEN_PI_DIR = pi;
+  process.env.TENON_PI_DIR = pi;
   process.env.PI_CODING_AGENT_DIR = loomden;
   for (const name of ["a", "b"]) {
     mkdirSync(join(pi, name, "extensions"), { recursive: true });

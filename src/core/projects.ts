@@ -4,9 +4,9 @@ import { SessionManager } from "@earendil-works/pi-coding-agent";
 import type { Project, SessionRow } from "#protocol";
 import type { Grants } from "./grants";
 import { readEntries, summarize } from "./sessions/summary";
-import { NO_PROJECT_DIR, LOOMDEN_DIR } from "./paths";
+import { NO_PROJECT_DIR, TENON_DIR } from "./paths";
 
-const PROJECTS_FILE = join(LOOMDEN_DIR, "projects.json");
+const PROJECTS_FILE = join(TENON_DIR, "projects.json");
 
 function readAdded(): string[] {
   try {
@@ -21,7 +21,7 @@ export async function addProject(grants: Grants, path: string) {
   const cwd = await grants.assertGranted("folder", path);
   const added = readAdded();
   if (added.includes(cwd)) return;
-  mkdirSync(LOOMDEN_DIR, { recursive: true });
+  mkdirSync(TENON_DIR, { recursive: true });
   writeFileSync(PROJECTS_FILE, JSON.stringify([...added, cwd], null, 2));
 }
 
@@ -61,7 +61,7 @@ export async function assertProject(cwd: string) {
 export async function removeProject(cwd: string) {
   const { sessions } = await listSessions();
   if (sessions.some((s) => s.cwd === cwd)) throw new Error("Only a project with no sessions can be removed.");
-  mkdirSync(LOOMDEN_DIR, { recursive: true });
+  mkdirSync(TENON_DIR, { recursive: true });
   writeFileSync(PROJECTS_FILE, JSON.stringify(readAdded().filter((c) => c !== cwd), null, 2));
 }
 
