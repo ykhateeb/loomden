@@ -88,7 +88,7 @@ The window shows model output, so the agent treats every window command as untru
 
 - Do not commit directly to `main`. Make a branch for each task, push it, and open a pull request to `main`.
 - One pull request has one topic. Keep it small: a reviewer must be able to review it in about 5 minutes, as each commit.
-- The project has no CI. Before you open or update a pull request, run `npm run typecheck`, `npm test`, and `npm run build`. If you changed the agent or the UI, also run `npm run test:e2e` after the build.
+- CI (`.github/workflows/ci.yml`) runs `npm run typecheck`, `npm test`, and `npm run build` on each pull request, and a merge to `main` needs it to pass. Run the same checks locally before you open or update a pull request. CI does not run the e2e tests: if you changed the agent or the UI, run `npm run test:e2e` locally after the build.
 - The description has these parts:
   - **What:** the change, in a few bullets.
   - **Why:** the reason for the change.
