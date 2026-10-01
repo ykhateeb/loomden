@@ -10,7 +10,7 @@ import { Modal, ModalIcon } from "#renderer/ui/Modal";
 const APIS = ["openai-completions", "openai-responses", "anthropic-messages"];
 const k = (n: number) => (n >= 1000 ? `${Math.round(n / 1000)}k` : String(n));
 
-/** Board 5a: a server pi calls with one of these APIs, saved in Loomden's models.json. */
+/** Board 5a: a server pi calls with one of these APIs, saved in Tenon's models.json. */
 export function AddProviderDialog() {
   const [name, setName] = useState("");
   const [baseUrl, setBaseUrl] = useState("http://localhost:1234/v1");

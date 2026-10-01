@@ -5,7 +5,7 @@ import { resourceName } from "#core/packages";
 
 export type Session = AgentSessionRuntime["session"];
 
-/** An open session: pi's runtime, and what Loomden tracks about it. */
+/** An open session: pi's runtime, and what Tenon tracks about it. */
 export type OpenSession = {
   rt: AgentSessionRuntime;
   unsubscribe?: () => void;

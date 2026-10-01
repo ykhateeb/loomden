@@ -1,5 +1,5 @@
 appId: dev.loomden.app
-productName: Loomden
+productName: Tenon
 directories:
   output: dist
 files:

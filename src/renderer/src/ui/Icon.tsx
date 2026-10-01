@@ -1,4 +1,4 @@
-// Loomden Modern's icon set: stroke icons on a 24px grid, 1.8px round stroke, currentColor.
+// Tenon Modern's icon set: stroke icons on a 24px grid, 1.8px round stroke, currentColor.
 // Paths copied from the design system's compiled bundle (project/components/bundle.js), so the
 // glyphs match exactly. Icon.names / iconNames lists every name for the design system's own preview grid.
 import type { ReactNode } from "react";
@@ -77,12 +77,12 @@ export function Icon({ name, size = 15, color = "currentColor" }: { name: IconNa
 }
 
 /**
- * The Loomden mark, "Orbit": an open accent ring with an orange dot at its end (the ring is the spinner
+ * The Tenon mark, "Orbit": an open accent ring with an orange dot at its end (the ring is the spinner
  * shape — pi at work), and a τ in orange inside. Exact paths from the Logos asset (loomden-mark.svg).
  */
 export function Logo({ size = 22 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" role="img" aria-label="Loomden">
+    <svg width={size} height={size} viewBox="0 0 24 24" role="img" aria-label="Tenon">
       <path d="M10.61 2.1A10 10 0 1 0 19.66 5.57" fill="none" stroke="var(--color-accent)" strokeWidth="2.2" strokeLinecap="round" />
       <circle cx="19.66" cy="5.57" r="1.9" fill="var(--color-orange)" />
       <path d="M6.96 8.4H17.04M12 8.4v8.06c0 1.46.78 2.02 2.02 2.02" fill="none" stroke="var(--color-orange)" strokeWidth="2.5" strokeLinecap="round" />

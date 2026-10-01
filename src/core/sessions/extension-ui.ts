@@ -92,7 +92,7 @@ function uiContext(key: string, send: Send, ask: Ask): ExtensionUIContext {
     },
     getAllThemes: () => [],
     getTheme: () => undefined,
-    setTheme: () => ({ success: false, error: "Themes are not supported in Loomden yet" }),
+    setTheme: () => ({ success: false, error: "Themes are not supported in Tenon yet" }),
     getToolsExpanded: () => false,
     setToolsExpanded: noop,
   };

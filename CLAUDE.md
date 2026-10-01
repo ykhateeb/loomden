@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Loomden is an Electron desktop app for pi (`@earendil-works/pi-coding-agent`), a coding agent. It is built with electron-vite, React 19, and Tailwind 4.
+Tenon is an Electron desktop app for pi (`@earendil-works/pi-coding-agent`), a coding agent. It is built with electron-vite, React 19, and Tailwind 4.
 
 ## Commands
 
@@ -62,8 +62,8 @@ The window shows model output, so the agent and main treat each value from the w
 
 ### Data locations
 
-- Loomden keeps its own pi agent folder at `~/.loomden/agent`. Main sets `PI_CODING_AGENT_DIR` to it.
-- Loomden shares only `auth.json` with terminal pi. The import feature copies other items from `~/.pi/agent`.
+- Tenon keeps its own pi agent folder at `~/.loomden/agent`. Main sets `PI_CODING_AGENT_DIR` to it.
+- Tenon shares only `auth.json` with terminal pi. The import feature copies other items from `~/.pi/agent`.
 - `src/core/paths.ts` reads `LOOMDEN_DIR` and `LOOMDEN_PI_DIR` when a module imports it. A test that touches these folders sets `process.env` first and then uses `await import(…)`. A static import uses the real `~/.loomden`.
 
 ### Build

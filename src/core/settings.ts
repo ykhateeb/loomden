@@ -5,7 +5,7 @@ import type { ModelSettings } from "#protocol";
 
 export const MODEL_SETTING_KEYS = ["defaultProvider", "defaultModel", "defaultThinkingLevel", "enabledModels"] as const;
 
-/** Global: Loomden's pi folder. Project: the project's own .pi folder (project settings win over global ones). */
+/** Global: Tenon's pi folder. Project: the project's own .pi folder (project settings win over global ones). */
 export const settingsFile = (cwd?: string) => (cwd ? join(cwd, ".pi", "settings.json") : join(getAgentDir(), "settings.json"));
 
 /** A JSON object file; a missing or broken file reads as {}. */

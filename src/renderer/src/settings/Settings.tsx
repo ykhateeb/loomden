@@ -38,7 +38,7 @@ export function Settings() {
         <div className="mt-auto flex items-center gap-2.5 border-t border-line px-2 pt-3">
           <span className="text-muted"><Icon name="box" size={16} /></span>
           <div className="flex flex-col">
-            <b className="text-sm font-semibold">Loomden 0.1</b>
+            <b className="text-sm font-semibold">Tenon 0.1</b>
             <span className="text-xs text-muted">Unofficial app for pi</span>
           </div>
         </div>

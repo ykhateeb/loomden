@@ -1,6 +1,6 @@
-# Loomden
+# Tenon
 
-Loomden is a desktop app for [pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent), a coding agent. It gives pi a window with sessions, a session tree, packages, and a design canvas. Loomden uses Electron, electron-vite, React 19, and Tailwind 4.
+Tenon is a desktop app for [pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent), a coding agent. It gives pi a window with sessions, a session tree, packages, and a design canvas. Tenon uses Electron, electron-vite, React 19, and Tailwind 4.
 
 ## Features
 
@@ -52,8 +52,8 @@ Loomden is a desktop app for [pi](https://www.npmjs.com/package/@earendil-works/
 
 ## Data
 
-- Loomden keeps its data in `~/.loomden`. Its own pi agent folder is `~/.loomden/agent`.
-- Loomden shares only `~/.pi/agent/auth.json` with terminal pi. Thus your API keys and logins work in both.
+- Tenon keeps its data in `~/.loomden`. Its own pi agent folder is `~/.loomden/agent`.
+- Tenon shares only `~/.pi/agent/auth.json` with terminal pi. Thus your API keys and logins work in both.
 - A project's canvases are in `<project>/.loomden/canvases/`.
 
 To keep a test run away from your real data, set `LOOMDEN_DIR` and `LOOMDEN_PI_DIR` to a temporary folder.
@@ -64,8 +64,8 @@ The window shows model output, so the agent process does not trust the commands 
 
 - A folder becomes a project only when you pick it in the folder dialog.
 - The window can attach a file only when you pick it or drop it.
-- A package install or update runs code. Loomden asks you in its own dialog first.
-- Loomden loads a project's `.pi/` extensions, skills, and prompts only after you trust the project.
+- A package install or update runs code. Tenon asks you in its own dialog first.
+- Tenon loads a project's `.pi/` extensions, skills, and prompts only after you trust the project.
 
 ## Project structure
 
@@ -87,4 +87,4 @@ pi install ./packages/loomden-canvas
 
 ## License
 
-Loomden is under the MIT License. See [LICENSE](LICENSE).
+Tenon is under the MIT License. See [LICENSE](LICENSE).

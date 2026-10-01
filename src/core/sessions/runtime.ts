@@ -30,7 +30,7 @@ export function createRuntimes({ send, modelRuntime, ask }: { send: Send; modelR
       cwd,
       modelRuntime,
       settingsManager,
-      // Loomden ships the design canvas itself: no `pi install` needed. Bundle is out/main/agent.js.
+      // Tenon ships the design canvas itself: no `pi install` needed. Bundle is out/main/agent.js.
       resourceLoaderOptions: {
         extensionFactories: [{ name: "loomden-canvas", factory: loomdenCanvas }],
         additionalSkillPaths: [join(import.meta.dirname, "../../packages/loomden-canvas/skills")],

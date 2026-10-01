@@ -3,7 +3,7 @@ name: loomden-design
 description: Design screens as boards on a canvas (one HTML file per board) that the person can watch, point at, and approve. Use when asked to design, mock up, redesign, or sketch a screen or flow, or when the person sends notes about a board.
 ---
 
-# Loomden design
+# Tenon design
 
 You design screens as **boards**. A board is one self-contained HTML file. Boards live in a **canvas**, a folder in `.loomden/canvases/<slug>/`. The person watches boards appear in the canvas viewer (`/canvas`).
 

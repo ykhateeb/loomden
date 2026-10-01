@@ -54,7 +54,7 @@ export function LoginDialog() {
           </div>
         </>
       ) : (
-        link && <span>Loomden opened your browser. Log in there with your subscription account.</span>
+        link && <span>Tenon opened your browser. Log in there with your subscription account.</span>
       )}
       {link && (
         <div className="flex flex-col gap-1.5">

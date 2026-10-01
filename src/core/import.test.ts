@@ -35,7 +35,7 @@ test("import from pi: scan, then copy settings, providers, trust and files; one 
   chmodSync(join(pi, "prompts", "review.md"), 0o644);
 });
 
-test("import from pi: symlinks followed, node_modules noted, Loomden's trust wins, bad package entries skipped", async () => {
+test("import from pi: symlinks followed, node_modules noted, Tenon's trust wins, bad package entries skipped", async () => {
   const root = mkdtempSync(join(tmpdir(), "loomden-import2-"));
   const pi = join(root, "pi");
   const loomden = join(root, "loomden");

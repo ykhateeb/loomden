@@ -17,7 +17,7 @@ const TYPES: Record<string, string> = {
 export type CanvasServer = { url: (canvas: string) => string; close: () => void };
 
 export async function startServer(o: { root: string; onSend: (text: string) => void | Promise<void>;
-  /** "Start build session": Loomden opens a new session with the pack. Without it, the pack goes to the current session. */
+  /** "Start build session": Tenon opens a new session with the pack. Without it, the pack goes to the current session. */
   onBuild?: (canvas: string, pack: { title: string; text: string }) => void | Promise<void>;
 }): Promise<CanvasServer> {
   const token = randomBytes(16).toString("hex");

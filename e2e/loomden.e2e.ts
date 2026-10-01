@@ -6,7 +6,7 @@ import { _electron as electron, expect, test } from "@playwright/test";
 import { approve, createBoard } from "#canvas/store";
 
 // Needs a build first: npm run build
-test("/canvas in Loomden opens the canvas panel next to the chat", async () => {
+test("/canvas in Tenon opens the canvas panel next to the chat", async () => {
   const loomdenDir = await mkdtemp(join(tmpdir(), "loomden-app-"));
   const html = "<html><body style='margin:0;width:390px;height:844px'><h1>Cart</h1></body></html>";
 
@@ -101,7 +101,7 @@ test("Design page lists the project's canvases and opens one", async () => {
   }
 });
 
-test("Start build session in Loomden opens a new session for the design pack", async () => {
+test("Start build session in Tenon opens a new session for the design pack", async () => {
   const loomdenDir = await mkdtemp(join(tmpdir(), "loomden-app-"));
   const html = "<html><body style='margin:0;width:390px;height:400px'><h1>Cart</h1></body></html>";
   const app = await electron.launch({ args: ["."], env: { ...process.env, LOOMDEN_DIR: loomdenDir, LOOMDEN_PI_DIR: join(loomdenDir, "pi") } });

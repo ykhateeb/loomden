@@ -28,7 +28,7 @@ export function startAgent(win: BrowserWindow, env: NodeJS.ProcessEnv) {
 
   function fork() {
     const startedAt = Date.now();
-    const next = utilityProcess.fork(join(import.meta.dirname, "agent.js"), [], { env: agentEnv, serviceName: "Loomden agent", stdio: "inherit" });
+    const next = utilityProcess.fork(join(import.meta.dirname, "agent.js"), [], { env: agentEnv, serviceName: "Tenon agent", stdio: "inherit" });
     for (const g of grantsToReplay) next.postMessage({ grant: g });
     next.on("exit", (code) => onExit(code, Date.now() - startedAt));
     return next;
@@ -38,7 +38,7 @@ export function startAgent(win: BrowserWindow, env: NodeJS.ProcessEnv) {
     if (quitting || win.isDestroyed()) return;
     win.webContents.send("agent-exit");
     // ponytail: no backoff. A crash after MIN_RUN_MS restarts at once, each time.
-    if (ranMs < MIN_RUN_MS) return console.error(`Loomden agent stopped at startup (code ${code})`);
+    if (ranMs < MIN_RUN_MS) return console.error(`Tenon agent stopped at startup (code ${code})`);
     child = fork();
     connect();
   }

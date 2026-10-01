@@ -54,7 +54,7 @@ let known = new Set<string>();
 /** Only folders in the project list may be searched from the window. */
 export async function assertProject(cwd: string) {
   if (!known.has(cwd)) await listSessions();
-  if (!known.has(cwd)) throw new Error("Not a Loomden project");
+  if (!known.has(cwd)) throw new Error("Not a Tenon project");
 }
 
 /** Remove a project from the list. Only one with no sessions: its sessions would show it again. The folder stays. */
