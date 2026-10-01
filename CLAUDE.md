@@ -77,6 +77,13 @@ The window shows model output, so the agent treats every window command as untru
 - The extension reads `LOOMDEN_APP`, `LOOMDEN_NO_PROJECT`, and `LOOMDEN_FREE_DIR` to know that it runs inside Loomden.
 - pi loads user and third-party extensions at runtime with jiti. Thus the main build does not bundle dependencies, and electron-builder unpacks `@earendil-works` from the asar.
 
+## Before you start a task
+
+- Run `git fetch origin`, then look for changes that you did not pull: `git status -sb` shows `behind` for the current branch, and `git rev-list --count main..origin/main` counts the new commits on `main`.
+- If there are such changes, get them first. Do not start work on an old copy. For the current branch: `git pull --ff-only`. For local `main` while you are on another branch: `git fetch origin main:main`.
+- Make each new branch from the remote, not from local `main`: `git switch -c <type>/<topic> origin/main`.
+- If the branch of your task is already on GitHub, pull its changes before you change it.
+
 ## Change size
 
 - A reviewer must be able to review each commit in 5 minutes or less.
