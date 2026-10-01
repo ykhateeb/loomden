@@ -9,7 +9,7 @@ import type { AgentMessage, ModelChoice, Send, SlashCommand } from "#protocol";
 import { readImage } from "#core/attachments";
 import type { Grants } from "#core/grants";
 import { forwardEvents } from "./events";
-import { liveState, type OpenSession, type Session } from "./live-state";
+import { liveState, type OpenSession, type Session, trimQueued } from "./live-state";
 import { copyToFolder, moveFreeCanvases } from "./move";
 import type { Dialogs } from "./extension-ui";
 import { createRuntimes } from "./runtime";
@@ -68,12 +68,7 @@ export function createRegistry({ send, modelRuntime, grants, dialogs }: { send: 
       if (event.type === "agent_start") entry.runStartedAt ??= Date.now();
       if (event.type === "agent_settled") entry.runStartedAt = undefined;
       if (event.type === "compaction_end") sendMessages(key, session);
-      // pi took queued messages into the run: drop them from the front of ours.
-      // ponytail: assumes pi delivers in the order they were queued; mixed steer/follow-up can differ.
-      if (event.type === "queue_update") {
-        const stillQueued = event.steering.length + event.followUp.length;
-        entry.queued = entry.queued.slice(entry.queued.length - stillQueued);
-      }
+      if (event.type === "queue_update") entry.queued = trimQueued(entry.queued, event.steering.length + event.followUp.length);
       forward(event);
     });
     sendMessages(key, session);
