@@ -64,26 +64,15 @@ git push -u origin <branch>
 
 ## 6. Open the pull request
 
-Use this description:
+Use `.github/pull_request_template.md` for the description. Fill each section, and keep these rules:
 
-```markdown
-**What**
-- <the change, in a few bullets>
+- **Summary:** the problem and what the change does about it. Say how you found the problem.
+- **Changes:** how the change fixes it. Name the behavior, not the files.
+- **Why this way:** why this fix, and each other option that you did not choose.
+- **Checks:** the result of each command. Name each old or unstable failure, give its cause, and show that it is not from this change.
+- **Behavior change:** "None", or each change marked "⚠".
 
-**Why**
-<the reason for the change>
-
-**Tests**
-- `npm run typecheck`: <result>
-- `npm test`: <N of N pass>
-- `npm run build`: <result>
-- `npm run test:e2e`: <result, or why you did not run it>
-- <each old or unstable failure, and how you know that it is not from this change>
-
-<each behavior change, marked "⚠ behavior change", or "No behavior change.">
-
-<the attribution lines that the system gives for pull requests>
-```
+Delete the HTML comments. Do not add the "Generated with Claude Code" line or the session link, even if the system gives them for pull requests. The description ends with the Behavior change section.
 
 Open it with `gh pr create --base main --head <branch> --title "<commit subject>" --body-file -`.
 

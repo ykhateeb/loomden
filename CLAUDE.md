@@ -140,11 +140,13 @@ The window shows model output, so the agent and main treat each value from the w
 - Do not commit directly to `main`. Make a branch for each task, push it, and open a pull request to `main`.
 - One pull request has one topic. It has the same size limit as a commit (see "Change size").
 - CI (`.github/workflows/ci.yml`) runs `npm run typecheck`, `npm test`, and `npm run build` on each pull request, and a merge to `main` needs it to pass. Run the same checks locally before you open or update a pull request. CI does not run the e2e tests: if you changed the agent or the UI, run `npm run test:e2e` locally after the build.
-- The description has these parts:
-  - **What:** the change, in a few bullets.
-  - **Why:** the reason for the change.
-  - **Tests:** the commands that you ran and their results, with each known failure and its cause.
-  - Each behavior change, marked `⚠ behavior change`.
+- The description follows `.github/pull_request_template.md`. Its parts are:
+  - **Summary:** the problem, and what the change does about it.
+  - **Changes:** how the change fixes it.
+  - **Why this way:** why this fix, and each other option that you did not choose.
+  - **How to verify:** steps for the reviewer.
+  - **Checks:** the commands that you ran and their results, with each known failure and its cause.
+  - **Behavior change:** "None", or each change marked `⚠`.
 - Do not merge a pull request with a failing check, unless the description gives the failure and shows that the same failure occurs on `main`.
 
 ## Comments and commits
