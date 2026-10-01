@@ -31,14 +31,29 @@ Loomden is an Electron desktop app for pi (`@earendil-works/pi-coding-agent`), a
 The app has three processes:
 
 1. **Main** (`src/main/`): owns the window, native dialogs, and the host IPC (`host-ipc.ts`). It forks the agent process and gives the window a direct `MessagePort` to it (`agent-host.ts`). Main does not relay agent traffic.
-2. **Agent** (`src/agent/index.ts`, an Electron `utilityProcess`): pi and all pi extensions run here, never in the window. `handle()` is the one dispatcher for window commands. The logic lives in `src/core/`. `src/core/sessions/registry.ts` holds the open pi sessions and their commands. Next to it: `runtime.ts` (project trust, pi runtime creation), `live-state.ts` (the `LiveState` of a session), `move.ts` (moving a session to a project).
+2. **Agent** (`src/agent/index.ts`, an Electron `utilityProcess`): pi and all pi extensions run here, never in the window. `createHandle()` (`src/agent/handlers.ts`) dispatches each window command to its handler in `src/agent/<area>-commands.ts`. The logic lives in `src/core/`. `src/core/sessions/registry.ts` holds the open pi sessions and their commands. Next to it: `runtime.ts` (project trust, pi runtime creation), `live-state.ts` (the `LiveState` of a session), `move.ts` (moving a session to a project).
 3. **Renderer** (`src/renderer/src/`): React UI. `store.ts` is one global store (`useSyncExternalStore`): state, `set()`, notices. `port.ts` sends commands (`call()`), and `agent-messages.ts` applies agent messages. Each feature folder has an `actions.ts`, and `actions.ts` joins them into the `actions` object that components use.
 
-`src/protocol.ts` is the single source of truth for the window-to-agent contract: `Command` (window to agent, answered with a `reply` by `rid`) and `AgentOut` (agent to window). To add a feature, add a `Command` variant, a case in `handle()`, and an action in the feature's `actions.ts`.
+`src/protocol.ts` is the single source of truth for the window-to-agent contract: `Command` (window to agent, answered with a `reply` by `rid`) and `AgentOut` (agent to window).
+
+### Add a window command
+
+1. Add a variant to `Command` in `src/protocol.ts`.
+2. Add its handler to the `<area>Commands()` map in `src/agent/<area>-commands.ts`. `tsc` fails until each `Command` type has a handler. For a new area, add a new file, and add its map to `createHandle()` in `src/agent/index.ts`.
+3. Guard each value from the window (see "Trust model").
+4. Add an action to `src/renderer/src/<feature>/actions.ts` that sends the command with `call()`.
+
+### Add a host function
+
+Main does the work that needs Electron's main process: native dialogs, the shell, and grants.
+
+1. Add a method to the `host` object in `src/preload/index.ts`. The `Host` type comes from this object.
+2. Add its `host:<name>` handler to `registerHostIpc()` in `src/main/host-ipc.ts`.
+3. Give each argument the type `unknown`, and check it before use.
 
 ### Trust model
 
-The window shows model output, so the agent treats every window command as untrusted. When you add a `Command`, guard each value from the window:
+The window shows model output, so the agent and main treat each value from the window as untrusted. When you add a `Command` or a host function, guard each value from the window:
 
 - A `cwd`: `assertProject` (`src/core/projects.ts`). A folder becomes a project only through main's folder picker.
 - A session path: `sessionFile()` (`src/core/paths.ts`).
