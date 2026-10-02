@@ -18,6 +18,12 @@ const isAction = (i: MenuItem): i is Action => typeof i === "object" && "onSelec
 /** An open menu: where it shows, its items, and its name for screen readers. */
 export type MenuState = { at: { x: number; y: number }; items: MenuItem[]; label: string };
 
+/** Where a menu opens: just under the element that was clicked. */
+export function menuBelow(e: { currentTarget: Element }): { x: number; y: number } {
+  const r = e.currentTarget.getBoundingClientRect();
+  return { x: r.left, y: r.bottom + 6 };
+}
+
 /** The icon of a menu item that can be the current one: a check mark, or a space of the same width. */
 export function checkMark(on: boolean): ReactNode {
   return on ? <Icon name="check" size={13} /> : <span className="w-[13px]" />;

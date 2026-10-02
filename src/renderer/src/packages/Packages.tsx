@@ -1,25 +1,28 @@
 import { useEffect, useRef, useState } from "react";
-import type { GalleryItem, InstalledPackage } from "#protocol";
+import type { InstalledPackage } from "#protocol";
 import { folderName } from "#renderer/chat/format";
-import { ago } from "#renderer/sessions/time";
 import { actions } from "#renderer/actions";
 import { useStore } from "#renderer/store";
-import { Button, Chip, cx, Kbd, Label, LinkButton, pill, Pill, type PillTone, Spinner } from "#renderer/ui/base";
+import { Button, cx, Kbd, Label, LinkButton, pill, Pill, Spinner } from "#renderer/ui/base";
 import { Segmented } from "#renderer/ui/controls";
 import { SearchInput } from "#renderer/ui/Field";
 import { Icon } from "#renderer/ui/Icon";
 import { checkMark, Menu, type MenuItem } from "#renderer/ui/Menu";
-import { Callout, Card, CardBody, CardHeader, ListItem } from "#renderer/ui/surfaces";
+import { Card, CardBody, CardHeader, ListItem } from "#renderer/ui/surfaces";
 import { hasModifier, isTyping, prevented } from "#renderer/ui/keys";
+import { GalleryPanel } from "./GalleryPanel";
+import { PackageDetail } from "./PackageDetail";
 
 type Show = "all" | "global" | "projects";
-const galleryTones: Record<GalleryItem["kind"], PillTone> = { skills: "violet", extension: "orange", theme: "accent", prompts: "ok" };
+/** How the trust card shows each decision: true, false, or null (not asked yet). */
+const TRUST_VIEW: Record<string, { color: string; text: string }> = {
+  true: { color: "text-ok", text: "✓ trusted" },
+  false: { color: "text-warn", text: "✗ not trusted" },
+  null: { color: "text-muted", text: "not asked yet" },
+};
 const keyOf = (p: InstalledPackage) => `${p.cwd ?? ""}|${p.source}`;
 
 /** Board 4: install extensions, skills, prompts and themes — for every project or for one. */
-/** Wait for a pause in typing before the npm search: each search is a request to the registry. */
-const GALLERY_DEBOUNCE_MS = 250;
-
 export function Packages() {
   const packages = useStore((s) => s.packages);
   const work = useStore((s) => s.packageWork);
@@ -31,22 +34,9 @@ export function Packages() {
   const [forProject, setForProject] = useState<"global" | "project">("global");
   const [project, setProject] = useState<string>();
   const [projectMenu, setProjectMenu] = useState<{ x: number; y: number }>();
-  const [gallery, setGallery] = useState<GalleryItem[]>();
-  const [galleryError, setGalleryError] = useState<string>();
-  const [galleryQuery, setGalleryQuery] = useState("");
   const screen = useRef<HTMLDivElement>(null);
 
   useEffect(() => void actions.loadPackages(), []);
-  useEffect(() => {
-    const t = setTimeout(() => {
-      setGalleryError(undefined);
-      actions.searchGallery(galleryQuery).then(setGallery, (e: Error) => {
-        setGallery([]);
-        setGalleryError(e.message);
-      });
-    }, GALLERY_DEBOUNCE_MS);
-    return () => clearTimeout(t);
-  }, [galleryQuery]);
 
   const all = packages ? [...packages.global, ...packages.projects.flatMap((p) => p.packages)] : [];
   const current = all.find((p) => keyOf(p) === picked) ?? all[0];
@@ -160,90 +150,11 @@ export function Packages() {
           </CardBody>
         </Card>
 
-        {current && (
-          <Card className="flex flex-col">
-            <div className="flex items-center gap-3 px-3.5 pt-3.5">
-              <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent-bg text-accent"><Icon name="box" size={18} /></span>
-              <div className="flex min-w-0 flex-col">
-                <b className="truncate text-lg font-[650]">{current.name}</b>
-                <span className="text-xs text-muted">{current.scope === "global" ? "Global · every project" : `${current.cwd && folderName(current.cwd)} · this project`}</span>
-              </div>
-              <span className="flex-1" />
-              <Button variant="danger" disabled={busy(current)} onClick={() => actions.changePackage({ action: "remove", source: current.source, cwd: current.cwd })}><Icon name="trash" size={14} />Remove<Kbd>D</Kbd></Button>
-              <Button variant="ghost" onClick={actions.reloadPackages} title="Open sessions read their extensions, skills, prompts and themes again"><Icon name="refresh" size={14} />Reload<Kbd>R</Kbd></Button>
-              {current.installed ? (
-                <Button variant="primary" disabled={busy(current) || current.kind === "local"} title={current.kind === "local" ? "A local folder has nothing to update" : undefined} onClick={() => actions.changePackage({ action: "update", source: current.source, cwd: current.cwd })}>
-                  Update<Kbd onFill>U</Kbd>
-                </Button>
-              ) : (
-                <Button variant="primary" disabled={busy(current)} title="It is in settings but not installed" onClick={() => actions.changePackage({ action: "install", source: current.source, cwd: current.cwd })}>
-                  <Icon name="import" size={14} />Install
-                </Button>
-              )}
-            </div>
-            <CardBody className="flex flex-col gap-4 pt-4">
-              <dl className="grid grid-cols-[90px_1fr] gap-x-3 gap-y-1.5 text-sm">
-                <dt className="text-muted">Version</dt>
-                <dd className="text-sub">
-                  <span className="font-mono">{current.kind === "local" ? "local folder" : (current.version ?? "latest")}</span>
-                  {current.installedAt ? ` · installed ${ago(current.installedAt)}` : <Pill tone="warn" className="ml-2 h-5 text-label">not installed</Pill>}
-                </dd>
-                <dt className="text-muted">Source</dt>
-                <dd className="truncate text-sub">{current.where}</dd>
-                <dt className="text-muted">Saved in</dt>
-                <dd className="truncate font-mono text-xs text-sub">{current.scope === "global" ? "~/.tenon/agent/settings.json" : `${current.cwd?.replace(/^\/Users\/[^/]+/, "~")}/.pi/settings.json`}</dd>
-              </dl>
-              <div className="grid grid-cols-2 gap-x-6 gap-y-4 xl:grid-cols-4">
-                {(
-                  [
-                    ["Extensions", current.resources.extensions, (n: string) => n],
-                    ["Skills", current.resources.skills, (n: string) => n],
-                    ["Prompt templates", current.resources.prompts, (n: string) => `/${n}`],
-                    ["Themes", current.resources.themes, (n: string) => n],
-                  ] as const
-                ).map(([title, names, show]) => (
-                  <div key={title} className="flex flex-col gap-1.5">
-                    <div className="flex items-center gap-2"><Label>{title}</Label><span className="text-xs text-muted">{names.length}</span></div>
-                    {names.length ? names.map((n) => <span key={n} className="truncate font-mono text-sm text-fg">{show(n)}</span>) : <span className="font-mono text-sm text-dim">none</span>}
-                  </div>
-                ))}
-              </div>
-              <Callout icon={<Icon name="alert" />}>
-                Extensions run code on your computer with your own permissions.
-                <span className="block text-muted">Changes load after <Chip>/reload</Chip> or a new session.</span>
-              </Callout>
-            </CardBody>
-          </Card>
-        )}
+        {current && <PackageDetail pkg={current} busy={busy(current)} />}
       </main>
 
       <aside className="flex min-h-0 flex-col gap-3 border-l border-line bg-side p-3.5">
-        <Card className="flex min-h-0 flex-1 flex-col">
-          <CardHeader>Gallery<span className="ml-auto text-xs font-normal text-muted">npm · pi-package</span></CardHeader>
-          <CardBody className="flex min-h-0 flex-1 flex-col gap-3">
-            <SearchInput icon={<Icon name="search" />} aria-label="Search the gallery" placeholder="Search the gallery" value={galleryQuery} onChange={(e) => setGalleryQuery(e.target.value)} />
-            <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-auto [&>*]:shrink-0">
-              {!gallery && <span className="flex items-center gap-2 text-sm text-muted"><Spinner size={11} />Searching npm…</span>}
-              {galleryError && <span className="text-sm text-danger">{galleryError}</span>}
-              {gallery?.length === 0 && !galleryError && <span className="text-sm text-muted">Nothing found</span>}
-              {gallery?.map((g) => (
-                <button
-                  key={g.name}
-                  className="flex flex-col gap-0.5 rounded-md px-2 py-1.5 text-left hover:bg-hover"
-                  title="Put it in the install box"
-                  onClick={() => setSource(`npm:${g.name}`)}
-                >
-                  <span className="flex min-w-0 items-center gap-2">
-                    <b className="truncate font-semibold">{g.name}</b>
-                    <Pill tone={galleryTones[g.kind]} className="h-5 text-label">{g.kind}</Pill>
-                  </span>
-                  <span className="line-clamp-2 text-xs text-muted">{g.description}</span>
-                </button>
-              ))}
-            </div>
-            <span className="text-xs text-muted">Packages on npm with the <Chip>pi-package</Chip> keyword.</span>
-          </CardBody>
-        </Card>
+        <GalleryPanel onPick={setSource} />
 
         <Card>
           <CardHeader>Project trust<LinkButton className="ml-auto" onClick={() => actions.openSettings("trust")}>Change</LinkButton></CardHeader>
@@ -252,9 +163,7 @@ export function Packages() {
               <div key={t.cwd} className="flex items-center gap-2">
                 <span className="text-muted"><Icon name="folder" size={13} /></span>
                 <span className="truncate text-sub">{t.name}</span>
-                <span className={cx("ml-auto shrink-0", t.trusted === true ? "text-ok" : t.trusted === false ? "text-warn" : "text-muted")}>
-                  {t.trusted === true ? "✓ trusted" : t.trusted === false ? "✗ not trusted" : "not asked yet"}
-                </span>
+                <span className={cx("ml-auto shrink-0", TRUST_VIEW[String(t.trusted)].color)}>{TRUST_VIEW[String(t.trusted)].text}</span>
               </div>
             ))}
             <span className="text-xs text-muted">Project packages load only in trusted projects.</span>

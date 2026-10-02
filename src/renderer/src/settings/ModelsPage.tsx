@@ -1,46 +1,25 @@
 import { useEffect, useRef, useState } from "react";
-import type { ModelChoice, ProviderRow } from "#protocol";
-import { folderName } from "#renderer/chat/format";
-import { ago } from "#renderer/sessions/time";
+import type { ModelChoice } from "#protocol";
+import { agoText } from "#renderer/sessions/time";
 import { actions } from "#renderer/actions";
 import { useStore } from "#renderer/store";
-import { Button, cx, Dot, IconButton, Kbd, LinkButton, pill, Pill } from "#renderer/ui/base";
+import { Button, cx, IconButton, Kbd, LinkButton, pill, Pill } from "#renderer/ui/base";
 import { Segmented } from "#renderer/ui/controls";
 import { Icon } from "#renderer/ui/Icon";
-import { checkMark, Menu, type MenuItem, type MenuState } from "#renderer/ui/Menu";
-import { Bar, Card, CardBody, CardHeader, ListItem, Table, Td, Th, Tr } from "#renderer/ui/surfaces";
-import { home, plural } from "#renderer/chat/format";
+import { checkMark, Menu, menuBelow, type MenuItem, type MenuState } from "#renderer/ui/Menu";
+import { ProvidersCard } from "./ProvidersCard";
+import { Bar, Card, CardBody, CardHeader, ListItem } from "#renderer/ui/surfaces";
+import { folderName, home } from "#renderer/chat/format";
 
 const MAIN_PROVIDERS = ["anthropic", "openai", "google", "openrouter"];
 const THINKING_LEVELS = ["off", "low", "medium", "high"];
 
-function detail(p: ProviderRow) {
-  const how = connection(p);
-  if (how) return `${how} · ${plural(p.available, "model")}`;
-  return `${plural(p.models, "model")} · ${waysToConnect(p)}`;
-}
-
-/** How a provider is connected now, or undefined when it is not. */
-function connection(p: ProviderRow): string | undefined {
-  if (p.subscription) return "subscription";
-  if (p.source === "environment") return "key from the environment";
-  if (p.source === "stored") return "api key";
-  if (p.custom) return "custom provider";
-  if (p.configured) return "configured";
-  return undefined;
-}
-
-function waysToConnect(p: ProviderRow): string {
-  if (p.canLogin && p.canKey) return "subscription or api key";
-  return p.canLogin ? "subscription" : "api key";
-}
 
 /** Board 5: the model new sessions start with, the providers pi can call, and the ⌃P favorites. */
 export function ModelsPage() {
   const page = useStore((s) => s.modelsPage);
   const projects = useStore((s) => s.projects);
   const savedAt = useStore((s) => s.savedAt);
-  const login = useStore((s) => s.login);
   const [scopeRaw, setScope] = useState<"global" | "project">("global");
   // No project to edit: Project is not offered (edits would go to the global file).
   const scope = projects.length ? scopeRaw : "global";
@@ -77,28 +56,6 @@ export function ModelsPage() {
       : [{ label: "No models yet: add a provider key below", disabled: true, onSelect: () => {} }];
   const scrollToSection = (id: string) => main.current?.querySelector(`#${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
 
-  const action = (p: ProviderRow) => {
-    if (p.configured)
-      return (
-        <Button small variant="ghost" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => setMenu({ at: menuBelow(e), label: p.name, items: [
-          ...(p.canKey ? [{ label: "Replace key…", icon: <Icon name="key" />, onSelect: () => actions.login(p.id, "api_key") }] : []),
-          ...(p.canLogin ? [{ label: "Log in again…", icon: <Icon name="external" />, onSelect: () => actions.login(p.id, "oauth") }] : []),
-          "sep",
-          { label: "Log out", icon: <Icon name="x" />, danger: true, disabled: p.source !== "stored", onSelect: () => actions.logout(p.id) },
-          ...(p.source === "environment" ? [{ note: "This key comes from an environment variable: remove it there." }] : []),
-        ] })}>Manage</Button>
-      );
-    if (p.canLogin && p.canKey)
-      return (
-        <Button small variant="ghost" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => setMenu({ at: menuBelow(e), label: p.name, items: [
-          { label: "Log in with a subscription", icon: <Icon name="external" />, onSelect: () => actions.login(p.id, "oauth") },
-          { label: "Add an api key", icon: <Icon name="key" />, onSelect: () => actions.login(p.id, "api_key") },
-        ] })}>Connect<Icon name="chevronDown" size={12} /></Button>
-      );
-    if (p.canLogin) return <Button small variant="ghost" onClick={() => actions.login(p.id, "oauth")}>Log in</Button>;
-    if (p.canKey) return <Button small variant="ghost" onClick={() => actions.login(p.id, "api_key")}>Add key</Button>;
-    return null;
-  };
 
   return (
     <div className="grid min-h-0 grid-cols-[minmax(0,1fr)_300px]">
@@ -149,45 +106,7 @@ export function ModelsPage() {
           </div>
         </div>
 
-        <Card>
-          <div id="providers" />
-          <CardHeader>Providers<span className="ml-1 text-xs font-normal text-muted">api key or subscription</span></CardHeader>
-          <CardBody className="p-0 pt-2.5">
-            <Table>
-              <thead><tr><Th>Provider</Th><Th>Detail</Th><Th>Status</Th><Th right /></tr></thead>
-              <tbody>
-                {shown.map((p) => (
-                  <Tr key={p.id} selected={login?.providerId === p.id}>
-                    <Td>
-                      <span className="flex items-center gap-2.5">
-                        <span className="flex size-7 items-center justify-center rounded-[9px] bg-raised text-xs font-bold text-sub">{p.name[0]}</span>
-                        <b className="font-semibold text-fg">{p.name}</b>
-                        {p.custom && <Pill tone="dim" className="h-5 text-label">custom</Pill>}
-                      </span>
-                    </Td>
-                    <Td className="max-w-[280px] truncate">{detail(p)}</Td>
-                    <Td>
-                      <span className="flex items-center gap-2">
-                        <Dot color={p.configured ? "ok" : "dim"} />
-                        <span className={p.configured ? "text-ok" : "text-muted"}>{p.configured ? "Connected" : "Not connected"}</span>
-                      </span>
-                    </Td>
-                    <Td right>{action(p)}</Td>
-                  </Tr>
-                ))}
-              </tbody>
-            </Table>
-            <div className="flex items-center gap-2 px-4 py-3 text-sm">
-              {rest.length > 0 && !more && (
-                <>
-                  <LinkButton className="flex shrink-0 items-center gap-1 text-sm whitespace-nowrap" onClick={() => setMore(true)}><Icon name="chevronDown" size={12} />Show more providers</LinkButton>
-                  <span className="truncate text-muted">{rest.slice(0, 6).map((p) => p.id).join(" · ")} …</span>
-                </>
-              )}
-              <LinkButton className="ml-auto flex shrink-0 items-center gap-1 text-sm whitespace-nowrap" onClick={() => actions.setAddingProvider(true)}><Icon name="plus" size={12} />Add custom provider</LinkButton>
-            </div>
-          </CardBody>
-        </Card>
+        <ProvidersCard shown={shown} rest={rest} onShowMore={() => setMore(true)} openMenu={setMenu} />
 
         <Card>
           <div id="quick-switch" />
@@ -246,7 +165,7 @@ export function ModelsPage() {
               <span className="font-mono text-xs text-fg">~/.pi/agent/auth.json</span>
               <span className="text-xs text-muted">Shared with terminal pi. Keep it private.</span>
             </div>
-            {savedAt && <span className={cx("flex items-center gap-1.5 text-xs text-ok")}><Icon name="check" size={12} />Saved {ago(savedAt) === "now" ? "just now" : `${ago(savedAt)} ago`}</span>}
+            {savedAt && <span className={cx("flex items-center gap-1.5 text-xs text-ok")}><Icon name="check" size={12} />Saved {agoText(savedAt)}</span>}
           </CardBody>
         </Card>
       </aside>

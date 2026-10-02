@@ -264,6 +264,26 @@ test("a cancel in the trust dialog shows no error and does not move the session"
   }
 });
 
+test("the Models and Packages pages show their cards", async () => {
+  const tenonDir = await mkdtemp(join(tmpdir(), "tenon-app-"));
+  const env = { ...process.env, TENON_DIR: tenonDir, TENON_PI_DIR: join(tenonDir, "pi") };
+  for (const tab of ["settings", "packages"] as const) {
+    const app = await electron.launch({ args: ["."], env: { ...env, TENON_TAB: tab } });
+    try {
+      const win = await app.firstWindow();
+      if (tab === "settings") {
+        await expect(win.getByRole("columnheader", { name: "Provider" })).toBeVisible(); // the providers card
+        await expect(win.getByText("Add custom provider")).toBeVisible();
+      } else {
+        await expect(win.getByRole("textbox", { name: "Search the gallery" })).toBeVisible(); // the gallery panel
+        await expect(win.getByText("Project packages load only in trusted projects.")).toBeVisible();
+      }
+    } finally {
+      await app.close();
+    }
+  }
+});
+
 /** A saved session with no project: a user message, a reply, and a name. */
 async function writeSession(tenonDir: string, name: string) {
   const agentDir = join(tenonDir, "agent");
