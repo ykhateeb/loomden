@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { fileEvent, startServer } from "./server.js";
-import { RAW_BOARD, RAW_STATE, freeRoot, addNote, approve, flow, restoreRev, patchBoard, readHistory, undoBoard, createBoard, editBoard, readBoard, readCanvas, stamp, patchHtml } from "./store.js";
+import { RAW_BOARD, RAW_STATE, freeRoot, addNote, approve, readFlow, restoreRev, patchBoard, readHistory, undoBoard, createBoard, editBoard, readBoard, readCanvas, stamp, patchHtml } from "./store.js";
 import { RAW_TOKENS, acceptProposal, dsReport, proposeTokens, tokensCss, writeTokensCss } from "./tokens.js";
 import { compareBoard, designPack, readCompares, setDifferenceState, diffFacts, keepDecisions, boardFacts } from "./compare.js";
 import { canvasMoves, gitignoreMissing, moveCanvases, moveDesignSystem, ensureGitignore } from "./project.js";
@@ -181,7 +181,7 @@ describe("play, restore, approve", () => {
     const { root } = await setup();
     await createBoard(root, { canvas: "c1", board: "cart", title: "Cart", w: 1, h: 1, html: `<a href="pay.html"><b>Pay</b> now</a><a href="done.html">Done</a><a href="https://x.com">out</a><a href='PAY.html#top'>again</a>` });
     await createBoard(root, { canvas: "c1", board: "pay", title: "Pay", w: 1, h: 1, html: "<p>pay</p>" });
-    expect((await flow(root, "c1")).links).toEqual([
+    expect((await readFlow(root, "c1")).links).toEqual([
       { from: "boards/cart.html", fromTitle: "Cart", text: "Pay now", name: "pay", to: "boards/pay.html" },
       { from: "boards/cart.html", fromTitle: "Cart", text: "Done", name: "done", to: null },
       { from: "boards/cart.html", fromTitle: "Cart", text: "again", name: "PAY", to: "boards/pay.html" }, // any case, quotes, a fragment

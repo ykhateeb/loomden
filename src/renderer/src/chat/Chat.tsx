@@ -238,7 +238,7 @@ export function Chat({ sessionKey, state }: { sessionKey: string; state: LiveSta
             <span className="whitespace-nowrap">{canvasCount ? plural(canvasCount, "canvas", "canvases") : "no canvas yet"}</span>
           </div>
         </div>
-        <Button small variant={canvasOpen ? "primary" : "default"} aria-pressed={canvasOpen} title="Design canvas (⇧C)" onClick={() => actions.canvas(sessionKey)}>
+        <Button small variant={canvasOpen ? "primary" : "default"} aria-pressed={canvasOpen} title="Design canvas (⇧C)" onClick={() => actions.toggleCanvas(sessionKey)}>
           {canvasCount ? "Canvas" : "+ Canvas"}<Kbd onFill={canvasOpen}>⇧C</Kbd>
         </Button>
         <Segmented

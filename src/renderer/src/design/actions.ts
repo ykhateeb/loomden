@@ -16,8 +16,8 @@ export const designActions = {
   startDesign: (cwd: string, key?: string) => call({ type: "design.open", cwd, key }),
   /** The address of a canvas for the Design page. startDesign() first. */
   designUrl: (cwd: string, canvas: string, tab?: "ds") => call<string>({ type: "design.url", cwd, canvas, tab }),
-  /** Canvas ⇧C: show or hide the panel. The first time, the extension starts its server and reports the address. */
-  canvas: (key: string) => {
+  /** Canvas ⇧C: show or hide the panel of a session's canvas. The first time, the extension starts its server and reports the address. */
+  toggleCanvas: (key: string) => {
     const { canvas, live } = getState();
     const c = canvas[key];
     if (c) set({ canvas: { ...canvas, [key]: { ...c, open: !c.open } } });

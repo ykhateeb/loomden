@@ -1,7 +1,7 @@
 import type { ProgressEvent } from "@earendil-works/pi-coding-agent";
 import { packageGrant } from "#core/grants";
 import { runImport, scanImport } from "#core/import";
-import { changePackage, listPackages, searchGallery } from "#core/packages";
+import { anyProjectCwd, changePackage, listPackages, searchGallery } from "#core/packages";
 import { assertProject } from "#core/projects";
 import { listSessions } from "#core/sessions/list";
 import { trustList } from "#core/trust";
@@ -32,7 +32,7 @@ export function packageCommands({ send, grants, modelRuntime, sessions }: Deps) 
       // only after the user confirmed it in main's own dialog. Removing needs no confirmation.
       if (cmd.action !== "remove") await grants.consumePackageGrant(packageGrant(cmd.action, cmd.source, cmd.cwd));
       const { projects } = await listSessions();
-      await changePackage(cmd.action, cmd.source, cmd.cwd, sendPackageProgress, projects[0]?.cwd ?? process.cwd());
+      await changePackage({ action: cmd.action, source: cmd.source, cwd: cmd.cwd, fallbackCwd: anyProjectCwd(projects), onProgress: sendPackageProgress });
     },
     "packages.gallery": (cmd) => searchGallery(cmd.query),
     "packages.reload": () => sessions.reloadAll(),

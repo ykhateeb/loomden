@@ -50,6 +50,8 @@ export function stamp(html: string): string {
     SKIP.test(tag) || /\sdata-tid=/.test(attrs) ? m : `<${tag}${attrs} data-tid="${++n}"${slash}>`);
 }
 
+/** The space between two boards on the canvas, in px. */
+const BOARD_GAP = 80;
 /** A phone screen: the size of a planned board that has no size. */
 const PHONE = { w: 390, h: 844 };
 
@@ -82,7 +84,7 @@ export async function listCanvases(root: string): Promise<string[]> {
   return dirs.filter((d) => d.isDirectory() && existsSync(canvasFile(join(root, d.name)))).map((d) => d.name);
 }
 
-async function save(dir: string, c: Canvas, key: string, html: string, by: string, why: string, extra: object = {}) {
+async function saveRev(dir: string, c: Canvas, key: string, html: string, by: string, why: string, extra: object = {}) {
   const m = c.boards[key];
   const rev = m.rev + 1;
   const out = stamp(html);
@@ -108,12 +110,12 @@ export async function createBoard(root: string, a: {
     const key = boardKey(a.board);
     const c = existsSync(canvasFile(dir)) ? await readCanvas(root, a.canvas) : emptyCanvas(a.canvasTitle ?? a.canvas);
     if (c.boards[key]) throw new Error(`Board ${key} exists at rev ${c.boards[key].rev}. Use canvas_edit.`);
-    const x = Object.values(c.boards).reduce((m, b) => Math.max(m, b.x + b.w + 80), 0);
-    c.boards[key] = { title: a.title, x, y: 0, w: a.w, h: a.h, rev: 0, by: "pi" };
+    const rightOfLastBoard = Object.values(c.boards).reduce((m, b) => Math.max(m, b.x + b.w + BOARD_GAP), 0);
+    c.boards[key] = { title: a.title, x: rightOfLastBoard, y: 0, w: a.w, h: a.h, rev: 0, by: "pi" };
     c.order.push(key);
     c.plan = c.plan?.filter((p) => p.key !== key); // it exists now
     c.editing = c.editing?.filter((k) => k !== key);
-    await save(dir, c, key, a.html, "pi", "created");
+    await saveRev(dir, c, key, a.html, "pi", "created");
   });
 }
 
@@ -143,7 +145,7 @@ export async function editBoard(root: string, a: {
         html = html.replace(e.find, () => e.replace);
       }
     }
-    await save(dir, c, key, html, a.by ?? "pi", a.why ?? "");
+    await saveRev(dir, c, key, html, a.by ?? "pi", a.why ?? "");
   });
 }
 
@@ -168,7 +170,7 @@ export async function patchBoard(root: string, a: {
     const c = await readCanvas(root, a.canvas);
     const { key } = boardOf(c, a.board);
     const { html, why } = patchHtml(await readFile(join(dir, key), "utf8"), a);
-    await save(dir, c, key, html, "you", why, { edit: a.id, ...(a.tell === false ? { quiet: true } : {}) });
+    await saveRev(dir, c, key, html, "you", why, { edit: a.id, ...(a.tell === false ? { quiet: true } : {}) });
   });
 }
 
@@ -220,7 +222,7 @@ export async function undoBoard(root: string, canvas: string, board: string, edi
     if (!undoable) throw new Error("The board changed since: nothing to undo");
     const html = await readFile(join(dir, "history", `${nameOf(key)}.r${e.rev - 1}.html`), "utf8");
     // pi hears about the undo if it heard about the edit; a quiet edit is undone quietly.
-    await save(dir, c, key, html, "you", `undo rev ${e.rev}`, e.quiet ? { quiet: true } : {});
+    await saveRev(dir, c, key, html, "you", `undo rev ${e.rev}`, e.quiet ? { quiet: true } : {});
   });
 }
 
@@ -320,7 +322,7 @@ export async function restoreRev(root: string, canvas: string, board: string, re
     const html = await readFile(join(dir, "history", `${nameOf(key)}.r${Number(rev)}.html`), "utf8").catch(() => {
       throw new Error(`Rev ${rev} not found`);
     });
-    await save(dir, c, key, html, "you", `restore rev ${rev}`);
+    await saveRev(dir, c, key, html, "you", `restore rev ${rev}`);
   });
 }
 
@@ -338,7 +340,7 @@ export async function approve(root: string, canvas: string, board: string) {
 }
 
 /** Links between boards come from the HTML: <a href="payment.html">. */
-export async function flow(root: string, canvas: string) {
+export async function readFlow(root: string, canvas: string) {
   const c = await readCanvas(root, canvas);
   const boards = c.order.filter((k) => c.boards[k]).map((k) => ({ key: k, title: c.boards[k].title, rev: c.boards[k].rev, approved: c.boards[k].approved }));
   const links: { from: string; fromTitle: string; text: string; name: string; to: string | null }[] = [];

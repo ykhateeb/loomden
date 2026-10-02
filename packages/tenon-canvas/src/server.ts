@@ -7,7 +7,7 @@ import { randomBytes } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { watch, mkdirSync } from "node:fs";
 import { dirname, extname, join, sep } from "node:path";
-import { addNote, approve, flow, restoreRev, boardKey, canvasDir, canvasTabs, designSystemDir, patchBoard, readCanvas, readHistory, undoBoard, setNoteState, slug, type NoteState } from "./store.js";
+import { addNote, approve, readFlow, restoreRev, boardKey, canvasDir, canvasTabs, designSystemDir, patchBoard, readCanvas, readHistory, undoBoard, setNoteState, slug, type NoteState } from "./store.js";
 import { acceptProposal, discardProposal, dsReport, tokensCss, writeTokensCss } from "./tokens.js";
 import { designPack, readCompares, setDifferenceState } from "./compare.js";
 import { POINT_SCRIPT, VIEWER } from "./web.js";
@@ -175,7 +175,7 @@ export async function startServer({ root, onSend, onBuild }: ServerOptions): Pro
     if (part === "compare.json") return json(res, await readCompares(root, canvas));
     if (part === "compare" && /^[\w-]+\.(png|jpe?g|webp)$/i.test(file ?? ""))
       return reply(res, 200, TYPES[extname(file).toLowerCase()] ?? "image/png", await readFile(join(dir, "compare", file)));
-    if (part === "flow.json") return json(res, await flow(root, canvas));
+    if (part === "flow.json") return json(res, await readFlow(root, canvas));
     if (part === "history" && /^[\w-]+\.r\d+\.html$/.test(file ?? "")) return board(res, await readFile(join(dir, "history", file), "utf8"));
     if (part === "history.json") return json(res, await readHistory(root, canvas, url.searchParams.get("board") ?? ""));
     if (part === "canvas.json") return reply(res, 200, "application/json", await readFile(join(dir, "canvas.json")));

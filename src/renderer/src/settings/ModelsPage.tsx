@@ -11,8 +11,8 @@ import { checkMark, Menu, type MenuItem, type MenuState } from "#renderer/ui/Men
 import { Bar, Card, CardBody, CardHeader, ListItem, Table, Td, Th, Tr } from "#renderer/ui/surfaces";
 import { home, plural } from "#renderer/chat/format";
 
-const MAIN = ["anthropic", "openai", "google", "openrouter"];
-const LEVELS = ["off", "low", "medium", "high"];
+const MAIN_PROVIDERS = ["anthropic", "openai", "google", "openrouter"];
+const THINKING_LEVELS = ["off", "low", "medium", "high"];
 
 function detail(p: ProviderRow) {
   const how = connection(p);
@@ -60,14 +60,14 @@ export function ModelsPage() {
       </main>
     );
 
-  const s = page.settings;
-  const effective = { ...page.global, ...Object.fromEntries(Object.entries(s).filter(([, v]) => v !== undefined)) };
+  const settings = page.settings;
+  const effective = { ...page.global, ...Object.fromEntries(Object.entries(settings).filter(([, v]) => v !== undefined)) };
   const providers = page.providers;
-  const shown = providers.filter((p) => more || p.configured || MAIN.includes(p.id) || p.custom);
+  const shown = providers.filter((p) => more || p.configured || MAIN_PROVIDERS.includes(p.id) || p.custom);
   const rest = providers.filter((p) => !shown.includes(p));
   const ready = shown.filter((p) => p.configured).length;
-  const favorites = s.enabledModels ?? [];
-  const at = (e: React.MouseEvent) => {
+  const favorites = settings.enabledModels ?? [];
+  const menuBelow = (e: React.MouseEvent) => {
     const r = e.currentTarget.getBoundingClientRect();
     return { x: r.left, y: r.bottom + 6 };
   };
@@ -75,12 +75,12 @@ export function ModelsPage() {
     page.models.length
       ? page.models.map((m) => ({ id: `${m.provider}/${m.id}`, label: m.id, meta: m.provider, icon: checkMark(`${m.provider}/${m.id}` === current), onSelect: () => pick(m) }))
       : [{ label: "No models yet: add a provider key below", disabled: true, onSelect: () => {} }];
-  const go = (id: string) => main.current?.querySelector(`#${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  const scrollToSection = (id: string) => main.current?.querySelector(`#${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
 
   const action = (p: ProviderRow) => {
     if (p.configured)
       return (
-        <Button small variant="ghost" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => setMenu({ at: at(e), label: p.name, items: [
+        <Button small variant="ghost" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => setMenu({ at: menuBelow(e), label: p.name, items: [
           ...(p.canKey ? [{ label: "Replace key…", icon: <Icon name="key" />, onSelect: () => actions.login(p.id, "api_key") }] : []),
           ...(p.canLogin ? [{ label: "Log in again…", icon: <Icon name="external" />, onSelect: () => actions.login(p.id, "oauth") }] : []),
           "sep",
@@ -90,7 +90,7 @@ export function ModelsPage() {
       );
     if (p.canLogin && p.canKey)
       return (
-        <Button small variant="ghost" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => setMenu({ at: at(e), label: p.name, items: [
+        <Button small variant="ghost" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => setMenu({ at: menuBelow(e), label: p.name, items: [
           { label: "Log in with a subscription", icon: <Icon name="external" />, onSelect: () => actions.login(p.id, "oauth") },
           { label: "Add an api key", icon: <Icon name="key" />, onSelect: () => actions.login(p.id, "api_key") },
         ] })}>Connect<Icon name="chevronDown" size={12} /></Button>
@@ -116,7 +116,7 @@ export function ModelsPage() {
             <Pill tone="dim">Global</Pill>
           )}
           {scope === "project" && (
-            <button className={pill("dim", "hover:text-fg")} disabled={!projects.length} onMouseDown={(e) => e.stopPropagation()} onClick={(e) => setMenu({ at: at(e), label: "Project", items: projects.map((p) => ({ id: p.cwd, label: p.name, icon: checkMark(p.cwd === cwd), onSelect: () => setProject(p.cwd) })) })}>
+            <button className={pill("dim", "hover:text-fg")} disabled={!projects.length} onMouseDown={(e) => e.stopPropagation()} onClick={(e) => setMenu({ at: menuBelow(e), label: "Project", items: projects.map((p) => ({ id: p.cwd, label: p.name, icon: checkMark(p.cwd === cwd), onSelect: () => setProject(p.cwd) })) })}>
               <Icon name="folder" size={12} />{cwd ? folderName(cwd) : "no project"}<Icon name="chevronDown" size={12} />
             </button>
           )}
@@ -129,22 +129,22 @@ export function ModelsPage() {
             <button
               className="flex h-9 items-center gap-2 rounded-md border border-line2 bg-field px-3 text-left text-body hover:border-accent-line"
               onMouseDown={(e) => e.stopPropagation()}
-              onClick={(e) => setMenu({ at: at(e), label: "Default model", items: [...modelItems((m) => actions.setModels({ defaultProvider: m.provider, defaultModel: m.id }, cwd), s.defaultProvider && `${s.defaultProvider}/${s.defaultModel}`), ...(scope === "project" && s.defaultModel ? ["sep" as const, { label: "Use the global default", onSelect: () => actions.setModels({ defaultProvider: null, defaultModel: null }, cwd) }] : [])] })}
+              onClick={(e) => setMenu({ at: menuBelow(e), label: "Default model", items: [...modelItems((m) => actions.setModels({ defaultProvider: m.provider, defaultModel: m.id }, cwd), settings.defaultProvider && `${settings.defaultProvider}/${settings.defaultModel}`), ...(scope === "project" && settings.defaultModel ? ["sep" as const, { label: "Use the global default", onSelect: () => actions.setModels({ defaultProvider: null, defaultModel: null }, cwd) }] : [])] })}
             >
               <span className="text-accent"><Icon name="sparkle" size={14} /></span>
               <b className="truncate font-semibold">{effective.defaultModel ?? "pi picks one"}</b>
               <span className="text-muted">{effective.defaultProvider}</span>
-              {scope === "project" && !s.defaultModel && <Pill tone="dim" className="h-5 text-label">from global</Pill>}
+              {scope === "project" && !settings.defaultModel && <Pill tone="dim" className="h-5 text-label">from global</Pill>}
               <span className="ml-auto text-muted"><Icon name="chevronDown" size={13} /></span>
             </button>
           </div>
           <div id="thinking" className="flex flex-col gap-1.5">
-            <span className="text-xs font-medium text-muted">Thinking level{scope === "project" && !s.defaultThinkingLevel && " · from global"}</span>
+            <span className="text-xs font-medium text-muted">Thinking level{scope === "project" && !settings.defaultThinkingLevel && " · from global"}</span>
             <Segmented
               label="Thinking level"
               value={effective.defaultThinkingLevel ?? "medium"}
               onChange={(v) => actions.setModels({ defaultThinkingLevel: v }, cwd)}
-              options={LEVELS.map((l) => ({ value: l, label: l[0].toUpperCase() + l.slice(1) }))}
+              options={THINKING_LEVELS.map((l) => ({ value: l, label: l[0].toUpperCase() + l.slice(1) }))}
             />
           </div>
         </div>
@@ -207,7 +207,7 @@ export function ModelsPage() {
             <LinkButton
               className="flex items-center gap-1 text-sm"
               onMouseDown={(e) => e.stopPropagation()}
-              onClick={(e) => setMenu({ at: at(e), label: "Add model", items: modelItems((m) => actions.setModels({ enabledModels: [...new Set([...favorites, `${m.provider}/${m.id}`])] }, cwd)) })}
+              onClick={(e) => setMenu({ at: menuBelow(e), label: "Add model", items: modelItems((m) => actions.setModels({ enabledModels: [...new Set([...favorites, `${m.provider}/${m.id}`])] }, cwd)) })}
             >
               <Icon name="plus" size={12} />Add model
             </LinkButton>
@@ -220,7 +220,7 @@ export function ModelsPage() {
           <CardHeader>On this page</CardHeader>
           <CardBody className="flex flex-col gap-0.5 p-2 pt-2">
             {[["default-model", "Default model"], ["thinking", "Thinking level"], ["providers", "Providers"], ["quick-switch", "Quick switch"]].map(([id, label]) => (
-              <ListItem key={id} onClick={() => go(id)}>{label}</ListItem>
+              <ListItem key={id} onClick={() => scrollToSection(id)}>{label}</ListItem>
             ))}
           </CardBody>
         </Card>

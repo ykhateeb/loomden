@@ -165,7 +165,7 @@ export function Composer({ sessionKey, state }: { sessionKey: string; state: Liv
     setMenu({
       at: { x: r.left, y: r.top - state.thinkingLevels.length * MENU_ROW_PX - 24 },
       label: "Thinking",
-      items: state.thinkingLevels.map((l) => ({ id: l, label: l, icon: checkMark(l === state.thinking), onSelect: () => actions.thinking(sessionKey, l) })),
+      items: state.thinkingLevels.map((l) => ({ id: l, label: l, icon: checkMark(l === state.thinking), onSelect: () => actions.setThinking(sessionKey, l) })),
     });
   };
 

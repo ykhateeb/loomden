@@ -7,7 +7,7 @@ import { Switch } from "#renderer/ui/controls";
 import { Icon, type IconName } from "#renderer/ui/Icon";
 import { Card, CardBody, CardHeader } from "#renderer/ui/surfaces";
 
-const k = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n));
+const formatTokens = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n));
 const kinds: Record<LiveState["resources"][number]["kind"], { icon: IconName; tone: PillTone; label: string }> = {
   file: { icon: "doc", tone: "dim", label: "file" },
   system: { icon: "doc", tone: "dim", label: "system" },
@@ -17,9 +17,9 @@ const kinds: Record<LiveState["resources"][number]["kind"], { icon: IconName; to
 
 /** Board 2, right: usage and auto-compact, what is in context, which tools pi may use. */
 export function ContextRail({ state }: { state: LiveState }) {
-  const ctx = state.context;
+  const usage = state.context;
   const active = state.tools.filter((t) => t.active);
-  const pct = (n: number) => (ctx ? Math.min(100, (n / ctx.contextWindow) * 100) : 0);
+  const percentOfWindow = (n: number) => (usage ? Math.min(100, (n / usage.contextWindow) * 100) : 0);
 
   // Board 2's small tree: the last shared rows and the branches after them. Fetched again with each new message.
   const messages = useStore((s) => s.messages[state.key]); // a new list after each message and each switch
@@ -27,7 +27,7 @@ export function ContextRail({ state }: { state: LiveState }) {
   const noProject = useStore((s) => s.noProject);
   const [tree, setTree] = useState<SessionTree>();
   useEffect(() => {
-    actions.tree(state.key).then(setTree);
+    actions.loadTree(state.key).then(setTree);
   }, [state.key, messages, stamp]);
   const branches = tree && tree.last !== undefined ? (tree.branchesAt[tree.last] ?? []) : [];
 
@@ -39,21 +39,21 @@ export function ContextRail({ state }: { state: LiveState }) {
       <Card>
         <CardHeader>Usage<span className="ml-auto font-medium text-muted">${state.cost.toFixed(2)}</span></CardHeader>
         <CardBody className="flex flex-col gap-2">
-          {ctx && (
+          {usage && (
             <>
               <div className="flex items-baseline gap-2">
-                <b className="text-[20px] font-[650]">{ctx.tokens === null ? "—" : k(ctx.tokens)}</b>
-                <span className="text-muted">/ {k(ctx.contextWindow)} tokens</span>
+                <b className="text-[20px] font-[650]">{usage.tokens === null ? "—" : formatTokens(usage.tokens)}</b>
+                <span className="text-muted">/ {formatTokens(usage.contextWindow)} tokens</span>
               </div>
-              <div className="relative h-1.5 rounded-[3px] bg-raised" role="meter" aria-label="Context used" aria-valuenow={Math.round(ctx.percent ?? 0)} aria-valuemin={0} aria-valuemax={100}>
-                <b className="absolute inset-y-0 left-0 rounded-[3px] bg-accent" style={{ width: `${Math.min(ctx.percent ?? 0, 100)}%` }} />
-                {state.compactAt && <i className="absolute -top-[3px] h-3 w-0.5 rounded-[1px] bg-warn" style={{ left: `${pct(state.compactAt)}%` }} title="auto-compact starts here" />}
+              <div className="relative h-1.5 rounded-[3px] bg-raised" role="meter" aria-label="Context used" aria-valuenow={Math.round(usage.percent ?? 0)} aria-valuemin={0} aria-valuemax={100}>
+                <b className="absolute inset-y-0 left-0 rounded-[3px] bg-accent" style={{ width: `${Math.min(usage.percent ?? 0, 100)}%` }} />
+                {state.compactAt && <i className="absolute -top-[3px] h-3 w-0.5 rounded-[1px] bg-warn" style={{ left: `${percentOfWindow(state.compactAt)}%` }} title="auto-compact starts here" />}
               </div>
             </>
           )}
           <div className="flex items-center text-xs text-muted">
-            <span>in {k(state.tokensIn)} · out {k(state.tokensOut)}</span>
-            <span className="ml-auto">{state.compactAt ? `auto-compact ~${k(state.compactAt)}` : "auto-compact off"}</span>
+            <span>in {formatTokens(state.tokensIn)} · out {formatTokens(state.tokensOut)}</span>
+            <span className="ml-auto">{state.compactAt ? `auto-compact ~${formatTokens(state.compactAt)}` : "auto-compact off"}</span>
           </div>
           {state.compacting ? (
             <span className="flex items-center gap-2 text-xs text-sub"><Spinner size={10} />Compacting…</span>

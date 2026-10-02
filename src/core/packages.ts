@@ -57,16 +57,26 @@ async function describe(cwd: string, scope: "user" | "project"): Promise<Install
   });
 }
 
+/** A folder for pi's package manager when the change is global: any project, else the agent's own folder. */
+export function anyProjectCwd(projects: readonly Project[]): string {
+  return projects[0]?.cwd ?? process.cwd();
+}
+
 /** Board 4, left: global packages, then each project's own. */
 export async function listPackages(projects: Project[]) {
-  const global = await describe(projects[0]?.cwd ?? process.cwd(), "user");
+  const global = await describe(anyProjectCwd(projects), "user");
   const perProject = await Promise.all(projects.map(async (p) => ({ cwd: p.cwd, name: p.name, packages: await describe(p.cwd, "project") })));
   return { global, projects: perProject.filter((p) => p.packages.length) };
 }
 
-/** Board 4: install, remove, update. `cwd` = one project (--local); none = global. Progress goes to `onProgress`. */
-export async function changePackage(action: PackageAction, source: string, cwd: string | undefined, onProgress: (e: ProgressEvent) => void, anyCwd: string) {
-  const pm = manager(cwd ?? anyCwd);
+/**
+ * Board 4: install, remove, update. `cwd` = one project (--local); none = global, and pi's manager works in `fallbackCwd`.
+ * Progress goes to `onProgress`.
+ */
+export async function changePackage({ action, source, cwd, fallbackCwd, onProgress }: {
+  action: PackageAction; source: string; cwd?: string; fallbackCwd: string; onProgress: (e: ProgressEvent) => void;
+}): Promise<void> {
+  const pm = manager(cwd ?? fallbackCwd);
   pm.setProgressCallback(onProgress);
   const local = !!cwd;
   if (action === "install") await pm.installAndPersist(source, { local });

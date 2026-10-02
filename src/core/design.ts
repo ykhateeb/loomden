@@ -44,32 +44,32 @@ type DesignHost = {
 };
 
 /** Start the server of a project, if it is not running. Notes go to the session `key`. */
-export async function designOpen({ cwd, key }: { cwd: string; key?: string }, { prompt, build }: DesignHost) {
-  let s = servers.get(cwd);
-  if (!s) {
-    if (!servers.size) process.once("exit", stopDesign);
-    const entry: { server: CanvasServer; key?: string } = { key, server: undefined as never };
-    entry.server = await startServer({
+export async function startDesignServer({ cwd, key }: { cwd: string; key?: string }, { prompt, build }: DesignHost): Promise<void> {
+  let entry = servers.get(cwd);
+  if (!entry) {
+    if (!servers.size) process.once("exit", stopDesignServers);
+    const started: { server: CanvasServer; key?: string } = { key, server: undefined as never }; // set below: onSend needs the entry first
+    started.server = await startServer({
       root: projectRoot(cwd),
       onBuild: (_c, pack) => build(cwd, pack),
       onSend: (t) => {
-        if (!entry.key) throw new Error("Open a session in this project to send notes to pi");
-        return prompt(entry.key, t); // a failed prompt reaches the viewer, and the notes stay unsent
+        if (!started.key) throw new Error("Open a session in this project to send notes to pi");
+        return prompt(started.key, t); // a failed prompt reaches the viewer, and the notes stay unsent
       },
     });
-    servers.set(cwd, (s = entry));
+    servers.set(cwd, (entry = started));
   }
-  s.key = key;
+  entry.key = key;
 }
 
-/** The address of one canvas. designOpen() starts the server first. */
-export function designUrl({ cwd, canvas, tab }: DesignTarget) {
-  const s = servers.get(cwd);
-  if (!s) throw new Error("The design server of this project is not running");
-  return s.server.url(canvas) + (tab ? "?tab=ds" : "");
+/** The address of one canvas. startDesignServer() starts the server first. */
+export function designUrl({ cwd, canvas, tab }: DesignTarget): string {
+  const entry = servers.get(cwd);
+  if (!entry) throw new Error("The design server of this project is not running");
+  return entry.server.url(canvas) + (tab ? "?tab=ds" : "");
 }
 
-export function stopDesign() {
+export function stopDesignServers(): void {
   for (const { server } of servers.values()) server.close();
   servers.clear();
 }

@@ -40,7 +40,7 @@ export function Packages() {
   useEffect(() => {
     const t = setTimeout(() => {
       setGalleryError(undefined);
-      actions.gallery(galleryQuery).then(setGallery, (e: Error) => {
+      actions.searchGallery(galleryQuery).then(setGallery, (e: Error) => {
         setGallery([]);
         setGalleryError(e.message);
       });

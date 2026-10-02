@@ -21,7 +21,6 @@ export function Sidebar() {
 
   const liveByFile = new Map(Object.values(live).map((l) => [l.file, l]));
   const activeFile = active ? live[active]?.file : undefined;
-  const shown = sessions;
   const byPath = new Map(sessions.map((s) => [s.path, s]));
   const design = useStore((s) => s.design);
   const page = useStore((s) => s.designPage);
@@ -44,7 +43,7 @@ export function Sidebar() {
       return next;
     });
 
-  const row = (s: SessionRow, depth: number, l?: LiveState) => {
+  const row = (s: SessionRow, depth: number, liveState?: LiveState) => {
     const forked = depth > 0;
     const parent = s.parent && byPath.get(s.parent);
     return (
@@ -52,12 +51,12 @@ export function Sidebar() {
         key={s.path}
         active={s.path === activeFile}
         style={forked ? { paddingLeft: 22 + 22 * depth } : undefined}
-        title={l?.streaming ? "pi is working" : parent ? `forked from ${parent.title}` : undefined}
+        title={liveState?.streaming ? "pi is working" : parent ? `forked from ${parent.title}` : undefined}
         onClick={() => actions.open(s.cwd, s.path)}
         onContextMenu={(e) => menus.sessionMenu(e, s)}
-        meta={l?.streaming ? "now" : forked ? <span className="text-warn">forked</span> : ago(s.modified)}
+        meta={liveState?.streaming ? "now" : forked ? <span className="text-warn">forked</span> : ago(s.modified)}
       >
-        {forked ? <span className="text-muted"><Icon name="branch" size={14} /></span> : l?.streaming ? <span className="ml-[22px]"><Spinner label="running" /></span> : <span className="ml-[22px] w-3 shrink-0" />}
+        {forked ? <span className="text-muted"><Icon name="branch" size={14} /></span> : liveState?.streaming ? <span className="ml-[22px]"><Spinner label="running" /></span> : <span className="ml-[22px] w-3 shrink-0" />}
         <span className="truncate">{s.title}</span>
       </ListItem>
     );
@@ -81,15 +80,15 @@ export function Sidebar() {
         </div>
 
         {projects.map((p) => {
-          const rows = shown.filter((s) => s.cwd === p.cwd);
+          const projectSessions = sessions.filter((s) => s.cwd === p.cwd);
           const open = !collapsed.has(p.cwd);
-          const runningHere = rows.some((s) => liveByFile.get(s.path)?.streaming);
+          const runningHere = projectSessions.some((s) => liveByFile.get(s.path)?.streaming);
           // Forked sessions go under their parent, at any depth, when the parent is in the list.
-          const roots = rows.filter((s) => !s.parent || !rows.some((r) => r.path === s.parent));
+          const roots = projectSessions.filter((s) => !s.parent || !projectSessions.some((r) => r.path === s.parent));
           const tree = (s: SessionRow, depth: number): ReactNode[] => [
             row(s, depth, liveByFile.get(s.path)),
             // ponytail: depth limit in case session files point at each other; deeper forks are not shown.
-            ...(depth < 8 ? rows.filter((c) => c.parent === s.path && c.path !== s.path).flatMap((c) => tree(c, depth + 1)) : []),
+            ...(depth < 8 ? projectSessions.filter((c) => c.parent === s.path && c.path !== s.path).flatMap((c) => tree(c, depth + 1)) : []),
           ];
           return [
             <ListItem
@@ -99,7 +98,7 @@ export function Sidebar() {
               className={open ? "font-semibold text-fg" : undefined}
               onClick={() => toggle(p.cwd)}
               onContextMenu={(e) => menus.projectMenu(e, p, sessions.filter((s) => s.cwd === p.cwd).length)}
-              meta={<>{!open && runningHere && <Dot color="accent" />}{rows.length}</>}
+              meta={<>{!open && runningHere && <Dot color="accent" />}{projectSessions.length}</>}
             >
               <Icon name={open ? "chevronDown" : "chevron"} size={14} />
               <span className="text-muted"><Icon name="folder" /></span>

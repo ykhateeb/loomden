@@ -35,7 +35,7 @@ export function App() {
       if (isCanvasKey) {
         if (!active) return;
         e.preventDefault();
-        return actions.canvas(active);
+        return actions.toggleCanvas(active);
       }
       if (!(e.metaKey || e.ctrlKey)) return;
       const key = e.key.toLowerCase();

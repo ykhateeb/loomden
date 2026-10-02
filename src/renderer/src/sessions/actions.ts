@@ -139,7 +139,7 @@ async function relocate(key: string, cwd: string) {
   const canvas = getState().canvas[key];
   if (canvas) {
     set({ canvas: without(getState().canvas, key) });
-    if (canvas.open) designActions.canvas(key);
+    if (canvas.open) designActions.toggleCanvas(key);
   }
   await sessionActions.refreshSidebar();
 }

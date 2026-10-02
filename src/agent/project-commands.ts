@@ -1,5 +1,5 @@
 import { searchFiles } from "#core/attachments";
-import { designList, designOpen, designUrl } from "#core/design";
+import { designList, designUrl, startDesignServer } from "#core/design";
 import { addProject, assertProject, removeProject } from "#core/projects";
 import { listSessions } from "#core/sessions/list";
 import { setTrust, trustList } from "#core/trust";
@@ -26,7 +26,7 @@ export function projectCommands({ grants, sessions, send }: Deps) {
     },
     "design.open": async (cmd) => {
       await assertProject(cmd.cwd);
-      await designOpen(cmd, {
+      await startDesignServer(cmd, {
         prompt: (key, text) => sessions.prompt(key, text),
         build: (cwd, pack) => send({ type: "canvas.build", cwd, ...pack }),
       });

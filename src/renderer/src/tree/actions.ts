@@ -4,13 +4,13 @@ import { sessionActions } from "#renderer/sessions/actions";
 import { getState, notice, report, reportOr, set } from "#renderer/store";
 
 export const treeActions = {
-  tree: (key: string) => call<SessionTree>({ type: "session.tree", key }).catch(reportOr(undefined)),
+  loadTree: (key: string) => call<SessionTree>({ type: "session.tree", key }).catch(reportOr(undefined)),
   /** Switch to a point. A user message comes back as a draft (an agent event) to edit and send. */
   navigate: (key: string, id: string, summarize: boolean) =>
     call({ type: "session.navigate", key, id, summarize })
       .then(() => showChangedChat(key))
       .catch(report),
-  label: (key: string, id: string, label: string) =>
+  setLabel: (key: string, id: string, label: string) =>
     call({ type: "session.label", key, id, label })
       .then(() => set((s) => ({ treeStamp: s.treeStamp + 1 })))
       .catch(report),

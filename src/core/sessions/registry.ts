@@ -136,10 +136,10 @@ export function createRegistry({ send, modelRuntime, grants, dialogs }: { send: 
      */
     async prompt(key: string, text: string, behavior?: PromptBehavior, imagePaths: string[] = []) {
       const entry = get(key);
-      const s = entry.rt.session;
+      const session = entry.rt.session;
       const images = await Promise.all(imagePaths.map((path) => readImage(grants, path)));
-      const streaming = s.isStreaming;
-      const queuedBefore = s.pendingMessageCount;
+      const streaming = session.isStreaming;
+      const queuedBefore = session.pendingMessageCount;
       await new Promise<void>((resolve, reject) => {
         let done = false;
         const settle = (error?: Error) => {
@@ -150,7 +150,7 @@ export function createRegistry({ send, modelRuntime, grants, dialogs }: { send: 
           return true;
         };
         // A failed preflight is always followed by pi's throw, which carries the reason: settle on that.
-        s.prompt(text, { images, streamingBehavior: streaming ? (behavior ?? "steer") : undefined, preflightResult: (ok) => ok && settle() })
+        session.prompt(text, { images, streamingBehavior: streaming ? (behavior ?? "steer") : undefined, preflightResult: (ok) => ok && settle() })
           .then(() => settle())
           .catch((e: Error) => {
             // Already settled: pi accepted the message, so a later run error is only a notice.
@@ -160,7 +160,7 @@ export function createRegistry({ send, modelRuntime, grants, dialogs }: { send: 
       });
       // Only a message pi really queued gets a "Queued" row (an extension command runs at once, input handlers can take it).
       // ponytail: compares counts; a queued message delivered in the same moment can hide the new one.
-      if (streaming && s.pendingMessageCount > queuedBefore) entry.queued.push({ text, images: imagePaths });
+      if (streaming && session.pendingMessageCount > queuedBefore) entry.queued.push({ text, images: imagePaths });
       sendState(key);
     },
 
@@ -168,21 +168,21 @@ export function createRegistry({ send, modelRuntime, grants, dialogs }: { send: 
 
     /** Board 2c: extension commands, prompt templates and skills, as terminal pi offers them. */
     commands(key: string): SlashCommand[] {
-      const s = get(key).rt.session;
+      const session = get(key).rt.session;
       return [
-        ...s.extensionRunner.getRegisteredCommands().map((c) => ({ name: c.invocationName, description: c.description ?? "", source: "extension" as const })),
-        ...s.promptTemplates.map((p) => ({ name: p.name, description: p.description, source: "prompt" as const })),
-        ...s.resourceLoader.getSkills().skills.map((k) => ({ name: `skill:${k.name}`, description: k.description, source: "skill" as const })),
+        ...session.extensionRunner.getRegisteredCommands().map((c) => ({ name: c.invocationName, description: c.description ?? "", source: "extension" as const })),
+        ...session.promptTemplates.map((p) => ({ name: p.name, description: p.description, source: "prompt" as const })),
+        ...session.resourceLoader.getSkills().skills.map((k) => ({ name: `skill:${k.name}`, description: k.description, source: "skill" as const })),
       ];
     },
 
     models: (key: string): ModelChoice[] => availableModels(get(key).rt.session.modelRuntime),
 
     async setModel(key: string, provider: string, id: string) {
-      const s = get(key).rt.session;
-      const model = s.modelRuntime.getAvailableSnapshot().find((m) => m.provider === provider && m.id === id);
+      const session = get(key).rt.session;
+      const model = session.modelRuntime.getAvailableSnapshot().find((m) => m.provider === provider && m.id === id);
       if (!model) throw new Error(`Model ${provider}/${id} is not available`);
-      await s.setModel(model);
+      await session.setModel(model);
       sendState(key);
     },
 
@@ -197,11 +197,11 @@ export function createRegistry({ send, modelRuntime, grants, dialogs }: { send: 
      * the message back to edit and send again. `summarize` keeps what pi learned on the branch you leave.
      */
     async navigate(key: string, id: string, summarize: boolean) {
-      const s = get(key).rt.session;
-      const r = await s.navigateTree(id, { summarize });
-      sendMessages(key, s);
+      const session = get(key).rt.session;
+      const navigation = await session.navigateTree(id, { summarize });
+      sendMessages(key, session);
       sendState(key);
-      sendDraft(key, r.editorText);
+      sendDraft(key, navigation.editorText);
     },
 
     /** Board 3a: an empty label removes it. */
@@ -215,14 +215,14 @@ export function createRegistry({ send, modelRuntime, grants, dialogs }: { send: 
      * fork: then the session file stays the same.
      */
     async fork({ key, id, position }: { key: string; id: string; position?: "at" }) {
-      const r = await get(key).rt.fork(id, position && { position });
-      sendDraft(key, r.selectedText);
+      const forkResult = await get(key).rt.fork(id, position && { position });
+      sendDraft(key, forkResult.selectedText);
     },
 
     /** Board 2: "Compact now". Long; the state shows it running, errors come as a notice. */
     compact(key: string) {
-      const s = get(key).rt.session;
-      s.compact().catch((e: Error) => notify("error", `Compact failed: ${e.message}`, key)).finally(() => sendState(key));
+      const session = get(key).rt.session;
+      session.compact().catch((e: Error) => notify("error", `Compact failed: ${e.message}`, key)).finally(() => sendState(key));
       sendState(key);
     },
 
@@ -241,9 +241,9 @@ export function createRegistry({ send, modelRuntime, grants, dialogs }: { send: 
     },
 
     setTools(key: string, names: string[]) {
-      const s = get(key).rt.session;
-      const known = new Set(s.getAllTools().map((t) => t.name));
-      s.setActiveToolsByName(names.filter((n) => known.has(n)));
+      const session = get(key).rt.session;
+      const known = new Set(session.getAllTools().map((t) => t.name));
+      session.setActiveToolsByName(names.filter((n) => known.has(n)));
       sendState(key);
     },
 
@@ -274,8 +274,8 @@ export function createRegistry({ send, modelRuntime, grants, dialogs }: { send: 
       const to = folderCopyPath(from, SessionManager.create(cwd).getSessionDir());
       copyToFolder({ from, to, cwd });
       const freeId = rt.cwd === NO_PROJECT_DIR ? rt.session.sessionManager.getSessionId() : undefined;
-      const r = await rt.switchSession(to);
-      if (r.cancelled) {
+      const switched = await rt.switchSession(to);
+      if (switched.cancelled) {
         rmSync(to);
         throw new Error("An extension stopped the move.");
       }

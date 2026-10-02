@@ -31,7 +31,7 @@ export const packageActions = {
       set((s) => ({ packageWork: without(s.packageWork, source) }));
     }
   },
-  gallery: (query: string) => call<GalleryItem[]>({ type: "packages.gallery", query }),
+  searchGallery: (query: string) => call<GalleryItem[]>({ type: "packages.gallery", query }),
   reloadPackages: () => {
     const n = Object.keys(getState().live).length; // the agent reloads each open session
     return call({ type: "packages.reload" })

@@ -35,7 +35,7 @@ export function TreeView({ sessionKey, state }: { sessionKey: string; state: Liv
   // The tree changes with every new message, a switch, a fork, and a label: fetch it again then.
   const stamp = useStore((s) => s.treeStamp);
   useEffect(() => {
-    actions.tree(sessionKey).then((t) => t && setTree(t));
+    actions.loadTree(sessionKey).then((t) => t && setTree(t));
   }, [sessionKey, messages?.length, stamp]);
   useEffect(() => box.current?.focus(), []);
 
@@ -201,7 +201,7 @@ export function TreeView({ sessionKey, state }: { sessionKey: string; state: Liv
           point={pick.kind === "card" ? { name: pick.card.name, time: time(pick.card.at), text: pick.card.first } : { name: pick.row.kind === "you" ? "you" : "pi", time: pick.row.at ? time(pick.row.at) : "", text: pick.row.text }}
           current={pick.kind === "row" ? pick.row.label : pick.card.label}
           others={labels}
-          onSave={(label) => actions.label(sessionKey, labelId, label)}
+          onSave={(label) => actions.setLabel(sessionKey, labelId, label)}
           onClose={() => {
             setLabeling(false);
             box.current?.focus();
