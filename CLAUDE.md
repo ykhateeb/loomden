@@ -78,9 +78,28 @@ The window shows model output, so the agent and main treat each value from the w
 
 ## Code rules
 
+### Principles
+
+From Clean Code, Clean Architecture, and common practice. The sections below apply them to this repo.
+
+- **KISS (Keep It Simple):** write the simple solution that a reviewer understands in one read. Prefer boring code to clever code.
+- **YAGNI (You Aren't Gonna Need It):** write only the code that the current task needs. Add an abstraction (an interface, a factory, an option) when its second use arrives. Delete dead code.
+- **DRY (Don't Repeat Yourself):** before you add code, look for a helper in this repo (see "Modules"), then in the Node stdlib, then in an installed dependency.
+- **SRP (Single Responsibility):** one module or function has one job. If a module gets a second job, split it by job, as in `src/core/sessions/`.
+- **Small functions:** a function does one thing at one level of abstraction. If a part has a name that is not a restatement of the function, extract it to a named helper.
+- **Meaningful names:** a name tells why the value exists. If a name needs a comment, change the name. Give each magic number or string a named `const`.
+- **Explanatory variables:** put each middle result of a long expression in a `const` with a name.
+- **Encapsulate conditionals:** give a complex condition a name, for example `if (shouldSkip(p))` instead of `if (p.a && !p.b || p.c)`.
+- **Positive conditionals:** write a condition in the positive form, for example `if (installed)`, not `if (!notInstalled)`.
+- **Avoid deep nesting:** return early for each guard case, so the main path has the lowest indent.
+- **No flag arguments:** write two functions instead of one function with a boolean that selects between two behaviors.
+- **No side effects:** a function does only what its name says. If it must change other state, put that change in its name.
+- **Command-query separation:** a function changes state or returns an answer, not both.
+- **Dependency Rule:** dependencies point inward, to the logic. `src/core/` imports no `electron`, `#renderer/*`, or `#preload` code. The renderer talks to the agent only through `#protocol`.
+- **Humble Object:** keep disk, network, and pi calls in a thin shell. Put the decisions in a pure function, so a unit test can call it with no disk.
+
 ### Modules
 
-- One module has one job. If a module gets a second job, split it by job, as in `src/core/sessions/`.
 - Keep state in a `create…()` factory (`createRegistry`, `createRuntimes`, `createGrants`, `createDialogs`), not at module level. `src/agent/index.ts` makes each one once and passes it on. Old exceptions, marked `ponytail:`: `projects.ts`, `attachments.ts`, `design.ts`, `providers.ts`.
 - Use the shared helpers. Do not copy them:
   - `readJson()`, `MODEL_SETTING_KEYS`: `src/core/settings.ts`
@@ -95,7 +114,6 @@ The window shows model output, so the agent and main treat each value from the w
 - Use the stepdown rule: put the exported functions at the top of the file and their helpers below, in call order.
   - Write module-level helpers as `function` declarations. They are hoisted, so a call can come before the definition.
   - A helper that shares state with its caller (as `fork` and `connect` in `src/main/agent-host.ts`) stays a closure inside the caller.
-- Keep each function at one level of abstraction. If a function mixes high-level steps with low-level details, move the details to a named helper.
 - A new function with 3 or more parameters takes an object (for example, `createRegistry({ send, modelRuntime, grants, dialogs })`). Older functions with positional parameters remain. Change one when you change its signature for another reason.
 
 ### Types
@@ -152,5 +170,6 @@ The window shows model output, so the agent and main treat each value from the w
 ## Comments and commits
 
 - Comments like "board 2c" or "board C12" refer to numbered design boards of the product spec. That spec is not in this repo.
+- A comment tells why. The code tells what. If a comment repeats the code, delete the comment.
 - Write comments and commit messages in short, plain English. Feature commit subjects name the step and boards (for example, "(step 9, board C12)"), and bullet lists follow.
 - A `ponytail:` comment marks a deliberate simplification and states its limit.
