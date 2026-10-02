@@ -1,5 +1,7 @@
 import { expect, test } from "vitest";
+import type { AgentMessage } from "#protocol";
 import { dayLabel, diffCounts, home, plural } from "./format";
+import { groupTurns } from "./turns";
 
 test("diff counts from pi's display diff", () => {
   expect(diffCounts("+19 let a;\n 20 keep\n-21 old\n+22 new")).toEqual({ added: 2, removed: 1 });
@@ -44,4 +46,15 @@ test("plural and home folder for the UI", () => {
   expect(plural(3, "canvas", "canvases")).toBe("3 canvases");
   expect(home("/Users/me/code/app")).toBe("~/code/app");
   expect(home("/opt/app")).toBe("/opt/app");
+});
+
+test("groupTurns: a date line for a new day, and pi's messages with their tool results as one turn", () => {
+  const day1 = new Date(2026, 8, 28, 10).getTime();
+  const day2 = new Date(2026, 8, 29, 10).getTime();
+  // Partial messages: groupTurns reads only role and timestamp.
+  const m = (role: string, timestamp: number) => ({ role, timestamp }) as unknown as AgentMessage;
+  const rows = groupTurns([m("user", day1), m("assistant", day1), m("toolResult", day1), m("assistant", day1), m("user", day1 + 1), m("user", day2)]);
+  expect(rows.map((r) => (r.kind === "turn" ? `turn:${r.key}:${r.parts.length}` : `${r.kind}:${r.key}`))).toEqual([
+    "day:d0", "message:0", "turn:1:2", "message:4", "day:d5", "message:5",
+  ]);
 });

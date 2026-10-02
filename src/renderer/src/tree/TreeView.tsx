@@ -6,13 +6,14 @@ import { useStore } from "#renderer/store";
 import { Button, cx, Kbd, Pill, Spinner } from "#renderer/ui/base";
 import { Checkbox, Segmented } from "#renderer/ui/controls";
 import { Icon } from "#renderer/ui/Icon";
+import { BranchCardView } from "./BranchCardView";
 import { LabelDialog } from "./LabelDialog";
+import { entryId, type Picked, pickTargets } from "./pick";
 import { hasModifier, isTyping } from "#renderer/ui/keys";
 
 type Filter = "all" | "mine" | "labeled" | "notools";
 /** The rows each filter shows. */
 const SHOWS: Record<Filter, (r: PreviewRow) => boolean> = { all: () => true, mine: (r) => r.kind === "you", labeled: (r) => !!r.label, notools: (r) => !r.tool };
-type Pick = { kind: "row"; row: PreviewRow } | { kind: "card"; card: BranchCard };
 
 const FILTERS: { value: Filter; label: string }[] = [
   { value: "all", label: "All" },
@@ -20,14 +21,13 @@ const FILTERS: { value: Filter; label: string }[] = [
   { value: "labeled", label: "Labeled" },
   { value: "notools", label: "No tools" },
 ];
-const entryId = (row: PreviewRow) => row.id.replace(/:tool$/, "");
 
 /** Board 3: pick a message, then continue from it on a new branch — or switch to another branch. */
 export function TreeView({ sessionKey, state }: { sessionKey: string; state: LiveState }) {
   const messages = useStore((s) => s.messages[sessionKey]);
   const [tree, setTree] = useState<SessionTree>();
   const [filter, setFilter] = useState<Filter>("all");
-  const [pick, setPick] = useState<Pick>();
+  const [pick, setPick] = useState<Picked>();
   const [summarize, setSummarize] = useState(true);
   const [labeling, setLabeling] = useState(false);
   const box = useRef<HTMLDivElement>(null);
@@ -46,19 +46,13 @@ export function TreeView({ sessionKey, state }: { sessionKey: string; state: Liv
   const current = tree.last !== undefined ? cards(tree.last).find((c) => c.current) : undefined;
   const leaving = current?.name ?? "this branch";
 
-  // What each action does with the pick.
-  const target = pick?.kind === "card" ? pick.card.leafId : pick && entryId(pick.row);
-  // pi forks from a message you wrote: the row itself, or the first one on the card's branch.
-  const forkId = pick?.kind === "card" ? pick.card.forkId : pick?.kind === "row" && pick.row.kind === "you" ? entryId(pick.row) : undefined;
+  const { target, forkId, labelId, isHere, leavesBranch } = pickTargets(pick, tree);
   const forkable = !!forkId;
-  const labelId = pick?.kind === "card" ? pick.card.id : pick && entryId(pick.row);
-  // pi's point can be on an entry with no row (a label, a model change): compare with its row.
-  const isHere = pick?.kind === "card" ? pick.card.current && pick.card.leafId === tree.leafId : !!pick && entryId(pick.row) === tree.here;
   const busy = state.streaming || state.compacting;
 
   const switchTo = async () => {
     if (!target || isHere || busy) return;
-    await actions.navigate(sessionKey, target, summarize && pick?.kind === "card" && !pick.card.current);
+    await actions.navigate(sessionKey, target, summarize && leavesBranch);
   };
   const forkHere = () => {
     if (forkId && !busy) actions.fork(sessionKey, forkId);
@@ -77,50 +71,19 @@ export function TreeView({ sessionKey, state }: { sessionKey: string; state: Liv
     run();
   };
 
-  const card = (c: BranchCard) => {
-    const selected = pick?.kind === "card" && pick.card.id === c.id;
-    return (
-      <button
-        key={c.id}
-        onClick={() => setPick({ kind: "card", card: c })}
-        onDoubleClick={() => {
-          setPick({ kind: "card", card: c });
-          if (!c.current) actions.navigate(sessionKey, c.leafId, false);
-        }}
-        className={cx(
-          "flex w-[min(380px,calc(50%-7px))] min-w-[240px] flex-col rounded-xl border bg-panel text-left",
-          c.current && "border-accent-line bg-[linear-gradient(180deg,rgba(122,168,216,.08),var(--color-panel)_70%)]",
-          selected ? "border-warn-line shadow-[0_0_0_3px_var(--color-warn-bg)]" : !c.current && "border-line hover:border-line2",
-        )}
-      >
-        <div className="flex w-full items-center gap-2 px-3.5 pt-3 text-base font-semibold">
-          <span className="text-muted"><Icon name="branch" size={14} /></span>
-          <span className="truncate">{c.name}</span>
-          {c.current && <Pill tone="accent" className="ml-auto h-5 text-label">you are here</Pill>}
-          {selected && !c.current && <Pill tone="warn" className="ml-auto h-5 text-label">selected</Pill>}
-        </div>
-        <div className="flex w-full flex-col gap-1.5 px-3.5 pt-2.5 pb-3.5 text-sm">
-          <span className="truncate text-sub">{c.first}</span>
-          {c.tools.length > 0 && (
-            <span className="truncate text-muted">
-              {c.tools.map((t, i) => (
-                <span key={t.tool}>
-                  {i > 0 && " · "}
-                  <span className="font-mono text-meta font-semibold text-orange">{t.tool}</span> {t.files.length ? t.files.slice(0, 2).join(", ") : `${t.count}×`}
-                  {t.added + t.removed > 0 && <> <span className="text-ok">+{t.added}</span> <span className="text-danger">−{t.removed}</span></>}
-                  {t.failed > 0 && <span className="text-danger"> ✗ {t.failed} failed</span>}
-                </span>
-              ))}
-            </span>
-          )}
-          <span className="flex items-center gap-1.5 text-muted">
-            {c.current && state.streaming && <Spinner size={10} />}
-            {c.current ? "latest" : "last"} · {time(c.at)}{c.current && state.streaming ? " · working" : ""}
-          </span>
-        </div>
-      </button>
-    );
-  };
+  const card = (c: BranchCard) => (
+    <BranchCardView
+      key={c.id}
+      card={c}
+      selected={pick?.kind === "card" && pick.card.id === c.id}
+      streaming={state.streaming}
+      onPick={() => setPick({ kind: "card", card: c })}
+      onOpen={() => {
+        setPick({ kind: "card", card: c });
+        if (!c.current) actions.navigate(sessionKey, c.leafId, false);
+      }}
+    />
+  );
 
   return (
     <div ref={box} tabIndex={-1} onKeyDown={onKeyDown} className="flex min-h-0 flex-1 flex-col outline-none">
