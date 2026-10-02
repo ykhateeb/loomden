@@ -5,7 +5,7 @@ import { Type } from "typebox";
 import { defineTool, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { startServer, type CanvasServer } from "./server.js";
 import {
-  RAW_BOARD, RAW_STATE, RAW_TOKENS, STATUS_BUILD, STATUS_CANVAS, compareBoard, designSystemDir, projectRoot, createBoard, clearDraftState, createCanvas, freeRoot, planBoards, setEditing, proposeTokens, editBoard, ensureGitignore, listCanvases, readBoard, readCanvas, setNoteState,
+  RAW_BOARD, RAW_STATE, RAW_TOKENS, STATUS_BUILD, STATUS_CANVAS, boardKey, canvasExists, compareBoard, designSystemDir, dsItems, projectRoot, createBoard, clearDraftState, createCanvas, freeCanvasName, freeRoot, gitignoreMissing, planBoards, setEditing, proposeTokens, editBoard, ensureGitignore, listCanvases, readBoard, readCanvas, readCompares, setNoteState,
 } from "./store.js";
 
 const text = (t: string) => ({ content: [{ type: "text" as const, text: t }], details: undefined });
@@ -32,7 +32,6 @@ export default function (pi: ExtensionAPI) {
     });
     announced.add(name);
     ctx.ui.setStatus(STATUS_CANVAS, server.url(name));
-    return server.url(name);
   };
 
   const canvasTools = [
@@ -50,10 +49,12 @@ export default function (pi: ExtensionAPI) {
         canvasTitle: Type.Optional(Type.String({ description: "Canvas title, for a new canvas" })),
       }),
       async execute(_id, a, _s, _u, ctx) {
-        const r = await createBoard(rootOf(ctx), a);
-        const ignored = r.isNew && (await ensureGitignore(ctx.cwd));
+        const isNew = !canvasExists(rootOf(ctx), a.canvas);
+        await createBoard(rootOf(ctx), a);
+        const ignored = isNew && (await gitignoreMissing(ctx.cwd));
+        if (ignored) await ensureGitignore(ctx.cwd);
         if (inTenon() && !announced.has(a.canvas)) await show(ctx, a.canvas); // the panel opens as the first board appears
-        return text(`Created ${a.canvas}/${a.board} at rev ${r.rev}.` +
+        return text(`Created ${a.canvas}/${a.board} at rev 1.` +
           (ignored ? " Added .tenon/canvases/*/history/ to .gitignore; show this change in the review." : ""));
       },
     }),
@@ -88,8 +89,8 @@ export default function (pi: ExtensionAPI) {
         why: Type.Optional(Type.String({ description: "Short reason, kept in the history log" })),
       }),
       async execute(_id, a, _s, _u, ctx) {
-        const r = await editBoard(rootOf(ctx), a);
-        return text(`Saved ${a.canvas}/${a.board} at rev ${r.rev}.`);
+        await editBoard(rootOf(ctx), a);
+        return text(`Saved ${a.canvas}/${a.board} at rev ${a.baseRev + 1}.`); // the write guard makes it baseRev + 1
       },
     }),
     defineTool({
@@ -115,10 +116,12 @@ export default function (pi: ExtensionAPI) {
     async execute(_id, a, _s, _u, ctx) {
       lastRoot = rootOf(ctx);
       planned.add(a.canvas);
-      const r = await planBoards(rootOf(ctx), a.canvas, a.boards, a.canvasTitle);
-      if (r.isNew) await ensureGitignore(ctx.cwd);
+      const isNew = !canvasExists(rootOf(ctx), a.canvas);
+      await planBoards(rootOf(ctx), a.canvas, a.boards, a.canvasTitle);
+      if (isNew) await ensureGitignore(ctx.cwd);
       if (inTenon() && !announced.has(a.canvas)) await show(ctx, a.canvas); // the panel opens with the places for the boards
-      return text(`Planned ${r.planned} boards. Now call canvas_create for each, in this order.`);
+      const count = (await readCanvas(rootOf(ctx), a.canvas)).plan?.length ?? 0;
+      return text(`Planned ${count} boards. Now call canvas_create for each, in this order.`);
     },
   }));
   canvasTools.push(defineTool({
@@ -135,7 +138,8 @@ export default function (pi: ExtensionAPI) {
       screenshot: Type.Optional(Type.String({ description: "Path of a png, jpg or webp screenshot of the app screen" })),
     }),
     async execute(_id, a, _s, _u, ctx) {
-      const r = await compareBoard(rootOf(ctx), a.canvas, dsOf(ctx), { ...a, screenshot: a.screenshot && resolve(ctx.cwd, a.screenshot) });
+      await compareBoard(rootOf(ctx), a.canvas, dsOf(ctx), { ...a, screenshot: a.screenshot && resolve(ctx.cwd, a.screenshot) });
+      const r = (await readCompares(rootOf(ctx), a.canvas))[boardKey(a.board)];
       return text(r.differences.length
         ? `${r.differences.length} difference${r.differences.length === 1 ? "" : "s"} from board ${a.board} (rev ${r.rev}):\n${r.differences.map((d) => `- ${d.title}. ${d.detail}`).join("\n")}\nThe person sees them next to the board.`
         : `No differences from board ${a.board} (rev ${r.rev}) in what you gave.`);
@@ -149,8 +153,8 @@ export default function (pi: ExtensionAPI) {
       tokens: Type.Any({ description: "tokens.json content: { name, version, source, color:{tokens:[{name,value,usage}]}, type:{families,styles}, spacing:{tokens}, radius:{tokens} }" }),
     }),
     async execute(_id, a, _s, _u, ctx) {
-      const n = await proposeTokens(dsOf(ctx), a.tokens);
-      return text(`Proposed ${n} tokens. Tell the person to review them in the Design system tab of /canvas.`);
+      await proposeTokens(dsOf(ctx), a.tokens);
+      return text(`Proposed ${dsItems(a.tokens).length} tokens. Tell the person to review them in the Design system tab of /canvas.`);
     },
   }));
   canvasTools.forEach((t) => pi.registerTool(t));
@@ -240,7 +244,8 @@ export default function (pi: ExtensionAPI) {
       if (made && made[1] === "auto" && (await listCanvases(root))[0]) return void (await open((await listCanvases(root))[0]));
       if (made) {
         const title = (made[2] ?? "").trim() || "Untitled canvas";
-        const name = await createCanvas(root, title);
+        const name = freeCanvasName(root, title);
+        await createCanvas(root, { name, title });
         await ensureGitignore(ctx.cwd);
         await open(name);
         pi.sendUserMessage(`Created the canvas “${title}” (canvas "${name}"). Draft the boards for what we talked about: list them with canvas_plan first, then canvas_create for each board.`, { deliverAs: "followUp" });

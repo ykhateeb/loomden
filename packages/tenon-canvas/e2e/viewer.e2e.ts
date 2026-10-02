@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type Frame, type Page } from "@playwright/test";
 import { startServer, type CanvasServer } from "../src/server";
-import { compareBoard, createBoard, createCanvas, editBoard, planBoards, proposeTokens, readCanvas, setEditing } from "../src/store";
+import { compareBoard, createBoard, createCanvas, editBoard, freeCanvasName, planBoards, proposeTokens, readCanvas, setEditing } from "../src/store";
 
 const board = (t: string) =>
   `<html><head><style>html,body{margin:0;width:390px;height:844px}button{margin:20px}</style></head><body><h1>${t}</h1><button>Pay now</button></body></html>`;
@@ -289,7 +289,8 @@ test("App view: differences from design_compare, Fix the code and Board is wrong
 });
 
 test("First draft: an empty canvas, places for planned boards, and pi is writing or editing", async ({ page }) => {
-  const empty = await createCanvas(root, "Onboarding flow");
+  const empty = freeCanvasName(root, "Onboarding flow");
+  await createCanvas(root, { name: empty, title: "Onboarding flow" });
   await page.goto(server.url(empty));
   await expect(page.getByText("No boards yet. pi is drafting")).toBeVisible();
 

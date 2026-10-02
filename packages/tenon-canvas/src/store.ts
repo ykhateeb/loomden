@@ -55,6 +55,9 @@ export async function readCanvas(root: string, canvas: string): Promise<Canvas> 
   }
 }
 
+/** True when the canvas has its canvas.json. */
+export const canvasExists = (root: string, canvas: string) => existsSync(join(canvasDir(root, canvas), "canvas.json"));
+
 export async function listCanvases(root: string): Promise<string[]> {
   if (!existsSync(root)) return [];
   const dirs = await readdir(root, { withFileTypes: true });
@@ -76,14 +79,14 @@ async function save(dir: string, c: Canvas, key: string, html: string, by: strin
   return rev;
 }
 
+/** A new board is always rev 1. Makes the canvas if needed. */
 export async function createBoard(root: string, a: {
   canvas: string; board: string; title: string; w: number; h: number; html: string; canvasTitle?: string;
 }) {
   const dir = canvasDir(root, a.canvas);
-  return locked(dir, async () => {
+  await locked(dir, async () => {
     const key = boardKey(a.board);
     let c: Canvas | undefined = existsSync(join(dir, "canvas.json")) ? await readCanvas(root, a.canvas) : undefined;
-    const isNew = !c;
     c ??= { v: 1, title: a.canvasTitle ?? a.canvas, designSystem: "../../design-system", boards: {}, order: [], notes: {} };
     if (c.boards[key]) throw new Error(`Board ${key} exists at rev ${c.boards[key].rev}. Use canvas_edit.`);
     const x = Object.values(c.boards).reduce((m, b) => Math.max(m, b.x + b.w + 80), 0);
@@ -91,7 +94,7 @@ export async function createBoard(root: string, a: {
     c.order.push(key);
     c.plan = c.plan?.filter((p) => p.key !== key); // it exists now
     c.editing = c.editing?.filter((k) => k !== key);
-    return { rev: await save(dir, c, key, a.html, "pi", "created"), isNew };
+    await save(dir, c, key, a.html, "pi", "created");
   });
 }
 
@@ -102,13 +105,13 @@ export async function readBoard(root: string, canvas: string, board: string) {
   return { ...m, html: await readFile(join(canvasDir(root, canvas), key), "utf8") };
 }
 
-/** The write guard: fails when the board moved on since `baseRev`. */
+/** The write guard: fails when the board moved on since `baseRev`. So the new rev is always `baseRev + 1`. */
 export async function editBoard(root: string, a: {
   canvas: string; board: string; baseRev: number; html?: string;
   edits?: { find: string; replace: string }[]; by?: string; why?: string;
 }) {
   const dir = canvasDir(root, a.canvas);
-  return locked(dir, async () => {
+  await locked(dir, async () => {
     const c = await readCanvas(root, a.canvas);
     const key = boardKey(a.board);
     const m = c.boards[key];
@@ -125,7 +128,7 @@ export async function editBoard(root: string, a: {
         html = html.replace(e.find, () => e.replace);
       }
     }
-    return { rev: await save(dir, c, key, html, a.by ?? "pi", a.why ?? "") };
+    await save(dir, c, key, html, a.by ?? "pi", a.why ?? "");
   });
 }
 
@@ -199,29 +202,33 @@ export async function readHistory(root: string, canvas: string, board: string) {
   return log.split("\n").filter(Boolean).map((l) => JSON.parse(l)).filter((e) => e.board === key).reverse();
 }
 
-/** Board C3: an empty canvas, named for what you are designing. A taken name gets -2, -3… */
-export async function createCanvas(root: string, title: string): Promise<string> {
+/** Board C3: a free name for a canvas, from what you are designing. A taken name gets -2, -3… */
+export function freeCanvasName(root: string, title: string) {
   const base = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "canvas";
-  let slugName = base;
-  for (let n = 2; existsSync(join(root, slugName)); n++) slugName = `${base}-${n}`;
-  return locked(canvasDir(root, slugName), async () => {
-    await mkdir(join(root, slugName), { recursive: true });
+  let name = base;
+  for (let n = 2; existsSync(join(root, name)); n++) name = `${base}-${n}`;
+  return name;
+}
+
+/** An empty canvas. Get a free `name` with freeCanvasName(). */
+export async function createCanvas(root: string, { name, title }: { name: string; title: string }) {
+  await locked(canvasDir(root, name), async () => {
+    await mkdir(root, { recursive: true });
+    await mkdir(join(root, name)); // fails if the name was taken in the meantime
     const c: Canvas = { v: 1, title, designSystem: "../../design-system", boards: {}, order: [], notes: {} };
-    await writeFile(join(root, slugName, "canvas.json"), JSON.stringify(c, null, 2));
-    return slugName;
+    await writeFile(join(root, name, "canvas.json"), JSON.stringify(c, null, 2));
   });
 }
 
-/** Board C4: pi lists the boards it will make, so the canvas shows a place for each. Makes the canvas if needed. */
+/** Board C4: pi lists the boards it will make, so the canvas shows a place for each (`plan`). Makes the canvas if needed. */
 export async function planBoards(root: string, canvas: string, boards: { board: string; title: string; w?: number; h?: number }[], title?: string) {
   const dir = canvasDir(root, canvas);
-  return locked(dir, async () => {
+  await locked(dir, async () => {
     const isNew = !existsSync(join(dir, "canvas.json"));
     const c: Canvas = isNew ? { v: 1, title: title ?? canvas, designSystem: "../../design-system", boards: {}, order: [], notes: {} } : await readCanvas(root, canvas);
     c.plan = boards.map((b) => ({ key: boardKey(b.board), title: b.title, w: b.w ?? 390, h: b.h ?? 844 })).filter((p) => !c.boards[p.key]);
     await mkdir(dir, { recursive: true });
     await writeFile(join(dir, "canvas.json"), JSON.stringify(c, null, 2));
-    return { isNew, planned: c.plan.length };
   });
 }
 
@@ -361,7 +368,6 @@ export async function proposeTokens(ds: string, t: any) {
     }
   await mkdir(ds, { recursive: true });
   await writeFile(join(ds, "tokens.proposed.json"), JSON.stringify(t, null, 2));
-  return items.length;
 }
 
 export async function acceptProposal(ds: string) {
@@ -418,26 +424,33 @@ export const STATUS_BUILD = "tenon-canvas-build";
 /** Where a session with no project keeps its canvases, until it is added to a project. */
 export const freeRoot = (freeDir: string, sessionId: string) => join(freeDir, slug(sessionId), "canvases");
 
-/** Add to project: move every canvas folder into the project. A taken name gets -2, -3… */
-export async function moveCanvases(fromRoot: string, toRoot: string): Promise<string[]> {
-  const moved: string[] = [];
-  await mkdir(toRoot, { recursive: true });
+export type CanvasMove = { from: string; to: string };
+
+/** Add to project: where each canvas folder goes in the project. A taken name gets -2, -3… */
+export async function canvasMoves(fromRoot: string, toRoot: string): Promise<CanvasMove[]> {
+  const moves: CanvasMove[] = [];
   for (const name of await listCanvases(fromRoot)) {
     let to = name;
-    for (let n = 2; existsSync(join(toRoot, to)); n++) to = `${name}-${n}`;
-    await cp(join(fromRoot, name), join(toRoot, to), { recursive: true });
-    await rm(join(fromRoot, name), { recursive: true });
-    moved.push(to);
+    for (let n = 2; existsSync(join(toRoot, to)) || moves.some((m) => m.to === to); n++) to = `${name}-${n}`;
+    moves.push({ from: name, to });
   }
-  return moved;
+  return moves;
+}
+
+/** Add to project: move the canvas folders, as canvasMoves() planned. */
+export async function moveCanvases({ fromRoot, toRoot, moves }: { fromRoot: string; toRoot: string; moves: CanvasMove[] }) {
+  await mkdir(toRoot, { recursive: true });
+  for (const m of moves) {
+    await cp(join(fromRoot, m.from), join(toRoot, m.to), { recursive: true, errorOnExist: true, force: false });
+    await rm(join(fromRoot, m.from), { recursive: true });
+  }
 }
 
 /** Add to project: the session's design system comes too, unless the project has one already. */
-export async function moveDesignSystem(fromDs: string, toDs: string): Promise<boolean> {
-  if (!existsSync(join(fromDs, "tokens.json")) || existsSync(toDs)) return false;
+export async function moveDesignSystem(fromDs: string, toDs: string) {
+  if (!existsSync(join(fromDs, "tokens.json")) || existsSync(toDs)) return;
   await cp(fromDs, toDs, { recursive: true });
   await rm(fromDs, { recursive: true });
-  return true;
 }
 
 /** The pack a build session starts from: approved revs, done notes, and the tokens the boards use. */
@@ -504,10 +517,10 @@ export function boardFacts(html: string, vars: Map<string, string>): Fact[] {
 export type Difference = { id: string; title: string; detail: string; state: "open" | "fix" | "wrong" };
 export type Compare = { board: string; rev: number; at: string; screenshot?: string; differences: Difference[] };
 
-/** Board against the app (board C12): pi gives what the app shows; the differences come from the approved board. */
+/** Board against the app (board C12): pi gives what the app shows; the differences come from the approved board. Read them with readCompares(). */
 export async function compareBoard(root: string, canvas: string, ds: string, a: {
   board: string; app: { text: string; styles?: Record<string, string | number> }[]; screenshot?: string;
-}): Promise<Compare> {
+}) {
   const dir = canvasDir(root, canvas);
   const c = await readCanvas(root, canvas);
   const key = boardKey(a.board);
@@ -549,7 +562,7 @@ export async function compareBoard(root: string, canvas: string, ds: string, a: 
     await copyFile(a.screenshot, join(dir, "compare", screenshot));
   }
   // Running it again keeps what a person already decided about the same difference.
-  return locked(dir, async () => {
+  await locked(dir, async () => {
     const file = join(dir, "compare", `${nameOf(key)}.json`);
     const before: Compare | undefined = await readJson(file);
     const result: Compare = {
@@ -561,7 +574,6 @@ export async function compareBoard(root: string, canvas: string, ds: string, a: 
     };
     await mkdir(join(dir, "compare"), { recursive: true });
     await writeFile(file, JSON.stringify(result, null, 2));
-    return result;
   });
 }
 
@@ -587,13 +599,19 @@ export function setDifferenceState(root: string, canvas: string, board: string, 
   });
 }
 
-/** Keep history/ out of git. Returns true when it changed the file. */
-export async function ensureGitignore(project: string): Promise<boolean> {
+const HISTORY_IGNORE = ".tenon/canvases/*/history/";
+
+/** True when the project is a git repository and its .gitignore does not keep history/ out yet. */
+export async function gitignoreMissing(project: string) {
   if (!existsSync(join(project, ".git"))) return false;
+  const cur = await readFile(join(project, ".gitignore"), "utf8").catch(() => "");
+  return !cur.split("\n").includes(HISTORY_IGNORE);
+}
+
+/** Keep history/ out of git. */
+export async function ensureGitignore(project: string) {
+  if (!(await gitignoreMissing(project))) return;
   const f = join(project, ".gitignore");
   const cur = await readFile(f, "utf8").catch(() => "");
-  const line = ".tenon/canvases/*/history/";
-  if (cur.split("\n").includes(line)) return false;
-  await writeFile(f, cur + (cur && !cur.endsWith("\n") ? "\n" : "") + line + "\n");
-  return true;
+  await writeFile(f, cur + (cur && !cur.endsWith("\n") ? "\n" : "") + HISTORY_IGNORE + "\n");
 }

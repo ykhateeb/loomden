@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { FREE_CANVAS_DIR } from "#core/paths";
-import { designSystemDir, ensureGitignore, freeRoot, moveCanvases, moveDesignSystem, projectRoot } from "#canvas/store";
+import { canvasMoves, designSystemDir, ensureGitignore, freeRoot, moveCanvases, moveDesignSystem, projectRoot } from "#canvas/store";
 
 type Notify = (level: "info" | "error", message: string) => void;
 
@@ -20,11 +20,12 @@ export function copyToFolder({ from, to, cwd }: { from: string; to: string; cwd:
 export async function moveFreeCanvases(sessionId: string, cwd: string, notify: Notify) {
   const freeDir = freeRoot(FREE_CANVAS_DIR, sessionId);
   try {
-    const moved = await moveCanvases(freeDir, projectRoot(cwd));
+    const moves = await canvasMoves(freeDir, projectRoot(cwd));
+    await moveCanvases({ fromRoot: freeDir, toRoot: projectRoot(cwd), moves });
     await moveDesignSystem(designSystemDir(freeDir), designSystemDir(projectRoot(cwd)));
-    if (moved.length) {
+    if (moves.length) {
       await ensureGitignore(cwd);
-      notify("info", `Canvas moved to ${basename(cwd)}/.tenon/canvases/${moved.join(", ")}`);
+      notify("info", `Canvas moved to ${basename(cwd)}/.tenon/canvases/${moves.map((m) => m.to).join(", ")}`);
     }
   } catch (e) {
     notify("error", `The session moved, but its canvas did not: ${(e as Error).message}. It is still in ${freeDir}`);

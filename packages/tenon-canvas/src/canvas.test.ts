@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { startServer } from "./server.js";
-import { RAW_BOARD, RAW_STATE, RAW_TOKENS, compareBoard, designPack, readCompares, setDifferenceState, freeRoot, moveCanvases, moveDesignSystem, acceptProposal, addNote, approve, flow, restoreRev, dsReport, patchBoard, proposeTokens, readHistory, undoBoard, createBoard, editBoard, ensureGitignore, readBoard, readCanvas, stamp, tokensCss } from "./store.js";
+import { RAW_BOARD, RAW_STATE, RAW_TOKENS, canvasMoves, compareBoard, designPack, readCompares, setDifferenceState, freeRoot, gitignoreMissing, moveCanvases, moveDesignSystem, acceptProposal, addNote, approve, flow, restoreRev, dsReport, patchBoard, proposeTokens, readHistory, undoBoard, createBoard, editBoard, ensureGitignore, readBoard, readCanvas, stamp, tokensCss } from "./store.js";
 
 const html = `<html><head><title>x</title></head><body><button>Pay</button><a href="b.html">Next</a></body></html>`;
 const setup = async () => {
@@ -25,8 +25,8 @@ describe("store", () => {
     await createBoard(root, { canvas: "c1", board: "cart", title: "Cart", w: 390, h: 844, html });
     const b = await readBoard(root, "c1", "cart");
     expect(b.rev).toBe(1);
-    const r = await editBoard(root, { canvas: "c1", board: "cart", baseRev: 1, edits: [{ find: "Pay", replace: "Pay now" }] });
-    expect(r.rev).toBe(2);
+    await editBoard(root, { canvas: "c1", board: "cart", baseRev: 1, edits: [{ find: "Pay", replace: "Pay now" }] });
+    expect((await readBoard(root, "c1", "cart")).rev).toBe(2);
     await expect(editBoard(root, { canvas: "c1", board: "cart", baseRev: 1, html })).rejects.toThrow(/changed by pi at rev 2/);
     await editBoard(root, { canvas: "c1", board: "cart", baseRev: 2, html: "<p>you</p>", by: "you" });
     await expect(editBoard(root, { canvas: "c1", board: "cart", baseRev: 2, html })).rejects.toThrow(/changed by you at rev 3/);
@@ -53,8 +53,11 @@ describe("store", () => {
     await writeFile(join(ds, "tokens.json"), JSON.stringify({ color: { tokens: [{ name: "link", value: "#4e6f94" }] } }));
     expect(await tokensCss(ds)).toContain("--link: #4e6f94;");
     await mkdir(join(proj, ".git"));
-    expect(await ensureGitignore(proj)).toBe(true);
-    expect(await ensureGitignore(proj)).toBe(false);
+    expect(await gitignoreMissing(proj)).toBe(true);
+    await ensureGitignore(proj);
+    expect(await gitignoreMissing(proj)).toBe(false);
+    await ensureGitignore(proj);
+    expect((await readFile(join(proj, ".gitignore"), "utf8")).split("\n").filter(Boolean)).toHaveLength(1); // the line is there once
   });
 });
 
@@ -205,20 +208,23 @@ describe("free session canvases", () => {
     const free = freeRoot(join(proj, "free"), "abc123");
     await createBoard(free, { canvas: "landing", board: "hero", title: "Hero", w: 1, h: 1, html });
     await createBoard(root, { canvas: "landing", board: "old", title: "Old", w: 1, h: 1, html });
-    expect(await moveCanvases(free, root)).toEqual(["landing-2"]);
+    const moves = await canvasMoves(free, root);
+    expect(moves).toEqual([{ from: "landing", to: "landing-2" }]);
+    await moveCanvases({ fromRoot: free, toRoot: root, moves });
     expect(Object.keys((await readCanvas(root, "landing-2")).boards)).toEqual(["boards/hero.html"]);
     expect(Object.keys((await readCanvas(root, "landing")).boards)).toEqual(["boards/old.html"]); // the project's own canvas is untouched
     expect(await readdir(free)).toEqual([]); // nothing is left behind
-    expect(await moveCanvases(free, root)).toEqual([]);
+    expect(await canvasMoves(free, root)).toEqual([]);
 
     // the session's design system comes too, but never over the project's own
     const fromDs = join(free, "..", "design-system"), toDs = join(proj, ".tenon", "design-system");
     await mkdir(fromDs, { recursive: true });
     await writeFile(join(fromDs, "tokens.json"), "{}");
     await mkdir(toDs, { recursive: true });
-    expect(await moveDesignSystem(fromDs, toDs)).toBe(false);
+    await moveDesignSystem(fromDs, toDs);
+    expect(await readdir(toDs)).toEqual([]); // the project's own one stays
     await rm(toDs, { recursive: true });
-    expect(await moveDesignSystem(fromDs, toDs)).toBe(true);
+    await moveDesignSystem(fromDs, toDs);
     expect(await readFile(join(toDs, "tokens.json"), "utf8")).toBe("{}");
 
     const guarded = "/h/.tenon/sessions/abc123/canvases/landing/boards/hero.html";
@@ -290,7 +296,7 @@ describe("build pack and compare with the app", () => {
     const shot = join(proj, "app.png");
     await writeFile(shot, "png");
 
-    const r = await compareBoard(root, "c1", ds, {
+    await compareBoard(root, "c1", ds, {
       board: "cart",
       screenshot: shot,
       app: [
@@ -299,6 +305,7 @@ describe("build pack and compare with the app", () => {
         { text: "Extra text" },
       ],
     });
+    const r = (await readCompares(root, "c1"))["boards/cart.html"];
     expect(r.rev).toBe(1);
     expect(r.differences.map((d) => d.title)).toEqual(["Total: font-weight differs", "“Extra text” is not on the board"]);
     expect(r.differences[0].detail).toBe("The board uses label-strong-font-weight (650). The app uses 400.");
@@ -324,14 +331,18 @@ describe("build pack and compare with the app", () => {
       { text: "Pay", styles: { fontWeight: 700 } },   // the button: differs from 400
       { text: "Pay now" },
     ];
-    let r = await compareBoard(root, "c1", ds, { board: "cart", app });
+    const compared = async (a: typeof app) => {
+      await compareBoard(root, "c1", ds, { board: "cart", app: a });
+      return (await readCompares(root, "c1"))["boards/cart.html"];
+    };
+    let r = await compared(app);
     expect(r.differences.map((d) => d.title)).toEqual(["Pay: font-weight differs"]);
     expect(r.differences[0].detail).toBe("The board uses 400. The app uses 700.");
 
     await setDifferenceState(root, "c1", "cart", "d1", "wrong");
-    r = await compareBoard(root, "c1", ds, { board: "cart", app });
+    r = await compared(app);
     expect(r.differences[0].state).toBe("wrong"); // a decision survives a new run
-    r = await compareBoard(root, "c1", ds, { board: "cart", app: [{ text: "Pay", styles: { fontWeight: 650 } }, { text: "Pay", styles: { fontWeight: 500 } }, { text: "Pay now" }] });
+    r = await compared([{ text: "Pay", styles: { fontWeight: 650 } }, { text: "Pay", styles: { fontWeight: 500 } }, { text: "Pay now" }]);
     expect(r.differences[0].state).toBe("open"); // a new difference starts open
   });
 });
