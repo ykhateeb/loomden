@@ -4,11 +4,31 @@ import { BrowserWindow, dialog, ipcMain, shell } from "electron";
 import { type GrantKind, packageGrant } from "#core/grants";
 import { exportFile, sessionFile } from "#core/paths";
 import { isUuid } from "#core/ids";
-import { DIALOG_CANCELLED } from "#protocol";
+import { CODE_ITEMS, DIALOG_CANCELLED } from "#protocol";
+
+/** The buttons of a warning box: [confirm, "Cancel"]. Cancel is the default, so Enter or Space by mistake runs no code. */
+const CONFIRM_BUTTON = 0;
+const CANCEL_BUTTON = 1;
 
 /** Things only the main process can do. The agent process does not see these. */
-export function registerHostIpc(grant: (kind: GrantKind, path: string) => void) {
+export function registerHostIpc(grant: (kind: GrantKind, path: string) => void): void {
+  // Each dialog shows on the window that asked, if it still exists.
   const parent = (e: Electron.IpcMainInvokeEvent) => BrowserWindow.fromWebContents(e.sender) ?? undefined;
+  const openDialog = (e: Electron.IpcMainInvokeEvent, options: Electron.OpenDialogOptions) => {
+    const win = parent(e);
+    return win ? dialog.showOpenDialog(win, options) : dialog.showOpenDialog(options);
+  };
+  const saveDialog = (e: Electron.IpcMainInvokeEvent, options: Electron.SaveDialogOptions) => {
+    const win = parent(e);
+    return win ? dialog.showSaveDialog(win, options) : dialog.showSaveDialog(options);
+  };
+  /** A warning box that the user must confirm. A cancel throws DIALOG_CANCELLED. */
+  const confirmWarning = async (e: Electron.IpcMainInvokeEvent, { confirm, message, detail }: { confirm: string; message: string; detail: string }) => {
+    const options: Electron.MessageBoxOptions = { type: "warning", buttons: [confirm, "Cancel"], defaultId: CANCEL_BUTTON, cancelId: CANCEL_BUTTON, message, detail };
+    const win = parent(e);
+    const { response } = win ? await dialog.showMessageBox(win, options) : await dialog.showMessageBox(options);
+    if (response !== CONFIRM_BUTTON) throw new Error(DIALOG_CANCELLED);
+  };
 
   // The user picks here, and main grants the picks. The window reads them by its id: it never names a path to grant.
   // ponytail: picks stay until the app quits; each is a few paths.
@@ -16,8 +36,7 @@ export function registerHostIpc(grant: (kind: GrantKind, path: string) => void) 
   type Pick = { e: Electron.IpcMainInvokeEvent; id: unknown; kind: "folder" | "file"; options: Electron.OpenDialogOptions };
   const pickPaths = async ({ e, id, kind, options }: Pick) => {
     if (!isUuid(id)) throw new Error("Not a pick id");
-    const win = parent(e);
-    const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
+    const result = await openDialog(e, options);
     if (result.canceled) return;
     for (const p of result.filePaths) grant(kind, p);
     picks.set(id, result.filePaths);
@@ -30,9 +49,7 @@ export function registerHostIpc(grant: (kind: GrantKind, path: string) => void) 
   // The dialog and the copy stay in one call: a path from the window could name any file.
   ipcMain.handle("host:save-html", async (e, id: unknown, name: unknown) => {
     const from = exportFile(id);
-    const options: Electron.SaveDialogOptions = { defaultPath: `${String(name).replace(/[/\\:]/g, "-")}.html`, filters: [{ name: "HTML", extensions: ["html"] }] };
-    const win = parent(e);
-    const result = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options);
+    const result = await saveDialog(e, { defaultPath: `${String(name).replace(/[/\\:]/g, "-")}.html`, filters: [{ name: "HTML", extensions: ["html"] }] });
     try {
       if (result.canceled || !result.filePath) throw new Error(DIALOG_CANCELLED);
       await copyFile(from, result.filePath);
@@ -42,42 +59,36 @@ export function registerHostIpc(grant: (kind: GrantKind, path: string) => void) 
   });
 
   // A dropped file: the preload gets its path from the real File (a page script cannot make one up).
-  ipcMain.on("host:grant-drop", (_e, path: unknown) => typeof path === "string" && path && grant("file", path));
+  ipcMain.on("host:grant-drop", (_e, path: unknown) => {
+    if (typeof path === "string" && path) grant("file", path);
+  });
 
   // Installing a package runs its code. The window only asks; the user confirms here, in a dialog the page cannot draw.
   ipcMain.handle("host:confirm-install", async (e, action: unknown, source: unknown, cwd: unknown) => {
-    if ((action !== "install" && action !== "update") || typeof source !== "string" || !source.trim()) throw new Error("Not a package to confirm");
-    const where = typeof cwd === "string" && cwd ? `the project ${cwd.split("/").pop()}` : "every project (global)";
+    if (!isPackageAction(action) || typeof source !== "string" || !source.trim()) throw new Error("Not a package to confirm");
+    const project = typeof cwd === "string" && cwd ? cwd : undefined;
+    const where = project ? `the project ${project.split("/").pop()}` : "every project (global)";
     const verb = action === "install" ? "Install" : "Update";
-    const options: Electron.MessageBoxOptions = {
-      type: "warning",
-      buttons: [verb, "Cancel"],
-      defaultId: 1, // Enter or Space by mistake must not run a package's code
-      cancelId: 1,
+    const update = action === "update" ? "An update can bring a newer version you have not seen. " : "";
+    await confirmWarning(e, {
+      confirm: verb,
       message: `${verb} ${source}?`,
-      detail: `For ${where}. ${action === "update" ? "An update can bring a newer version you have not seen. " : ""}Extensions in a package run code on your computer with your own permissions. Install only packages you trust.`,
-    };
-    const win = parent(e);
-    const { response } = win ? await dialog.showMessageBox(win, options) : await dialog.showMessageBox(options);
-    if (response !== 0) throw new Error(DIALOG_CANCELLED);
-    grant("package", packageGrant(action, source, typeof cwd === "string" ? cwd : undefined));
+      detail: `For ${where}. ${update}Extensions in a package run code on your computer with your own permissions. Install only packages you trust.`,
+    });
+    grant("package", packageGrant(action, source, project));
   });
 
   // Import from pi (board 5c): copying extensions or installing packages brings code into Tenon. Confirmed here.
   ipcMain.handle("host:confirm-import", async (e, items: unknown) => {
-    const code = (Array.isArray(items) ? items : []).filter((i): i is string => i === "files" || i === "packages").sort();
+    const code = CODE_ITEMS.filter((i) => Array.isArray(items) && items.includes(i));
     if (!code.length) return;
-    const options: Electron.MessageBoxOptions = {
-      type: "warning",
-      buttons: ["Import", "Cancel"],
-      defaultId: 1,
-      cancelId: 1,
+    const files = code.includes("files") ? "Your extensions, skills and prompts are copied. " : "";
+    const packages = code.includes("packages") ? "Your global packages are installed again. " : "";
+    await confirmWarning(e, {
+      confirm: "Import",
       message: "Bring terminal pi's extensions and packages into Tenon?",
-      detail: `${code.includes("files") ? "Your extensions, skills and prompts are copied. " : ""}${code.includes("packages") ? "Your global packages are installed again. " : ""}Extensions run code on your computer with your own permissions.`,
-    };
-    const win = parent(e);
-    const { response } = win ? await dialog.showMessageBox(win, options) : await dialog.showMessageBox(options);
-    if (response !== 0) throw new Error(DIALOG_CANCELLED);
+      detail: `${files}${packages}Extensions run code on your computer with your own permissions.`,
+    });
     grant("package", packageGrant("import", code.join(",")));
   });
 
@@ -93,3 +104,5 @@ export function registerHostIpc(grant: (kind: GrantKind, path: string) => void) 
   // The window shows model output, so it is not trusted: only a Tenon session file may go to the Trash.
   ipcMain.handle("host:trash-session", (_e, path: unknown) => shell.trashItem(sessionFile(path)));
 }
+
+const isPackageAction = (action: unknown): action is "install" | "update" => action === "install" || action === "update";
