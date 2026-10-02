@@ -2,7 +2,7 @@ import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promis
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { startServer } from "./server.js";
+import { fileEvent, startServer } from "./server.js";
 import { RAW_BOARD, RAW_STATE, freeRoot, addNote, approve, flow, restoreRev, patchBoard, readHistory, undoBoard, createBoard, editBoard, readBoard, readCanvas, stamp, patchHtml } from "./store.js";
 import { RAW_TOKENS, acceptProposal, dsReport, proposeTokens, tokensCss, writeTokensCss } from "./tokens.js";
 import { compareBoard, designPack, readCompares, setDifferenceState, diffFacts, keepDecisions, boardFacts } from "./compare.js";
@@ -400,5 +400,17 @@ describe("pure helpers (no disk)", () => {
     expect(first.map((d) => [d.id, d.state])).toEqual([["d1", "open"], ["d2", "open"]]);
     const before = { board: "boards/x.html", rev: 1, at: "", differences: [{ ...first[0], state: "wrong" as const }] };
     expect(keepDecisions(found, before)[0].state).toBe("wrong");
+  });
+});
+
+describe("fileEvent", () => {
+  it("maps a changed file to the page event, and ignores the rest", () => {
+    expect(fileEvent(["canvases", "c1", "boards", "cart.html"])).toEqual({ type: "board-changed", canvas: "c1", board: "boards/cart.html" });
+    expect(fileEvent(["canvases", "c1", "canvas.json"])).toEqual({ type: "canvas-changed", canvas: "c1" });
+    expect(fileEvent(["canvases", "c1", "compare", "cart.json"])).toEqual({ type: "canvas-changed", canvas: "c1" });
+    expect(fileEvent(["design-system", "tokens.json"])).toEqual({ type: "tokens-changed" });
+    expect(fileEvent(["design-system", "tokens.proposed.json"])).toEqual({ type: "ds-changed" });
+    expect(fileEvent(["canvases", "c1", "history", "cart.r2.html"])).toBeUndefined();
+    expect(fileEvent(["design-system", "tokens.css"])).toBeUndefined();
   });
 });

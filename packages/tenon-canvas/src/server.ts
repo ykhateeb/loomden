@@ -2,6 +2,7 @@
 // Server-sent events carry file changes to the page (one-way, so no ws dependency).
 // ponytail: SSE + POST instead of WebSocket; switch if the page ever needs a fast two-way channel.
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import type { AddressInfo } from "node:net";
 import { randomBytes } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { watch, mkdirSync } from "node:fs";
@@ -18,44 +19,66 @@ const TYPES: Record<string, string> = {
 
 export type CanvasServer = { url: (canvas: string) => string; close: () => void };
 
-export async function startServer(o: { root: string; onSend: (text: string) => void | Promise<void>;
+type ServerOptions = {
+  root: string;
+  onSend: (text: string) => void | Promise<void>;
   /** "Start build session": Tenon opens a new session with the pack. Without it, the pack goes to the current session. */
   onBuild?: (canvas: string, pack: { title: string; text: string }) => void | Promise<void>;
-}): Promise<CanvasServer> {
-  const token = randomBytes(16).toString("hex");
-  const ds = designSystemDir(o.root);
-  const clients = new Set<ServerResponse>();
-  const emit = (e: object) => { for (const r of clients) r.write(`data: ${JSON.stringify(e)}\n\n`); };
+};
 
-  mkdirSync(o.root, { recursive: true });
+/** File changes come in bursts (a write, then a rename): send one event after a short wait. */
+const EVENT_DEBOUNCE_MS = 60;
+/** The longest question that the page can send to pi. */
+const MAX_ASK = 500;
+
+export async function startServer({ root, onSend, onBuild }: ServerOptions): Promise<CanvasServer> {
+  const token = randomBytes(16).toString("hex");
+  const base = `/${token}`;
+  const ds = designSystemDir(root);
+  const clients = new Set<ServerResponse>();
+  const emit = (e: FileEvent) => { for (const r of clients) r.write(`data: ${JSON.stringify(e)}\n\n`); };
+
+  mkdirSync(root, { recursive: true });
   await writeTokensCss(ds).catch(() => {}); // tokens.json may have changed while no server ran
   const timers = new Map<string, NodeJS.Timeout>();
-  const watcher = watch(dirname(o.root), { recursive: true }, (_ev, f) => {
+  const watcher = watch(dirname(root), { recursive: true }, (_ev, f) => {
     if (!f) return;
-    const p = f.toString().split(sep);
-    let ev: object | undefined;
-    if (p[0] === "canvases" && p[2] === "boards") ev = { type: "board-changed", canvas: p[1], board: `boards/${p[3]}` };
-    else if (p[0] === "canvases" && p[2] === "canvas.json") ev = { type: "canvas-changed", canvas: p[1] };
-    else if (p[0] === "canvases" && p[2] === "compare") ev = { type: "canvas-changed", canvas: p[1] }; // a comparison from pi
-    else if (p[0] === "design-system" && p[1] === "tokens.json") {
-      ev = { type: "tokens-changed" };
-      writeTokensCss(ds).catch(() => {}); // tokens.css follows tokens.json
-    }
-    else if (p[0] === "design-system" && p[1] === "tokens.proposed.json") ev = { type: "ds-changed" };
+    const ev = fileEvent(f.toString().split(sep));
     if (!ev) return; // history/, tokens.css and the rest are ignored
+    if (ev.type === "tokens-changed") writeTokensCss(ds).catch(() => {}); // tokens.css follows tokens.json
     clearTimeout(timers.get(f.toString()));
-    timers.set(f.toString(), setTimeout(() => emit(ev!), 60));
+    timers.set(f.toString(), setTimeout(() => emit(ev), EVENT_DEBOUNCE_MS));
   });
 
-  const send = async (canvas: string, ids: string[]) => {
-    const c = await readCanvas(o.root, canvas);
+  const sendNotesAndMarkSent = async (canvas: string, ids: string[]) => {
+    const c = await readCanvas(root, canvas);
     const lines = ids.filter((id) => c.notes[id]).map((id) => {
       const n = c.notes[id];
       return `On board ${c.boards[n.board]?.title ?? n.board}, element “${n.target.text}” (tid ${n.target.tid}): ${n.text}`;
     });
     if (!lines.length) return;
-    await o.onSend(lines.length > 1 ? `Design notes on canvas "${canvas}":\n${lines.join("\n")}` : lines[0]); // if it fails, the notes stay as they are
-    await setNoteState(o.root, canvas, ids, "sent");
+    await onSend(lines.length > 1 ? `Design notes on canvas "${canvas}":\n${lines.join("\n")}` : lines[0]); // if it fails, the notes stay as they are
+    await setNoteState(root, canvas, ids, "sent");
+  };
+
+  // Compare (board C12): a person picks Fix the code or Board is wrong, and pi gets it once.
+  const sendDecision = async (payload: any) => {
+    const state = payload.action === "fix" ? "fix" : payload.action === "wrong" ? "wrong" : undefined;
+    if (!state) throw new Error("bad action");
+    const title = (await readCanvas(root, payload.canvas)).boards[boardKey(payload.board)]?.title ?? payload.board;
+    const compare = (await readCompares(root, payload.canvas))[boardKey(payload.board)];
+    const d = compare?.differences.find((x) => x.id === payload.id);
+    if (!d) throw new Error("Difference not found");
+    if (d.state !== "open") return; // already sent: a second click sends nothing
+    await setDifferenceState(root, payload.canvas, payload.board, payload.id, state);
+    try {
+      await onSend(state === "fix"
+        ? `Compare with the app, board ${title}: fix the code. ${d.title}. ${d.detail}`
+        : `Compare with the app, board ${title}: the board is wrong. ${d.title}. ${d.detail} Change the board with canvas_edit so it matches the app. A person approves it again.`);
+    } catch (e) {
+      await setDifferenceState(root, payload.canvas, payload.board, payload.id, "open"); // pi did not get it: the buttons come back
+      throw e;
+    }
   };
 
   const body = (req: IncomingMessage) => new Promise<any>((ok, no) => {
@@ -66,11 +89,12 @@ export async function startServer(o: { root: string; onSend: (text: string) => v
     res.writeHead(code, { "content-type": type, "cache-control": "no-store", ...extra });
     res.end(data);
   };
+  const json = (res: ServerResponse, data: unknown) => reply(res, 200, "application/json", JSON.stringify(data));
+  const notFound = (res: ServerResponse) => reply(res, 404, "text/plain", "not found");
 
   // A board page: design-system variables and the point script added, and no network.
   const board = (res: ServerResponse, page: string) => {
-    const base = `/${token}`;
-    const origin = `http://127.0.0.1:${(server.address() as any).port}`;
+    const origin = `http://127.0.0.1:${port}`;
     const inject = `<link rel="stylesheet" href="${base}/ds/tokens.css"><script>${POINT_SCRIPT}</script>`;
     const html = /<\/head>/i.test(page) ? page.replace(/<\/head>/i, () => inject + "</head>") : inject + page;
     const csp = `default-src 'none'; style-src 'unsafe-inline' ${origin}; script-src 'unsafe-inline'; img-src ${origin} data:; font-src ${origin} data:; form-action 'none'`;
@@ -78,112 +102,100 @@ export async function startServer(o: { root: string; onSend: (text: string) => v
   };
 
   const route = async (req: IncomingMessage, res: ServerResponse) => {
-    const port = (server.address() as any).port;
     if (req.headers.host !== `127.0.0.1:${port}`) return reply(res, 403, "text/plain", "bad host");
     const url = new URL(req.url ?? "/", "http://x");
-    const [, t, ...p] = url.pathname.split("/").map(decodeURIComponent);
-    if (t !== token) return reply(res, 404, "text/plain", "not found");
-    const base = `/${token}`;
+    const [, urlToken, ...segments] = url.pathname.split("/").map(decodeURIComponent);
+    if (urlToken !== token) return notFound(res);
+    if (segments[0] === "events") return listen(req, res);
+    if (segments[0] === "canvases.json") return json(res, await canvasTabs(root));
+    if (segments[0] === "ds" && segments[1] === "tokens.css") return reply(res, 200, "text/css", await tokensCss(ds));
+    if (segments[0] === "api" && req.method === "POST") return apiRoute(segments.slice(1).join("/"), await body(req), res);
+    if (segments[0] === "c" && segments[1]) return canvasRoute(slug(segments[1]), segments.slice(2), url, res);
+    return notFound(res);
+  };
 
-    if (p[0] === "events") {
-      res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-store" });
-      res.write(": ok\n\n");
-      clients.add(res);
-      req.on("close", () => clients.delete(res));
-      return;
-    }
-    if (p[0] === "canvases.json") return reply(res, 200, "application/json", JSON.stringify(await canvasTabs(o.root)));
-    if (p[0] === "ds" && p[1] === "tokens.css") return reply(res, 200, "text/css", await tokensCss(ds));
-    if (p[0] === "api" && req.method === "POST") {
-      const b = await body(req);
-      slug(b.canvas);
-      if (p[1] === "note") {
-        await addNote(o.root, b.canvas, b.note);
-        if (b.send) await send(b.canvas, [b.note.id]);
-        return reply(res, 200, "application/json", "{}");
-      }
-      if (p[1] === "build") {
-        const pack = await designPack(o.root, b.canvas, ds);
-        await (o.onBuild ? o.onBuild(b.canvas, pack) : o.onSend(pack.text));
-        return reply(res, 200, "application/json", "{}");
-      }
-      if (p[1] === "ask") {
-        if (typeof b.text !== "string" || !b.text.trim()) return reply(res, 400, "text/plain", "Nothing to ask");
-        await o.onSend(b.text.slice(0, 500));
-        return reply(res, 200, "application/json", "{}");
-      }
-      if (p[1] === "compare") {
-        const state = b.action === "fix" ? "fix" : b.action === "wrong" ? "wrong" : undefined;
-        if (!state) return reply(res, 400, "text/plain", "bad action");
-        const c = await readCanvas(o.root, b.canvas);
-        const title = c.boards[boardKey(b.board)]?.title ?? b.board;
-        const d = (await readCompares(o.root, b.canvas))[boardKey(b.board)]?.differences.find((x) => x.id === b.id);
-        if (!d) return reply(res, 400, "text/plain", "Difference not found");
-        if (d.state !== "open") return reply(res, 200, "application/json", "{}"); // already sent: a second click sends nothing
-        await setDifferenceState(o.root, b.canvas, b.board, b.id, state);
-        try {
-          await o.onSend(state === "fix"
-            ? `Compare with the app, board ${title}: fix the code. ${d.title}. ${d.detail}`
-            : `Compare with the app, board ${title}: the board is wrong. ${d.title}. ${d.detail} Change the board with canvas_edit so it matches the app. A person approves it again.`);
-        } catch (e) {
-          await setDifferenceState(o.root, b.canvas, b.board, b.id, "open"); // pi did not get it: the buttons come back
-          throw e;
-        }
-        return reply(res, 200, "application/json", "{}");
-      }
-      if (p[1] === "restore") return (await restoreRev(o.root, b.canvas, b.board, b.rev), reply(res, 200, "application/json", "{}"));
-      if (p[1] === "approve") return (await approve(o.root, b.canvas, b.board), reply(res, 200, "application/json", "{}"));
-      if (p[1] === "addboard") {
-        o.onSend(`Add a board “${String(b.name).slice(0, 40)}” (${slug(String(b.name))}.html) to canvas "${b.canvas}": “${String(b.from).slice(0, 40)}” links to it. Use canvas_create.`);
-        return reply(res, 200, "application/json", "{}");
-      }
-      if (p[1] === "edit") return (await patchBoard(o.root, b), reply(res, 200, "application/json", "{}"));
-      if (p[1] === "undo") return (await undoBoard(o.root, b.canvas, b.board, b.edit), reply(res, 200, "application/json", "{}"));
-      if (p[1] === "custom") {
-        const c = await readCanvas(o.root, b.canvas);
-        o.onSend(`On board ${c.boards[boardKey(b.board)]?.title ?? b.board}, element “${String(b.text).slice(0, 60)}” (tid ${Number(b.tid)}): I need a custom value for ${String(b.prop).slice(0, 40)}. Add it to the design system as a token, then use it.`);
-        return reply(res, 200, "application/json", "{}");
-      }
-      if (p[1] === "ds" && p[2] === "update") {
-        o.onSend("Update the design system from code. Read the theme file (for example src/theme.ts, or the paths in `source` of .tenon/design-system/tokens.json), then call design_system_propose with the full tokens.json. Do not write tokens.json yourself: I review your proposal first.");
-      } else if (p[1] === "ds" && p[2] === "accept") await acceptProposal(ds);
-      else if (p[1] === "ds" && p[2] === "discard") await discardProposal(ds);
-      else if (p[1] === "send") await send(b.canvas, b.ids);
-      else if (p[1] === "state" && ["open", "sent", "work", "done"].includes(b.state))
-        await setNoteState(o.root, b.canvas, b.ids, b.state as NoteState);
-      else return reply(res, 404, "text/plain", "not found");
-      return reply(res, 200, "application/json", "{}");
-    }
-    if (p[0] !== "c" || !p[1]) return reply(res, 404, "text/plain", "not found");
-    const canvas = slug(p[1]);
-    const dir = canvasDir(o.root, canvas);
+  // Server-sent events: the page hears about each changed file.
+  const listen = (req: IncomingMessage, res: ServerResponse) => {
+    res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-store" });
+    res.write(": ok\n\n");
+    clients.add(res);
+    req.on("close", () => clients.delete(res));
+  };
 
-    if (p.length === 2) return reply(res, 200, "text/html", VIEWER.replace("__BASE__", base).replace("__CANVAS__", canvas));
-    if (p[2] === "ds.json") return reply(res, 200, "application/json", JSON.stringify(await dsReport(o.root, canvas, ds)));
-    if (p[2] === "compare.json") return reply(res, 200, "application/json", JSON.stringify(await readCompares(o.root, canvas)));
-    if (p[2] === "compare" && /^[\w-]+\.(png|jpe?g|webp)$/i.test(p[3] ?? ""))
-      return reply(res, 200, TYPES[extname(p[3]).toLowerCase()] ?? "image/png", await readFile(join(dir, "compare", p[3])));
-    if (p[2] === "flow.json") return reply(res, 200, "application/json", JSON.stringify(await flow(o.root, canvas)));
-    if (p[2] === "history" && /^[\w-]+\.r\d+\.html$/.test(p[3] ?? "")) return board(res, await readFile(join(dir, "history", p[3]), "utf8"));
-    if (p[2] === "history.json") return reply(res, 200, "application/json", JSON.stringify(await readHistory(o.root, canvas, url.searchParams.get("board") ?? "")));
-    if (p[2] === "canvas.json") return reply(res, 200, "application/json", await readFile(join(dir, "canvas.json")));
-    if (p[2] === "boards" && p[3]) return board(res, await readFile(join(dir, boardKey(p[3])), "utf8"));
-    if (p[2] === "assets" && p.length > 3) {
-      const name = p.slice(3).join("/");
+  /** A command from the page. It replies {} when it worked. A bad request throws, and the reply is 400. */
+  const apiRoute = async (action: string, payload: any, res: ServerResponse) => {
+    slug(payload.canvas);
+    switch (action) {
+      case "note":
+        await addNote(root, payload.canvas, payload.note);
+        if (payload.send) await sendNotesAndMarkSent(payload.canvas, [payload.note.id]);
+        break;
+      case "send": await sendNotesAndMarkSent(payload.canvas, payload.ids); break;
+      case "state":
+        if (!["open", "sent", "work", "done"].includes(payload.state)) return notFound(res);
+        await setNoteState(root, payload.canvas, payload.ids, payload.state as NoteState);
+        break;
+      case "build": {
+        const pack = await designPack(root, payload.canvas, ds);
+        await (onBuild ? onBuild(payload.canvas, pack) : onSend(pack.text));
+        break;
+      }
+      case "ask":
+        if (typeof payload.text !== "string" || !payload.text.trim()) throw new Error("Nothing to ask");
+        await onSend(payload.text.slice(0, MAX_ASK));
+        break;
+      case "compare": await sendDecision(payload); break;
+      case "restore": await restoreRev(root, payload.canvas, payload.board, payload.rev); break;
+      case "approve": await approve(root, payload.canvas, payload.board); break;
+      case "edit": await patchBoard(root, payload); break;
+      case "undo": await undoBoard(root, payload.canvas, payload.board, payload.edit); break;
+      case "addboard":
+        onSend(`Add a board “${String(payload.name).slice(0, 40)}” (${slug(String(payload.name))}.html) to canvas "${payload.canvas}": “${String(payload.from).slice(0, 40)}” links to it. Use canvas_create.`);
+        break;
+      case "custom": {
+        const title = (await readCanvas(root, payload.canvas)).boards[boardKey(payload.board)]?.title ?? payload.board;
+        onSend(`On board ${title}, element “${String(payload.text).slice(0, 60)}” (tid ${Number(payload.tid)}): I need a custom value for ${String(payload.prop).slice(0, 40)}. Add it to the design system as a token, then use it.`);
+        break;
+      }
+      case "ds/update":
+        onSend("Update the design system from code. Read the theme file (for example src/theme.ts, or the paths in `source` of .tenon/design-system/tokens.json), then call design_system_propose with the full tokens.json. Do not write tokens.json yourself: I review your proposal first.");
+        break;
+      case "ds/accept": await acceptProposal(ds); break;
+      case "ds/discard": await discardProposal(ds); break;
+      default: return notFound(res);
+    }
+    return json(res, {});
+  };
+
+  /** A read of one canvas: the viewer page, its JSON, a board, history, an image. */
+  const canvasRoute = async (canvas: string, [part, file, ...more]: string[], url: URL, res: ServerResponse) => {
+    const dir = canvasDir(root, canvas);
+    if (!part) return reply(res, 200, "text/html", VIEWER.replace("__BASE__", base).replace("__CANVAS__", canvas));
+    if (part === "ds.json") return json(res, await dsReport(root, canvas, ds));
+    if (part === "compare.json") return json(res, await readCompares(root, canvas));
+    if (part === "compare" && /^[\w-]+\.(png|jpe?g|webp)$/i.test(file ?? ""))
+      return reply(res, 200, TYPES[extname(file).toLowerCase()] ?? "image/png", await readFile(join(dir, "compare", file)));
+    if (part === "flow.json") return json(res, await flow(root, canvas));
+    if (part === "history" && /^[\w-]+\.r\d+\.html$/.test(file ?? "")) return board(res, await readFile(join(dir, "history", file), "utf8"));
+    if (part === "history.json") return json(res, await readHistory(root, canvas, url.searchParams.get("board") ?? ""));
+    if (part === "canvas.json") return reply(res, 200, "application/json", await readFile(join(dir, "canvas.json")));
+    if (part === "boards" && file) return board(res, await readFile(join(dir, boardKey(file)), "utf8"));
+    if (part === "assets" && file) {
+      const name = [file, ...more].join("/");
       if (name.includes("..")) return reply(res, 400, "text/plain", "bad path");
       return reply(res, 200, TYPES[extname(name).toLowerCase()] ?? "application/octet-stream", await readFile(join(dir, "assets", name)));
     }
-    return reply(res, 404, "text/plain", "not found");
+    return notFound(res);
   };
 
   const server = createServer((req, res) => {
     route(req, res).catch((e) => reply(res, 400, "text/plain", String(e?.message ?? e)));
   });
   await new Promise<void>((ok) => server.listen(0, "127.0.0.1", ok));
-  const port = (server.address() as any).port;
+  const port = (server.address() as AddressInfo).port;
 
   return {
-    url: (canvas) => `http://127.0.0.1:${port}/${token}/c/${slug(canvas)}`,
+    url: (canvas) => `http://127.0.0.1:${port}${base}/c/${slug(canvas)}`,
     close() {
       watcher.close();
       timers.forEach(clearTimeout);
@@ -193,4 +205,19 @@ export async function startServer(o: { root: string; onSend: (text: string) => v
       server.closeAllConnections?.();
     },
   };
+}
+
+export type FileEvent =
+  | { type: "board-changed"; canvas: string; board: string }
+  | { type: "canvas-changed"; canvas: string }
+  | { type: "tokens-changed" }
+  | { type: "ds-changed" };
+
+/** The page event for a changed file (its path parts under the project's .tenon/), or undefined for a file the page does not show. */
+export function fileEvent([area, item, part, file]: string[]): FileEvent | undefined {
+  if (area === "canvases" && part === "boards") return { type: "board-changed", canvas: item, board: `boards/${file}` };
+  if (area === "canvases" && (part === "canvas.json" || part === "compare")) return { type: "canvas-changed", canvas: item }; // compare: a comparison from pi
+  if (area === "design-system" && item === "tokens.json") return { type: "tokens-changed" };
+  if (area === "design-system" && item === "tokens.proposed.json") return { type: "ds-changed" };
+  return undefined;
 }
