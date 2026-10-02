@@ -32,26 +32,31 @@ const cache = new Map<string, { at: number; files: string[] }>();
 async function listFiles(cwd: string): Promise<string[]> {
   const hit = cache.get(cwd);
   if (hit && Date.now() - hit.at < FILE_LIST_TTL_MS) return hit.files;
-  let files: string[];
-  try {
-    const { stdout } = await promisify(execFile)("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard"], { cwd, maxBuffer: MAX_GIT_OUTPUT, timeout: GIT_LS_TIMEOUT_MS });
-    files = stdout.split("\0").filter(Boolean).slice(0, LIMIT); // -z: names as they are, not quoted
-  } catch {
-    files = [];
-    // ponytail: breadth-first walk with a file limit; a real index when projects are huge.
-    const queue = [cwd];
-    while (queue.length && files.length < LIMIT) {
-      const dir = queue.shift()!;
-      const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
-      for (const e of entries) {
-        if (SKIP.has(e.name)) continue;
-        const full = join(dir, e.name);
-        if (e.isDirectory()) queue.push(full);
-        else if (e.isFile()) files.push(relative(cwd, full));
-      }
+  const files = await gitFiles(cwd).catch(() => walkFiles(cwd)); // not a git repository, or no git
+  cache.set(cwd, { at: Date.now(), files });
+  return files;
+}
+
+/** git's list: tracked and untracked files, not ignored ones. */
+async function gitFiles(cwd: string): Promise<string[]> {
+  const { stdout } = await promisify(execFile)("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard"], { cwd, maxBuffer: MAX_GIT_OUTPUT, timeout: GIT_LS_TIMEOUT_MS });
+  return stdout.split("\0").filter(Boolean).slice(0, LIMIT); // -z: names as they are, not quoted
+}
+
+/** A folder walk, breadth first, that skips build and dependency folders. */
+async function walkFiles(cwd: string): Promise<string[]> {
+  const files: string[] = [];
+  // ponytail: breadth-first walk with a file limit; a real index when projects are huge.
+  const queue = [cwd];
+  while (queue.length && files.length < LIMIT) {
+    const dir = queue.shift() as string; // the loop runs only while the queue has a folder
+    const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
+    for (const e of entries.filter((entry) => !SKIP.has(entry.name))) {
+      const full = join(dir, e.name);
+      if (e.isDirectory()) queue.push(full);
+      else if (e.isFile()) files.push(relative(cwd, full));
     }
   }
-  cache.set(cwd, { at: Date.now(), files });
   return files;
 }
 

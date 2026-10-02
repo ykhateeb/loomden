@@ -26,25 +26,31 @@ export function searchSessions(sessions: SessionRow[], query: string, titlesOnly
     if (cwd && s.cwd !== cwd) continue;
     const inTitle = s.title.toLowerCase().includes(q);
     if (!inTitle && (titlesOnly || !s.text.replace(/\s+/g, " ").toLowerCase().includes(q))) continue; // the quick check before a file read
-    const lines: SearchResult["lines"] = [];
-    let total = inTitle ? 1 : 0;
-    if (!titlesOnly) {
-      try {
-        // Only what the chat shows, so "open at the match" finds the message.
-        for (const e of visibleBranch(readEntries(s.path))) {
-          const m = e.type === "message" ? e.message : undefined;
-          if (!m || (m.role !== "user" && m.role !== "assistant")) continue;
-          const hit = snippet(contentText(m.content), q);
-          if (!hit) continue;
-          total++;
-          if (lines.length < MAX_LINES) lines.push({ who: m.role === "user" ? "you" : "pi", at: m.timestamp ?? 0, parts: hit });
-        }
-      } catch {
-        // a file pi lists but cannot parse: the title match still counts
-      }
-    }
+    const hits = titlesOnly ? { total: 0, lines: [] } : messageHits(s.path, q);
+    const total = (inTitle ? 1 : 0) + hits.total;
+    const lines = hits.lines;
     if (total) results.push({ path: s.path, cwd: s.cwd, title: s.title, modified: s.modified, total, lines });
     if (results.length >= MAX_SESSIONS) break;
   }
   return results;
+}
+
+/** The messages of a session that contain `q`: how many, and the first few as lines. */
+function messageHits(path: string, q: string): { total: number; lines: SearchResult["lines"] } {
+  const lines: SearchResult["lines"] = [];
+  let total = 0;
+  try {
+    // Only what the chat shows, so "open at the match" finds the message.
+    for (const e of visibleBranch(readEntries(path))) {
+      const m = e.type === "message" ? e.message : undefined;
+      if (!m || (m.role !== "user" && m.role !== "assistant")) continue;
+      const hit = snippet(contentText(m.content), q);
+      if (!hit) continue;
+      total++;
+      if (lines.length < MAX_LINES) lines.push({ who: m.role === "user" ? "you" : "pi", at: m.timestamp ?? 0, parts: hit });
+    }
+  } catch {
+    // a file pi lists but cannot parse: no message hits; a title match still counts
+  }
+  return { total, lines };
 }

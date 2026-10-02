@@ -74,6 +74,7 @@ export interface SessionTree {
   rows: PreviewRow[];
   /** Cards by the row they follow ("" = before the first row). At the last split: every branch; earlier: the others. */
   branchesAt: Record<string, BranchCard[]>;
+  /** The row of the last split, where the rows end and every branch shows as a card. */
   last?: string;
   /** The row of pi's current point ("" = before the first row). */
   here: string;
