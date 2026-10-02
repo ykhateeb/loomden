@@ -81,9 +81,7 @@ const listeners = new Set<() => void>();
 export const getState = () => state;
 
 export function set(patch: Partial<State> | ((s: State) => Partial<State>)) {
-  let next = typeof patch === "function" ? patch(state) : patch;
-  // Showing a session (open, focus, move) takes the Design page away.
-  if (next.active && !("designPage" in next)) next = { ...next, designPage: undefined };
+  const next = typeof patch === "function" ? patch(state) : patch;
   state = { ...state, ...next };
   for (const l of listeners) l();
 }

@@ -60,15 +60,17 @@ export function TreeView({ sessionKey, state }: { sessionKey: string; state: Liv
     if (!target || isHere || busy) return;
     await actions.navigate(sessionKey, target, summarize && pick?.kind === "card" && !pick.card.current);
   };
-  const fork = (at: boolean) => {
-    const id = at ? target : forkId;
-    if (id && !busy) actions.fork(sessionKey, id, at);
+  const forkHere = () => {
+    if (forkId && !busy) actions.fork(sessionKey, forkId);
+  };
+  const cloneHere = () => {
+    if (target && !busy) actions.cloneAt(sessionKey, target);
   };
   const labels = [...new Set([...tree.rows.map((r) => r.label), ...Object.values(tree.branchesAt).flat().map((c) => c.name)].filter((l): l is string => !!l))];
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (isTyping(e.target) || hasModifier(e) || !pick) return;
-    const keyActions: Record<string, () => unknown> = { enter: switchTo, l: () => setLabeling(true), c: () => fork(true), f: () => fork(false) };
+    const keyActions: Record<string, () => unknown> = { enter: switchTo, l: () => setLabeling(true), c: cloneHere, f: forkHere };
     const run = keyActions[e.key.toLowerCase()];
     if (!run) return;
     e.preventDefault();
@@ -178,8 +180,8 @@ export function TreeView({ sessionKey, state }: { sessionKey: string; state: Liv
             </b>
             <span className="flex-1" />
             <Button variant="ghost" disabled={!labelId} onClick={() => setLabeling(true)}><Icon name="tag" size={14} />Label<Kbd>L</Kbd></Button>
-            <Button variant="ghost" disabled={!target || busy} title="A new session with the history through this point" onClick={() => fork(true)}><Icon name="copy" size={14} />Clone<Kbd>C</Kbd></Button>
-            <Button variant="ghost" disabled={!forkable || busy} title={forkable ? "A new session with the history before this message" : "Fork works from a message you wrote"} onClick={() => fork(false)}>
+            <Button variant="ghost" disabled={!target || busy} title="A new session with the history through this point" onClick={cloneHere}><Icon name="copy" size={14} />Clone<Kbd>C</Kbd></Button>
+            <Button variant="ghost" disabled={!forkable || busy} title={forkable ? "A new session with the history before this message" : "Fork works from a message you wrote"} onClick={forkHere}>
               <Icon name="branch" size={14} />Fork<Kbd>F</Kbd>
             </Button>
             <Button variant="primary" disabled={!target || isHere || busy} title={busy ? "Wait for pi to finish" : undefined} onClick={switchTo}>

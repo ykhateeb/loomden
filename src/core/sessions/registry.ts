@@ -214,8 +214,8 @@ export function createRegistry({ send, modelRuntime, grants, dialogs }: { send: 
      * pi then works in the new session; bind() sends it to the window under the same key. An extension can stop the
      * fork: then the session file stays the same.
      */
-    async fork(key: string, id: string, at: boolean) {
-      const r = await get(key).rt.fork(id, at ? { position: "at" } : undefined);
+    async fork({ key, id, position }: { key: string; id: string; position?: "at" }) {
+      const r = await get(key).rt.fork(id, position && { position });
       sendDraft(key, r.selectedText);
     },
 

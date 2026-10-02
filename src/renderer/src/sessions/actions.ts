@@ -5,12 +5,12 @@ import { call } from "#renderer/port";
 import { getState, notice, report, reportOr, type SessionList, set, type Tab, without } from "#renderer/store";
 
 export const sessionActions = {
-  refresh: () =>
+  /** Read the session list again, and the Design row of each project. */
+  refreshSidebar: () =>
     call<SessionList>({ type: "sessions.list" })
       .then((r) => {
         set(r);
         for (const p of r.projects) designActions.loadDesign(p.cwd);
-        openDevView(r);
       })
       .catch(report),
   /** No `path` = a new session, under `key`. A file that is open already keeps its own key: find it with keyOf(). */
@@ -18,13 +18,13 @@ export const sessionActions = {
     call({ type: "session.open", key, cwd, path })
       .then(() => {
         const opened = path ? sessionActions.keyOf(path) : getState().live[key]?.key;
-        if (opened) set({ active: opened, tab: "sessions", mark: undefined }); // openAt sets a new mark after this
+        if (opened) set({ ...showing(opened), mark: undefined }); // openAt sets a new mark after this
       })
       .catch(report),
   /** The key of an open session file. undefined = it is not open (for example, the user cancelled the trust dialog). */
   keyOf: (path: string) => Object.values(getState().live).find((s) => s.file === path)?.key,
   /** Show an open session (from the running menu or "needs you"). */
-  focus: (key: string) => set({ tab: "sessions", active: key, mark: undefined }),
+  focus: (key: string) => set({ ...showing(key), mark: undefined }),
   /** Board 1.1: a chat with no project. Add it to a project later. */
   newSession: () => {
     const { noProject } = getState();
@@ -37,22 +37,14 @@ export const sessionActions = {
     const key = sessionActions.keyOf(path);
     if (key) sessionActions.setView(key, "tree");
   },
-  /** Board 1.2 and 1.3: move a session to a project (or back, for Undo). The chat stays as it is. */
-  move: async (key: string, cwd: string, undo = false) => {
+  /** Board 1.2: move a session to a project, with Undo in the notice (board 1.3). The chat stays as it is. */
+  move: async (key: string, cwd: string) => {
     const from = getState().live[key]?.cwd;
     try {
-      await call({ type: "session.move", key, cwd }); // a cancel of the trust dialog throws
-      set({ active: key, tab: "sessions" });
-      // The canvas moved with the session: its server is new, so ask for the address again.
-      const canvas = getState().canvas[key];
-      if (canvas) {
-        set({ canvas: without(getState().canvas, key) });
-        if (canvas.open) designActions.canvas(key);
-      }
-      await sessionActions.refresh();
-      if (undo || !from) return;
+      await relocate(key, cwd);
+      if (!from) return;
       const name = getState().projects.find((p) => p.cwd === cwd)?.name ?? folderName(cwd);
-      notice(`Moved to ${name}`, "info", { label: "Undo", run: () => sessionActions.move(key, from, true) });
+      notice(`Moved to ${name}`, "info", { label: "Undo", run: () => relocate(key, from).catch(report) });
     } catch (e) {
       report(e as Error);
     }
@@ -61,7 +53,7 @@ export const sessionActions = {
   moveToFolder: (key: string) =>
     withPickedFolder(async (cwd) => {
       await call({ type: "project.add", cwd });
-      await sessionActions.refresh();
+      await sessionActions.refreshSidebar();
       await sessionActions.move(key, cwd);
     }),
   search: (query: string, titlesOnly: boolean, cwd?: string) =>
@@ -78,23 +70,23 @@ export const sessionActions = {
   addProject: () =>
     withPickedFolder(async (cwd) => {
       await call({ type: "project.add", cwd });
-      await sessionActions.refresh();
+      await sessionActions.refreshSidebar();
     }),
   removeProject: (cwd: string) =>
     call({ type: "project.remove", cwd })
-      .then(sessionActions.refresh, report),
+      .then(sessionActions.refreshSidebar, report),
   rename: (path: string, name: string) =>
     call({ type: "session.rename", path, name })
       .then(() => {
         notice("Session renamed", "info");
-        return sessionActions.refresh();
+        return sessionActions.refreshSidebar();
       }, report),
   clone: (cwd: string, path: string) => {
     const key = crypto.randomUUID();
     return call({ type: "session.clone", key, cwd, path })
       .then(() => {
-        set({ active: key, tab: "sessions" }); // a cancel of the trust dialog throws
-        return sessionActions.refresh();
+        set(showing(key)); // a cancel of the trust dialog throws
+        return sessionActions.refreshSidebar();
       })
       .catch(report);
   },
@@ -114,7 +106,7 @@ export const sessionActions = {
       await call({ type: "session.close", path });
       await window.tenon.trashSession(path);
       notice("The session is in the Trash", "info");
-      await sessionActions.refresh();
+      await sessionActions.refreshSidebar();
     } catch (e) {
       report(e as Error);
     }
@@ -134,8 +126,26 @@ async function withPickedFolder(then: (cwd: string) => Promise<void>) {
   }
 }
 
-/** Dev checks without clicks (see main/index.ts): #dev?open=latest|<title part>&view=tree&search=<text>, once. */
-function openDevView(list: SessionList) {
+/** The state that shows a session in the main area. Showing a session takes the Design page away. */
+function showing(key: string) {
+  return { active: key, tab: "sessions" as const, designPage: undefined };
+}
+
+/** Move a session to `cwd`, show it, and read the sidebar again. A cancel of the trust dialog throws. */
+async function relocate(key: string, cwd: string) {
+  await call({ type: "session.move", key, cwd });
+  set(showing(key));
+  // The canvas moved with the session: its server is new, so ask for the address again.
+  const canvas = getState().canvas[key];
+  if (canvas) {
+    set({ canvas: without(getState().canvas, key) });
+    if (canvas.open) designActions.canvas(key);
+  }
+  await sessionActions.refreshSidebar();
+}
+
+/** Dev checks without clicks (see main/index.ts): #dev?open=latest|<title part>&view=tree&search=<text>, once. Call it after the first sidebar read. */
+export function openDevView(list: SessionList = getState()) {
   if (!location.hash.startsWith("#dev?")) return;
   const dev = new URLSearchParams(location.hash.slice(5));
   history.replaceState(null, "", location.pathname);

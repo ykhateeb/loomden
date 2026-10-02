@@ -14,20 +14,26 @@ export const treeActions = {
     call({ type: "session.label", key, id, label })
       .then(() => set((s) => ({ treeStamp: s.treeStamp + 1 })))
       .catch(report),
-  fork: async (key: string, id: string, at: boolean) => {
-    const before = getState().live[key]?.file;
-    try {
-      await call({ type: "session.fork", key, id, at });
-      const forked = getState().live[key]?.file !== before;
-      if (!forked) return; // an extension stopped the fork
-      showChangedChat(key);
-      notice(at ? "Cloned into a new session" : "Forked into a new session", "info");
-      await sessionActions.refresh();
-    } catch (e) {
-      report(e as Error);
-    }
-  },
+  /** Board 3: Fork, a new session with the history before message `id`. */
+  fork: (key: string, id: string) => branchOff({ key, id, done: "Forked into a new session" }),
+  /** Board 3: Clone, a new session with the history through point `id`. */
+  cloneAt: (key: string, id: string) => branchOff({ key, id, position: "at", done: "Cloned into a new session" }),
 };
+
+/** pi works in a new session from point `id`, under the same key. */
+async function branchOff({ key, id, position, done }: { key: string; id: string; position?: "at"; done: string }) {
+  const before = getState().live[key]?.file;
+  try {
+    await call({ type: "session.fork", key, id, position });
+    const forked = getState().live[key]?.file !== before;
+    if (!forked) return; // an extension stopped the fork
+    showChangedChat(key);
+    notice(done, "info");
+    await sessionActions.refreshSidebar();
+  } catch (e) {
+    report(e as Error);
+  }
+}
 
 /** After a switch or fork: show the chat, and tell tree views to fetch again. */
 function showChangedChat(key: string) {

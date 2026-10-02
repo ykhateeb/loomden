@@ -31,7 +31,7 @@ export function sessionCommands({ sessions, dialogs }: Deps) {
     "session.tree": (cmd) => sessions.tree(cmd.key),
     "session.navigate": (cmd) => sessions.navigate(cmd.key, cmd.id, cmd.summarize),
     "session.label": (cmd) => sessions.label(cmd.key, cmd.id, cmd.label),
-    "session.fork": (cmd) => sessions.fork(cmd.key, cmd.id, cmd.at),
+    "session.fork": (cmd) => sessions.fork({ key: cmd.key, id: cmd.id, position: cmd.position === "at" ? "at" : undefined }),
     "session.compact": (cmd) => sessions.compact(cmd.key),
     "session.reload": (cmd) => sessions.reload(cmd.key),
     "session.tools": (cmd) => sessions.setTools(cmd.key, cmd.names),

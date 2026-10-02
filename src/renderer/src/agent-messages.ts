@@ -1,14 +1,14 @@
 // What the agent sends without a request (session state, messages, dialogs, notices), applied to the store.
 import { designActions } from "./design/actions";
 import { type AgentMessageOut, call, listenForAgent } from "./port";
-import { sessionActions } from "./sessions/actions";
+import { openDevView, sessionActions } from "./sessions/actions";
 import { getState, notice, report, set, without } from "./store";
 
 listenForAgent({
   // After a reload the agent sends its open sessions and dialogs again; after a restart it has none.
   connect: () => {
     set({ agent: "ready", live: {}, messages: {}, dialogs: [] });
-    sessionActions.refresh();
+    sessionActions.refreshSidebar().then(() => openDevView());
   },
   // The host restarts pi unless it stopped at startup; a new port then arrives.
   exit: () => set({ agent: "stopped", live: {}, messages: {}, active: undefined, dialogs: [] }),
@@ -20,7 +20,7 @@ function receive(msg: AgentMessageOut) {
     case "state": {
       const before = getState().live[msg.state.key];
       set((s) => ({ live: { ...s.live, [msg.state.key]: msg.state } }));
-      if (before?.streaming && !msg.state.streaming) sessionActions.refresh(); // titles and counts changed
+      if (before?.streaming && !msg.state.streaming) sessionActions.refreshSidebar(); // titles and counts changed
       return;
     }
     case "messages":

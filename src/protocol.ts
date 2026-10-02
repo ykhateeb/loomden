@@ -291,7 +291,8 @@ export type Command =
   | { type: "session.tree"; key: string }
   | { type: "session.navigate"; key: string; id: string; summarize: boolean }
   | { type: "session.label"; key: string; id: string; label: string }
-  | { type: "session.fork"; key: string; id: string; at: boolean }
+  /** Fork: a new session with the history before `id`. With `position: "at"` (Clone): through `id`. */
+  | { type: "session.fork"; key: string; id: string; position?: "at" }
   | { type: "settings.models"; cwd?: string }
   | { type: "settings.setModels"; cwd?: string; patch: Partial<Record<keyof ModelSettings, unknown>> }
   | { type: "providers.login"; providerId: string; method: LoginMethod }

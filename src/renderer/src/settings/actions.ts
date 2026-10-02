@@ -62,7 +62,7 @@ export const settingsActions = {
   runImport: async (items: ImportItem[]) => {
     await window.tenon.confirmImport(items);
     await call({ type: "import.run", items });
-    sessionActions.refresh();
+    sessionActions.refreshSidebar();
   },
 };
 
