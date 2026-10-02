@@ -94,7 +94,7 @@ From Clean Code, Clean Architecture, and common practice. The sections below app
 - **Avoid deep nesting:** return early for each guard case, so the main path has the lowest indent.
 - **No flag arguments:** write two functions instead of one function with a boolean that selects between two behaviors.
 - **No side effects:** a function does only what its name says. If it must change other state, put that change in its name.
-- **Command-query separation:** a function changes state or returns an answer, not both.
+- **Command-query separation:** a function changes state or returns an answer, not both. A command can return a result of its action that no query can give: a new key, a new path, or the items that it removed. To show the new state, the caller uses a query, for example `sessions.list` after `project.add`.
 - **Dependency Rule:** dependencies point inward, to the logic. `src/core/` imports no `electron`, `#renderer/*`, or `#preload` code. The renderer talks to the agent only through `#protocol`.
 - **Humble Object:** keep disk, network, and pi calls in a thin shell. Put the decisions in a pure function, so a unit test can call it with no disk.
 
