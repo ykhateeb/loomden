@@ -226,7 +226,8 @@ export type TrustAnswer = "trust" | "once";
 export type Command =
   | { type: "sessions.list" }
   | { type: "project.add"; cwd: string }
-  | { type: "session.open"; cwd: string; path?: string }
+  /** `key` is a new id from the window. A file that is open already keeps its own key. */
+  | { type: "session.open"; key: string; cwd: string; path?: string }
   /** Board 1.2: move an open session to another project folder. The chat stays; pi then works in that folder. */
   | { type: "session.move"; key: string; cwd: string }
   | { type: "session.prompt"; key: string; text: string; behavior?: "steer" | "followUp"; images?: string[] }
@@ -266,7 +267,7 @@ export type Command =
   | { type: "session.abort"; key: string }
   | { type: "session.thinking"; key: string; level: string }
   | { type: "session.rename"; path: string; name: string }
-  | { type: "session.clone"; cwd: string; path: string }
+  | { type: "session.clone"; key: string; cwd: string; path: string }
   | { type: "session.export"; cwd: string; path: string }
   | { type: "session.close"; path: string }
   | { type: "project.remove"; cwd: string }

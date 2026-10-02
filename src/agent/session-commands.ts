@@ -14,11 +14,11 @@ export function sessionCommands({ sessions, dialogs }: Deps) {
     "session.open": async (cmd) => {
       await assertProject(cmd.cwd); // a folder becomes a project only through the folder picker
       if (cmd.cwd === NO_PROJECT_DIR) mkdirSync(NO_PROJECT_DIR, { recursive: true });
-      return sessions.open(cmd.cwd, cmd.path && sessionFile(cmd.path));
+      await sessions.open({ key: cmd.key, cwd: cmd.cwd, path: cmd.path && sessionFile(cmd.path) });
     },
     "session.move": async (cmd) => {
       await assertProject(cmd.cwd); // NO_PROJECT_DIR too: Undo moves a session back
-      return sessions.move(cmd.key, cmd.cwd);
+      await sessions.move(cmd.key, cmd.cwd);
     },
     "session.prompt": (cmd) => sessions.prompt(cmd.key, cmd.text, cmd.behavior, cmd.images),
     "session.canvas": (cmd) => sessions.prompt(cmd.key, canvasCommand(cmd.title)),
@@ -39,7 +39,7 @@ export function sessionCommands({ sessions, dialogs }: Deps) {
     "session.rename": (cmd) => sessions.rename(sessionFile(cmd.path), cmd.name),
     "session.clone": async (cmd) => {
       await assertProject(cmd.cwd);
-      return sessions.clone(cmd.cwd, sessionFile(cmd.path));
+      await sessions.clone({ key: cmd.key, cwd: cmd.cwd, path: sessionFile(cmd.path) });
     },
     "session.export": async (cmd) => {
       await assertProject(cmd.cwd);

@@ -9,6 +9,7 @@ import type { AgentMessage, ModelChoice, Send, SlashCommand } from "#protocol";
 import { readImage } from "#core/attachments";
 import type { Grants } from "#core/grants";
 import { forwardEvents } from "./events";
+import { assertNewKey } from "./keys";
 import { liveState, type OpenSession, type Session, trimQueued } from "./live-state";
 import { copyToFolder, moveFreeCanvases } from "./move";
 import type { Dialogs } from "./extension-ui";
@@ -22,12 +23,15 @@ type ThinkingLevel = Session["thinkingLevel"];
 
 const GIT_TIMEOUT_MS = 3000;
 
+/** Where to open a session, and the key it gets. */
+type OpenTarget = { key: string; cwd: string; path?: string };
+
 export function createRegistry({ send, modelRuntime, grants, dialogs }: { send: Send; modelRuntime: ModelRuntime; grants: Grants; dialogs: Dialogs }) {
   const live = new Map<string, OpenSession>();
   // Session files the user opened (not only an export): an export never closes these.
   const wanted = new Set<string>();
   // Opens in progress, by session file.
-  const opening = new Map<string, Promise<string | undefined>>();
+  const opening = new Map<string, Promise<void>>();
   const runtimes = createRuntimes({ send, modelRuntime, ask: dialogs.ask });
 
   const notify = (level: "info" | "warning" | "error", message: string, key?: string) => send({ type: "notify", key, level, message });
@@ -93,36 +97,38 @@ export function createRegistry({ send, modelRuntime, grants, dialogs }: { send: 
   }
 
   /** Two quick opens of one file (a double-click) must not make two runtimes that both write to it. */
-  function openOnce(cwd: string, path: string) {
-    const pending = opening.get(path) ?? openNow(cwd, path).finally(() => opening.delete(path));
-    opening.set(path, pending);
+  function openOnce(target: OpenTarget & { path: string }) {
+    const pending = opening.get(target.path) ?? openNow(target).finally(() => opening.delete(target.path));
+    opening.set(target.path, pending);
     return pending;
   }
 
-  /** `createManager` opens a session manager made elsewhere (a clone). undefined = the user cancelled the trust dialog. */
-  async function openNow(cwd: string, path?: string, createManager?: () => SessionManager): Promise<string | undefined> {
+  /**
+   * Opens under `key`. A file that is open already keeps its own key. If the user cancels the trust dialog, nothing opens.
+   * `createManager` opens a session manager made elsewhere (a clone).
+   */
+  async function openNow({ key, cwd, path, createManager }: OpenTarget & { createManager?: () => SessionManager }) {
     const found = path && keyOf(path);
     if (found) {
       // Already bound: only send it again. A new bind in the middle of a run would lose its timer and tool spinners.
       sendMessages(found, get(found).rt.session);
       sendState(found);
-      return found;
+      return;
     }
-    if (!(await runtimes.ensureTrust(cwd))) return undefined;
+    if (!(await runtimes.ensureTrust(cwd))) return;
     const rt = await runtimes.create(cwd, createManager ? createManager() : path ? SessionManager.open(path) : SessionManager.create(cwd));
-    const key = randomUUID();
     live.set(key, { rt, runningTools: new Set(), queued: [] });
     rt.setRebindSession(() => bind(key));
     await bind(key);
-    return key;
   }
 
   return {
-    /** Returns the session key, or undefined if the user cancelled the trust dialog. No `path` = a new session. */
-    open(cwd: string, path?: string): Promise<string | undefined> {
-      if (!path) return openNow(cwd);
-      wanted.add(path);
-      return openOnce(cwd, path);
+    /** No `path` = a new session. The window finds the key in the state it gets: `key`, or the key of the open file. */
+    open(target: OpenTarget) {
+      assertNewKey(target.key, live);
+      if (!target.path) return openNow(target);
+      wanted.add(target.path);
+      return openOnce({ ...target, path: target.path });
     },
 
     /**
@@ -255,18 +261,18 @@ export function createRegistry({ send, modelRuntime, grants, dialogs }: { send: 
 
     /**
      * Board 1.2: the session moves to `cwd` with its chat. Its file gets the new folder in its header and goes to that
-     * folder's sessions; pi then works in `cwd` under the same key. undefined = the user cancelled the trust dialog.
+     * folder's sessions; pi then works in `cwd` under the same key. If the user cancels the trust dialog, nothing moves.
      */
-    async move(key: string, cwd: string): Promise<string | undefined> {
+    async move(key: string, cwd: string) {
       const { rt } = get(key);
       if (rt.session.isStreaming) throw new Error("pi is working. Wait until it is done, then move the session.");
-      if (rt.cwd === cwd) return key;
-      if (!(await runtimes.ensureTrust(cwd))) return undefined;
+      if (rt.cwd === cwd) return;
+      if (!(await runtimes.ensureTrust(cwd))) return;
       const from = rt.session.sessionFile;
       // pi writes the file after pi's first reply: before that there is nothing to move, so start in the project.
       if (!from || !existsSync(from)) {
         await drop(key);
-        return this.open(cwd);
+        return openNow({ key, cwd });
       }
       const to = copyToFolder(from, SessionManager.create(cwd).getSessionDir(), cwd);
       const freeId = rt.cwd === NO_PROJECT_DIR ? rt.session.sessionManager.getSessionId() : undefined;
@@ -278,12 +284,12 @@ export function createRegistry({ send, modelRuntime, grants, dialogs }: { send: 
       rmSync(from);
       if (wanted.delete(from)) wanted.add(to);
       if (freeId) await moveFreeCanvases(freeId, cwd, (level, message) => notify(level, message, key));
-      return key;
     },
 
-    /** A copy of the whole session, opened. */
-    clone(cwd: string, path: string) {
-      return openNow(cwd, undefined, () => SessionManager.forkFrom(path, cwd));
+    /** A copy of the whole session, opened under `key`. */
+    clone({ key, cwd, path }: OpenTarget & { path: string }) {
+      assertNewKey(key, live);
+      return openNow({ key, cwd, createManager: () => SessionManager.forkFrom(path, cwd) });
     },
 
     rename(path: string, name: string) {
@@ -298,7 +304,8 @@ export function createRegistry({ send, modelRuntime, grants, dialogs }: { send: 
     async exportHtml(cwd: string, path: string) {
       const wasOpen = keyOf(path);
       // Not open() here: an export alone does not make the file one the user opened.
-      const key = wasOpen ?? (await openOnce(cwd, path));
+      if (!wasOpen) await openOnce({ key: randomUUID(), cwd, path });
+      const key = keyOf(path);
       if (!key) throw new Error("Export cancelled");
       try {
         return await get(key).rt.session.exportToHtml(join(tmpdir(), `${EXPORT_PREFIX}${randomUUID()}.html`));

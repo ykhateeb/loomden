@@ -13,13 +13,16 @@ export const sessionActions = {
         openDevView(r);
       })
       .catch(report),
-  open: (cwd: string, path?: string) =>
-    call<string | undefined>({ type: "session.open", cwd, path })
-      .then((key) => {
-        if (key) set({ active: key, tab: "sessions", mark: undefined }); // openAt sets a new mark after this
-        return key;
+  /** No `path` = a new session, under `key`. A file that is open already keeps its own key: find it with keyOf(). */
+  open: (cwd: string, path?: string, key: string = crypto.randomUUID()) =>
+    call({ type: "session.open", key, cwd, path })
+      .then(() => {
+        const opened = path ? sessionActions.keyOf(path) : getState().live[key]?.key;
+        if (opened) set({ active: opened, tab: "sessions", mark: undefined }); // openAt sets a new mark after this
       })
-      .catch((e) => (report(e), undefined)),
+      .catch(report),
+  /** The key of an open session file. undefined = it is not open (for example, the user cancelled the trust dialog). */
+  keyOf: (path: string) => Object.values(getState().live).find((s) => s.file === path)?.key,
   /** Show an open session (from the running menu or "needs you"). */
   focus: (key: string) => set({ tab: "sessions", active: key, mark: undefined }),
   /** Board 1.1: a chat with no project. Add it to a project later. */
@@ -30,27 +33,29 @@ export const sessionActions = {
   setView: (key: string, view: "chat" | "tree") => set((s) => ({ view: { ...s.view, [key]: view } })),
   /** Open a session at its tree (the Fork item in the session menus). */
   openTree: async (cwd: string, path: string) => {
-    const key = await sessionActions.open(cwd, path);
+    await sessionActions.open(cwd, path);
+    const key = sessionActions.keyOf(path);
     if (key) sessionActions.setView(key, "tree");
   },
   /** Board 1.2 and 1.3: move a session to a project (or back, for Undo). The chat stays as it is. */
   move: async (key: string, cwd: string, undo = false) => {
     const from = getState().live[key]?.cwd;
     try {
-      const moved = await call<string | undefined>({ type: "session.move", key, cwd });
+      await call({ type: "session.move", key, cwd });
+      const moved = getState().live[key]?.cwd === cwd;
       if (!moved) return; // the trust dialog was cancelled
-      set({ active: moved, tab: "sessions" });
+      set({ active: key, tab: "sessions" });
       // The canvas moved with the session: its server is new, so ask for the address again.
-      const canvas = getState().canvas[moved];
+      const canvas = getState().canvas[key];
       if (canvas) {
-        const { [moved]: _, ...rest } = getState().canvas;
+        const { [key]: _, ...rest } = getState().canvas;
         set({ canvas: rest });
-        if (canvas.open) designActions.canvas(moved);
+        if (canvas.open) designActions.canvas(key);
       }
       await sessionActions.refresh();
       if (undo || !from) return;
       const name = getState().projects.find((p) => p.cwd === cwd)?.name ?? folderName(cwd);
-      notice(`Moved to ${name}`, "info", { label: "Undo", run: () => sessionActions.move(moved, from, true) });
+      notice(`Moved to ${name}`, "info", { label: "Undo", run: () => sessionActions.move(key, from, true) });
     } catch (e) {
       report(e as Error);
     }
@@ -73,7 +78,8 @@ export const sessionActions = {
   /** Open a search result and mark the message (or only open it, for a title match). */
   openAt: async (cwd: string, path: string, at?: number) => {
     set({ searching: false });
-    const key = await sessionActions.open(cwd, path);
+    await sessionActions.open(cwd, path);
+    const key = sessionActions.keyOf(path);
     // The mark is in the chat: show the chat, also if this session was on its tree.
     set((s) => ({ mark: key && at ? { key, at } : undefined, view: key ? { ...s.view, [key]: "chat" } : s.view }));
   },
@@ -87,14 +93,17 @@ export const sessionActions = {
   rename: (path: string, name: string) =>
     call({ type: "session.rename", path, name })
       .then(() => (notice("Session renamed", "info"), sessionActions.refresh()), report),
-  clone: (cwd: string, path: string) =>
-    call<string | undefined>({ type: "session.clone", cwd, path })
-      .then((key) => {
-        if (!key) return;
+  clone: (cwd: string, path: string) => {
+    const key = crypto.randomUUID();
+    return call({ type: "session.clone", key, cwd, path })
+      .then(() => {
+        const cloned = key in getState().live;
+        if (!cloned) return; // the trust dialog was cancelled
         set({ active: key, tab: "sessions" });
         return sessionActions.refresh();
       })
-      .catch(report),
+      .catch(report);
+  },
   exportHtml: async (cwd: string, path: string, title: string) => {
     try {
       const temp = await call<string>({ type: "session.export", cwd, path });
@@ -125,7 +134,8 @@ function openDevView(list: SessionList) {
   history.replaceState(null, "", location.pathname);
   const want = dev.get("open")?.toLowerCase();
   const s = want === "latest" ? list.sessions[0] : list.sessions.find((x) => want && x.title.toLowerCase().includes(want));
-  if (s) sessionActions.open(s.cwd, s.path).then((key) => key && dev.get("view") === "tree" && sessionActions.setView(key, "tree"));
+  if (s && dev.get("view") === "tree") sessionActions.openTree(s.cwd, s.path);
+  else if (s) sessionActions.open(s.cwd, s.path);
   if (dev.get("search")) set({ searching: true, devSearch: dev.get("search")! });
   if (dev.get("tab")) set({ tab: dev.get("tab") as Tab });
   if (dev.get("dialog") === "provider") set({ addingProvider: true });

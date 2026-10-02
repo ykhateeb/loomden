@@ -1,7 +1,8 @@
 import { readdirSync } from "node:fs";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { _electron as electron, expect, test } from "@playwright/test";
 import { approve, createBoard } from "#canvas/store";
 
@@ -152,3 +153,62 @@ test("+ Canvas starts a canvas from the session header", async () => {
     await app.close();
   }
 });
+
+test("a session opens from the list at its tree, clones, and moves to a new project", async () => {
+  const tenonDir = await mkdtemp(join(tmpdir(), "tenon-app-"));
+  const project = await mkdtemp(join(tmpdir(), "tenon-project-"));
+  await writeSession(tenonDir, "Seed session");
+  const app = await electron.launch({
+    args: ["."],
+    env: { ...process.env, TENON_DIR: tenonDir, TENON_PI_DIR: join(tenonDir, "pi"), TENON_OPEN: "Seed", TENON_VIEW: "tree" },
+  });
+  try {
+    // "Open a folder…" picks this folder, with no native dialog.
+    await app.evaluate(({ dialog }, dir) => {
+      dialog.showOpenDialog = (async () => ({ canceled: false, filePaths: [dir] })) as unknown as typeof dialog.showOpenDialog;
+    }, project);
+    const win = await app.firstWindow();
+
+    // The window finds the key of a session that it opened by its file.
+    await expect(win.getByRole("button", { name: /Switch to branch/ })).toBeVisible();
+
+    const rows = win.getByRole("navigation", { name: "Sessions" }).getByText("Seed session");
+    await rows.first().click({ button: "right" });
+    await win.getByRole("menuitem", { name: /Clone/ }).click();
+    await expect(rows).toHaveCount(2);
+
+    await win.getByRole("button", { name: "Add to project" }).click();
+    await win.getByRole("menuitem", { name: /Open a folder/ }).click();
+    await expect(win.getByText(/^Moved to tenon-project-/)).toBeVisible();
+  } finally {
+    await app.close();
+  }
+});
+
+/** A saved session with no project: a user message, a reply, and a name. */
+async function writeSession(tenonDir: string, name: string) {
+  const agentDir = join(tenonDir, "agent");
+  const cwd = join(tenonDir, "no-project");
+  await mkdir(cwd, { recursive: true });
+  const before = process.env.PI_CODING_AGENT_DIR;
+  process.env.PI_CODING_AGENT_DIR = agentDir; // pi puts the file in the sessions folder of this agent folder
+  try {
+    const sm = SessionManager.create(cwd);
+    const timestamp = Date.now();
+    sm.appendMessage({ role: "user", content: "Hello from the test", timestamp });
+    sm.appendMessage({
+      role: "assistant",
+      content: [{ type: "text", text: "Hello" }],
+      api: "anthropic-messages",
+      provider: "anthropic",
+      model: "test",
+      usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } },
+      stopReason: "stop",
+      timestamp,
+    });
+    sm.appendSessionInfo(name);
+  } finally {
+    if (before === undefined) delete process.env.PI_CODING_AGENT_DIR;
+    else process.env.PI_CODING_AGENT_DIR = before;
+  }
+}
