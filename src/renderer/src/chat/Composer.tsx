@@ -1,32 +1,23 @@
 import { useEffect, useId, useRef, useState } from "react";
-import type { LiveState, ModelChoice, PromptBehavior, SlashCommand } from "#protocol";
+import type { LiveState, PromptBehavior } from "#protocol";
 import { actions } from "#renderer/actions";
 import { useStore } from "#renderer/store";
-import { Button, cx, IconButton, Kbd, pill, Pill } from "#renderer/ui/base";
+import { cx, IconButton, Kbd, pill, Pill } from "#renderer/ui/base";
 import { Icon } from "#renderer/ui/Icon";
-import { checkMark, Menu, type MenuState } from "#renderer/ui/Menu";
 import { CommandMenu, type Row } from "./CommandMenu";
-import { applyPick, findTrigger } from "./format";
+import { ComposerFooter } from "./ComposerFooter";
+import { applyPick } from "./format";
+import { useCompletion } from "./useCompletion";
 
 const IMAGE = /\.(png|jpe?g|gif|webp)$/i;
 const name = (path: string) => path.slice(path.lastIndexOf("/") + 1);
 
 /** Board 2, 2b, 2c: the message box — queue, attachments, / and @ menus, model and thinking, drop files. */
-/** Wait for a short pause in typing before the @ menu searches files. */
-const FILE_SEARCH_DEBOUNCE_MS = 120;
-/** The height of a menu row: a menu opens above the box, as high as its rows. */
-const MENU_ROW_PX = 34;
-
 export function Composer({ sessionKey, state }: { sessionKey: string; state: LiveState }) {
   const [text, setText] = useState("");
   const [caret, setCaret] = useState(0);
   const [images, setImages] = useState<string[]>([]);
   const [dragging, setDragging] = useState(false);
-  const [commands, setCommands] = useState<SlashCommand[]>();
-  const [files, setFiles] = useState<string[]>([]);
-  const [active, setActive] = useState(0);
-  const [closed, setClosed] = useState(false); // Esc hides the list until the next keystroke
-  const [menu, setMenu] = useState<MenuState>();
   const box = useRef<HTMLTextAreaElement>(null);
   const listId = useId();
   const queued = state.queued;
@@ -39,36 +30,20 @@ export function Composer({ sessionKey, state }: { sessionKey: string; state: Liv
     actions.clearDraft(sessionKey);
     setText(draft);
     setCaret(draft.length);
-    requestAnimationFrame(() => (box.current?.focus(), box.current?.setSelectionRange(draft.length, draft.length)));
+    requestAnimationFrame(() => {
+      box.current?.focus();
+      box.current?.setSelectionRange(draft.length, draft.length);
+    });
   }, [draft, sessionKey]);
 
-  const trigger = closed ? undefined : findTrigger(text, caret);
-  const q = trigger?.query.toLowerCase() ?? "";
 
-  // Commands load once, on the first "/"; files load for each @ query.
-  useEffect(() => {
-    if (trigger?.kind === "/" && !commands) actions.commands(sessionKey).then(setCommands);
-  }, [trigger?.kind, commands, sessionKey]);
-  useEffect(() => {
-    if (trigger?.kind !== "@") return;
-    const t = setTimeout(() => actions.searchFiles(state.cwd, trigger.query).then(setFiles), FILE_SEARCH_DEBOUNCE_MS);
-    return () => clearTimeout(t);
-  }, [trigger?.kind, trigger?.query, state.cwd]);
-
-  const rows: Row[] =
-    trigger?.kind === "/"
-      ? (commands ?? []).filter((c) => c.name.toLowerCase().includes(q)).map((c) => ({ value: c.name, label: `/${c.name}`, description: c.description, source: c.source }))
-      : trigger?.kind === "@"
-        ? files.map((f) => ({ value: f, label: f }))
-        : [];
-  const listOpen = !!trigger && (trigger.kind === "@" || !!commands);
-  const current = Math.min(active, Math.max(rows.length - 1, 0));
+  const completion = useCompletion({ text, caret, sessionKey, cwd: state.cwd });
+  const { trigger, rows, listOpen, current } = completion;
 
   const edit = (next: string, at = next.length) => {
     setText(next);
     setCaret(at);
-    setActive(0);
-    setClosed(false);
+    completion.reopen();
     requestAnimationFrame(() => box.current?.setSelectionRange(at, at));
   };
 
@@ -120,53 +95,32 @@ export function Composer({ sessionKey, state }: { sessionKey: string; state: Liv
     attach(await window.tenon.picked(id));
   };
 
+  /** A key of the open list: move, complete, or run the picked command. True when it used the key. */
+  const listKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    const enter = e.key === "Enter" && !e.shiftKey;
+    if (e.key === "ArrowDown") completion.setActive((current + 1) % rows.length);
+    else if (e.key === "ArrowUp") completion.setActive((current - 1 + rows.length) % rows.length);
+    // ↵ on a file only completes it; on a / command it runs the picked command.
+    else if (e.key === "Tab" || (enter && trigger?.kind === "@")) pick(rows[current]);
+    else if (enter && trigger?.kind === "/" && rows[current].value !== trigger.query) {
+      actions.prompt({ key: sessionKey, text: `/${rows[current].value}`, behavior: state.streaming ? "steer" : undefined });
+      edit("");
+    } else return false;
+    return true;
+  };
+
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.nativeEvent.isComposing) return; // Enter confirms an input-method word, it does not send
-    if (listOpen && rows.length > 0) {
-      if (e.key === "ArrowDown") return e.preventDefault(), setActive((current + 1) % rows.length);
-      if (e.key === "ArrowUp") return e.preventDefault(), setActive((current - 1 + rows.length) % rows.length);
-      if (e.key === "Tab") return e.preventDefault(), pick(rows[current]);
-      // ↵ on a file only completes it; on a / command it runs the picked command.
-      if (e.key === "Enter" && !e.shiftKey && trigger?.kind === "@") return e.preventDefault(), pick(rows[current]);
-      if (e.key === "Enter" && !e.shiftKey && trigger?.kind === "/" && rows[current].value !== trigger.query) {
-        e.preventDefault();
-        actions.prompt({ key: sessionKey, text: `/${rows[current].value}`, behavior: state.streaming ? "steer" : undefined });
-        return edit("");
-      }
+    if (listOpen && rows.length > 0 && listKey(e)) return e.preventDefault();
+    if (listOpen && e.key === "Escape") {
+      e.preventDefault();
+      return completion.close();
     }
-    if (listOpen && e.key === "Escape") return e.preventDefault(), setClosed(true);
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       send(e.altKey ? "followUp" : "steer");
     }
     if (e.key === "Escape" && state.streaming) actions.abort(sessionKey);
-  };
-
-  const openModels = async (el: HTMLElement) => {
-    const r = el.getBoundingClientRect();
-    const models: ModelChoice[] = await actions.models(sessionKey);
-    setMenu({
-      at: { x: r.left, y: r.top - Math.min(models.length * MENU_ROW_PX + 16, 360) - 8 },
-      label: "Model",
-      items: models.length
-        ? models.map((m) => ({
-            id: `${m.provider}/${m.id}`,
-            label: m.id,
-            meta: m.provider,
-            icon: checkMark(m.id === state.model && m.provider === state.provider),
-            onSelect: () => actions.setModel(sessionKey, m.provider, m.id),
-          }))
-        : [{ label: "No models: add a key in Settings", disabled: true, onSelect: () => {} }],
-    });
-  };
-
-  const openThinking = (el: HTMLElement) => {
-    const r = el.getBoundingClientRect();
-    setMenu({
-      at: { x: r.left, y: r.top - state.thinkingLevels.length * MENU_ROW_PX - 24 },
-      label: "Thinking",
-      items: state.thinkingLevels.map((l) => ({ id: l, label: l, icon: checkMark(l === state.thinking), onSelect: () => actions.setThinking(sessionKey, l) })),
-    });
   };
 
   return (
@@ -187,7 +141,7 @@ export function Composer({ sessionKey, state }: { sessionKey: string; state: Liv
           attach(files.map((f) => window.tenon.pathForFile(f)).filter(Boolean));
         }}
       >
-        {listOpen && <CommandMenu id={listId} title={trigger.kind === "/" ? "Commands" : "Files"} rows={rows} active={current} onPick={pick} onHover={setActive} />}
+        {listOpen && <CommandMenu id={listId} title={trigger?.kind === "/" ? "Commands" : "Files"} rows={rows} active={current} onPick={pick} onHover={completion.setActive} />}
 
         {queued.map((m, i) => (
           <div key={i} className="flex items-center gap-2 px-3 pt-2.5">
@@ -225,8 +179,7 @@ export function Composer({ sessionKey, state }: { sessionKey: string; state: Liv
           onChange={(e) => {
             setText(e.target.value);
             setCaret(e.target.selectionStart);
-            setActive(0);
-            setClosed(false);
+            completion.reopen();
           }}
           onSelect={(e) => setCaret(e.currentTarget.selectionStart)}
           onKeyDown={onKeyDown}
@@ -236,34 +189,10 @@ export function Composer({ sessionKey, state }: { sessionKey: string; state: Liv
         {listOpen ? (
           <div className="flex items-center gap-1.5 px-3.5 pb-3 text-xs text-muted">
             <Kbd>↑</Kbd>
-            <Kbd>↓</Kbd> pick · <Kbd>tab</Kbd> complete · <Kbd>↵</Kbd> {trigger.kind === "/" ? "run" : "add"} · <Kbd>esc</Kbd> close
+            <Kbd>↓</Kbd> pick · <Kbd>tab</Kbd> complete · <Kbd>↵</Kbd> {trigger?.kind === "/" ? "run" : "add"} · <Kbd>esc</Kbd> close
           </div>
         ) : (
-          <div className="flex items-center gap-1.5 px-2.5 pb-2.5">
-            <button className={pill("dim", "h-7 rounded-md hover:text-fg")} aria-haspopup="menu" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => openModels(e.currentTarget)}>
-              <span className="text-accent"><Icon name="sparkle" size={13} /></span>
-              {state.model ?? "No model"}
-              <Icon name="chevronDown" size={12} />
-            </button>
-            {state.thinkingLevels.length > 0 && (
-              <button className={pill("dim", "h-7 rounded-md hover:text-fg")} aria-haspopup="menu" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => openThinking(e.currentTarget)}>
-                Thinking: {state.thinking}
-                <Icon name="chevronDown" size={12} />
-              </button>
-            )}
-            <IconButton size={28} label="Attach files" onClick={pickFiles}>
-              <Icon name="clip" />
-            </IconButton>
-            <span className="flex-1" />
-            {state.streaming && (
-              <Button small variant="danger" onClick={() => actions.abort(sessionKey)}>
-                <Icon name="stop" size={14} />Stop
-              </Button>
-            )}
-            <Button small variant="primary" disabled={sending || (!text.trim() && images.length === 0)} onClick={() => send("steer")}>
-              Send<Icon name="send" size={14} />
-            </Button>
-          </div>
+          <ComposerFooter sessionKey={sessionKey} state={state} canSend={!sending && (!!text.trim() || images.length > 0)} onSend={() => send("steer")} onAttach={pickFiles} />
         )}
 
         {dragging && (
@@ -273,7 +202,6 @@ export function Composer({ sessionKey, state }: { sessionKey: string; state: Liv
           </div>
         )}
       </div>
-      {menu && <Menu at={menu.at} label={menu.label} items={menu.items} width={menu.label === "Model" ? 300 : 180} onClose={() => setMenu(undefined)} />}
     </div>
   );
 }
