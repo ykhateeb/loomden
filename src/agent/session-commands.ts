@@ -1,6 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { NO_PROJECT_DIR, sessionFile } from "#core/paths";
-import { assertProject, listSessions } from "#core/projects";
+import { assertProject } from "#core/projects";
+import { listSessions } from "#core/sessions/list";
 import { searchSessions } from "#core/sessions/search";
 import type { Deps, Handlers } from "./handlers";
 

@@ -1,7 +1,8 @@
 import { searchFiles } from "#core/attachments";
 import { designList, designOpen, designUrl } from "#core/design";
-import { setTrust, trustList } from "#core/packages";
-import { addProject, assertProject, listSessions, removeProject } from "#core/projects";
+import { addProject, assertProject, removeProject } from "#core/projects";
+import { listSessions } from "#core/sessions/list";
+import { setTrust, trustList } from "#core/trust";
 import type { Deps, Handlers } from "./handlers";
 
 export function projectCommands({ grants, sessions, send }: Deps) {

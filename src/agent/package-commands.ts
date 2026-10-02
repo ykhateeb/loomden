@@ -1,8 +1,10 @@
 import type { ProgressEvent } from "@earendil-works/pi-coding-agent";
 import { packageGrant } from "#core/grants";
 import { codeItems, runImport, scanImport } from "#core/import";
-import { changePackage, listPackages, searchGallery, trustList } from "#core/packages";
-import { assertProject, listSessions } from "#core/projects";
+import { changePackage, listPackages, searchGallery } from "#core/packages";
+import { assertProject } from "#core/projects";
+import { listSessions } from "#core/sessions/list";
+import { trustList } from "#core/trust";
 import type { ImportItem, Project } from "#protocol";
 import type { Deps, Handlers } from "./handlers";
 

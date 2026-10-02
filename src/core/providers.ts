@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { getAgentDir, type ModelRuntime } from "@earendil-works/pi-coding-agent";
 import type { CustomProvider, FoundModel, ModelChoice, ProviderRow, Send } from "#protocol";
-import type { Dialogs } from "./sessions/extension-ui";
+import type { Dialogs } from "#core/sessions/extension-ui";
 import { writePrivateJson } from "./settings";
 
 /** A model list from a server that does not answer is an error, not a wait with no end. */
