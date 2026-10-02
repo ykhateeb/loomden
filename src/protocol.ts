@@ -3,6 +3,9 @@ import type { AgentSessionEvent } from "@earendil-works/pi-coding-agent";
 
 export type AgentMessage = Extract<AgentSessionEvent, { type: "message_end" }>["message"];
 
+/** Main's save dialog throws this when the user cancels it. The window does not show it as an error. */
+export const SAVE_CANCELLED = "Save cancelled";
+
 export interface Project {
   cwd: string;
   name: string;
@@ -268,7 +271,8 @@ export type Command =
   | { type: "session.thinking"; key: string; level: string }
   | { type: "session.rename"; path: string; name: string }
   | { type: "session.clone"; key: string; cwd: string; path: string }
-  | { type: "session.export"; cwd: string; path: string }
+  /** `id` is a new id from the window; main moves the file of that id (see exportFile()). */
+  | { type: "session.export"; id: string; cwd: string; path: string }
   | { type: "session.close"; path: string }
   | { type: "project.remove"; cwd: string }
   | { type: "ui.answer"; id: string; value: unknown };

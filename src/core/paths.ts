@@ -1,5 +1,6 @@
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join, resolve, sep } from "node:path";
+import { isUuid } from "./ids";
 
 /** Tenon's own folder. Its pi agent folder is TENON_DIR/agent (the host sets PI_CODING_AGENT_DIR to it). */
 export const TENON_DIR = process.env.TENON_DIR ?? join(homedir(), ".tenon");
@@ -16,8 +17,14 @@ export function sessionFile(path: unknown): string {
   return full;
 }
 
-/** Temporary HTML exports start with this; the main process only moves such files. */
-export const EXPORT_PREFIX = "tenon-export-";
+/**
+ * The temporary file of an HTML export. The window makes the id. The agent writes the file, and main moves it
+ * to the path that the user picks. Only an id makes the path, so the window cannot name another file.
+ */
+export function exportFile(id: unknown) {
+  if (!isUuid(id)) throw new Error("Not a Tenon export");
+  return join(tmpdir(), `tenon-export-${id}.html`);
+}
 
 /** Terminal pi's own folder. Tenon reads it (import) and shares only its auth.json. */
 export const PI_AGENT_DIR = process.env.TENON_PI_DIR ?? join(homedir(), ".pi", "agent");

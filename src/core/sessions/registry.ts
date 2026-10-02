@@ -2,8 +2,6 @@ import { execFile } from "node:child_process";
 import { existsSync, rmSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { promisify } from "node:util";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { type ModelRuntime, SessionManager } from "@earendil-works/pi-coding-agent";
 import type { AgentMessage, ModelChoice, Send, SlashCommand } from "#protocol";
 import { readImage } from "#core/attachments";
@@ -17,7 +15,7 @@ import { createRuntimes } from "./runtime";
 import type { Entry as FileEntry } from "./summary";
 import { buildTree } from "./tree";
 import { availableModels } from "#core/providers";
-import { EXPORT_PREFIX, NO_PROJECT_DIR } from "#core/paths";
+import { exportFile, NO_PROJECT_DIR } from "#core/paths";
 
 type ThinkingLevel = Session["thinkingLevel"];
 
@@ -300,15 +298,16 @@ export function createRegistry({ send, modelRuntime, grants, dialogs }: { send: 
       } else SessionManager.open(path).appendSessionInfo(name);
     },
 
-    /** Export to a temporary file. The main process moves it to the path the user picks. */
-    async exportHtml(cwd: string, path: string) {
+    /** Export to the temporary file of export `id`. The main process moves it to the path the user picks. */
+    async exportHtml({ id, cwd, path }: { id: string; cwd: string; path: string }) {
+      const file = exportFile(id);
       const wasOpen = keyOf(path);
       // Not open() here: an export alone does not make the file one the user opened.
       if (!wasOpen) await openOnce({ key: randomUUID(), cwd, path });
       const key = keyOf(path);
       if (!key) throw new Error("Export cancelled");
       try {
-        return await get(key).rt.session.exportToHtml(join(tmpdir(), `${EXPORT_PREFIX}${randomUUID()}.html`));
+        await get(key).rt.session.exportToHtml(file);
       } finally {
         // Opened only for this export, and the user did not open it meanwhile: close it again.
         if (!wasOpen && !wanted.has(path)) await this.close(path);

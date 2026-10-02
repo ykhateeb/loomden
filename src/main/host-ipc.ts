@@ -1,9 +1,9 @@
 import { copyFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { basename, dirname, resolve } from "node:path";
+import { resolve } from "node:path";
 import { BrowserWindow, dialog, ipcMain, shell } from "electron";
 import { type GrantKind, packageGrant } from "#core/grants";
-import { EXPORT_PREFIX, sessionFile } from "#core/paths";
+import { exportFile, sessionFile } from "#core/paths";
+import { SAVE_CANCELLED } from "#protocol";
 
 /** Things only the main process can do. The agent process does not see these. */
 export function registerHostIpc(grant: (kind: GrantKind, path: string) => void) {
@@ -18,7 +18,6 @@ export function registerHostIpc(grant: (kind: GrantKind, path: string) => void) 
     return result.filePaths[0];
   });
 
-  // Moves an export from the agent's temporary file to a path the user picks here. Returns that path.
   ipcMain.handle("host:pick-files", async (e) => {
     const options: Electron.OpenDialogOptions = { properties: ["openFile", "multiSelections"] };
     const win = parent(e);
@@ -28,18 +27,18 @@ export function registerHostIpc(grant: (kind: GrantKind, path: string) => void) 
     return result.filePaths;
   });
 
-  ipcMain.handle("host:save-html", async (e, temp: unknown, name: unknown) => {
-    const from = typeof temp === "string" ? resolve(temp) : "";
-    if (dirname(from) !== resolve(tmpdir()) || !basename(from).startsWith(EXPORT_PREFIX) || !from.endsWith(".html")) throw new Error("Not a Tenon export");
+  // The dialog and the copy stay in one call: a path from the window could name any file.
+  ipcMain.handle("host:save-html", async (e, id: unknown, name: unknown) => {
+    const from = exportFile(id);
     const options: Electron.SaveDialogOptions = { defaultPath: `${String(name).replace(/[/\\:]/g, "-")}.html`, filters: [{ name: "HTML", extensions: ["html"] }] };
     const win = parent(e);
     const result = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options);
     try {
-      if (!result.canceled && result.filePath) await copyFile(from, result.filePath);
+      if (result.canceled || !result.filePath) throw new Error(SAVE_CANCELLED);
+      await copyFile(from, result.filePath);
     } finally {
       await rm(from, { force: true });
     }
-    return result.canceled ? null : result.filePath;
   });
 
   // A dropped file: the preload gets its path from the real File (a page script cannot make one up).

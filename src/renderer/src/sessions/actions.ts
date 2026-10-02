@@ -1,4 +1,4 @@
-import type { SearchResult } from "#protocol";
+import { SAVE_CANCELLED, type SearchResult } from "#protocol";
 import { folderName } from "#renderer/chat/format";
 import { designActions } from "#renderer/design/actions";
 import { call } from "#renderer/port";
@@ -105,12 +105,14 @@ export const sessionActions = {
       .catch(report);
   },
   exportHtml: async (cwd: string, path: string, title: string) => {
+    const id = crypto.randomUUID();
     try {
-      const temp = await call<string>({ type: "session.export", cwd, path });
-      const saved = await window.tenon.saveHtml(temp, title);
-      if (saved) notice(`Exported to ${saved}`, "info");
+      await call({ type: "session.export", id, cwd, path });
+      await window.tenon.saveHtml(id, title);
+      notice(`Exported “${title}”`, "info");
     } catch (e) {
-      report(e as Error);
+      const cancelled = (e as Error).message.includes(SAVE_CANCELLED);
+      if (!cancelled) report(e as Error);
     }
   },
   /** Close it if it is open, then move its file to the Trash. */

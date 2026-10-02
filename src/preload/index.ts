@@ -13,7 +13,8 @@ const host = {
     if (path) ipcRenderer.send("host:grant-drop", path);
     return path;
   },
-  saveHtml: (temp: string, name: string): Promise<string | null> => ipcRenderer.invoke("host:save-html", temp, name),
+  /** Main asks where to save, then moves the export `id` there. A cancel throws SAVE_CANCELLED. */
+  saveHtml: (id: string, name: string): Promise<void> => ipcRenderer.invoke("host:save-html", id, name),
   /** Main shows its own dialog; true = the user confirmed, and the agent may install or update it (once). */
   confirmInstall: (action: "install" | "update", source: string, cwd?: string): Promise<boolean> => ipcRenderer.invoke("host:confirm-install", action, source, cwd ?? ""),
   /** Main confirms the code items of an import (extension files, packages); true = go. */

@@ -1,5 +1,5 @@
 import { readdirSync } from "node:fs";
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
@@ -154,25 +154,32 @@ test("+ Canvas starts a canvas from the session header", async () => {
   }
 });
 
-test("a session opens from the list at its tree, clones, and moves to a new project", async () => {
+test("a session opens from the list at its tree, exports, clones, and moves to a new project", async () => {
   const tenonDir = await mkdtemp(join(tmpdir(), "tenon-app-"));
   const project = await mkdtemp(join(tmpdir(), "tenon-project-"));
+  const saved = join(tenonDir, "saved.html");
   await writeSession(tenonDir, "Seed session");
   const app = await electron.launch({
     args: ["."],
     env: { ...process.env, TENON_DIR: tenonDir, TENON_PI_DIR: join(tenonDir, "pi"), TENON_OPEN: "Seed", TENON_VIEW: "tree" },
   });
   try {
-    // "Open a folder…" picks this folder, with no native dialog.
-    await app.evaluate(({ dialog }, dir) => {
+    // "Open a folder…" picks `project`, and the save dialog picks `saved`, with no native dialog.
+    await app.evaluate(({ dialog }, { dir, file }) => {
       dialog.showOpenDialog = (async () => ({ canceled: false, filePaths: [dir] })) as unknown as typeof dialog.showOpenDialog;
-    }, project);
+      dialog.showSaveDialog = (async () => ({ canceled: false, filePath: file })) as unknown as typeof dialog.showSaveDialog;
+    }, { dir: project, file: saved });
     const win = await app.firstWindow();
 
     // The window finds the key of a session that it opened by its file.
     await expect(win.getByRole("button", { name: /Switch to branch/ })).toBeVisible();
 
     const rows = win.getByRole("navigation", { name: "Sessions" }).getByText("Seed session");
+    await rows.first().click({ button: "right" });
+    await win.getByRole("menuitem", { name: /Export as HTML/ }).click();
+    await expect(win.getByText("Exported “Seed session”")).toBeVisible();
+    expect(await readFile(saved, "utf8")).toMatch(/^<!DOCTYPE html>/i); // main moved the export to the picked path
+
     await rows.first().click({ button: "right" });
     await win.getByRole("menuitem", { name: /Clone/ }).click();
     await expect(rows).toHaveCount(2);

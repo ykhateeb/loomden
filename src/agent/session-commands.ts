@@ -43,7 +43,7 @@ export function sessionCommands({ sessions, dialogs }: Deps) {
     },
     "session.export": async (cmd) => {
       await assertProject(cmd.cwd);
-      return sessions.exportHtml(cmd.cwd, sessionFile(cmd.path));
+      await sessions.exportHtml({ id: cmd.id, cwd: cmd.cwd, path: sessionFile(cmd.path) });
     },
     "session.close": (cmd) => sessions.close(sessionFile(cmd.path)),
     "ui.answer": (cmd) => dialogs.answer(cmd.id, cmd.value),
