@@ -31,6 +31,8 @@ function receive(msg: AgentMessageOut) {
         const { [msg.key]: __, ...messages } = s.messages;
         return { live, messages, dialogs: s.dialogs.filter((d) => d.key !== msg.key), active: s.active === msg.key ? undefined : s.active };
       });
+    case "draft":
+      return set((s) => ({ drafts: { ...s.drafts, [msg.key]: msg.text } }));
     case "canvas.build": {
       // The pack starts a new session in the same folder, so this chat stays as it was.
       const cwd = msg.cwd ?? (msg.key && getState().live[msg.key]?.cwd);

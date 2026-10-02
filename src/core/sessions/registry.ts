@@ -36,6 +36,7 @@ export function createRegistry({ send, modelRuntime, grants, dialogs }: { send: 
   const sendMessages = (key: string, session: Session) => send({ type: "messages", key, messages: session.messages as AgentMessage[] });
   // A run can end after its session was closed (deleted while it streamed): then there is nothing to send.
   const sendState = (key: string) => live.has(key) && send({ type: "state", state: liveState(key, get(key)) });
+  const sendDraft = (key: string, text?: string) => text && send({ type: "draft", key, text });
 
   // Called on open and after pi replaces the session (fork, new, switch): subscriptions belong to the old one.
   async function bind(key: string) {
@@ -200,7 +201,7 @@ export function createRegistry({ send, modelRuntime, grants, dialogs }: { send: 
       const r = await s.navigateTree(id, { summarize });
       sendMessages(key, s);
       sendState(key);
-      return { editorText: r.editorText, tree: this.tree(key) };
+      sendDraft(key, r.editorText);
     },
 
     /** Board 3a: an empty label removes it. */
@@ -210,11 +211,12 @@ export function createRegistry({ send, modelRuntime, grants, dialogs }: { send: 
 
     /**
      * Board 3: Fork (a new session with the history before this point) or Clone (with the history through it).
-     * pi then works in the new session; bind() sends it to the window under the same key.
+     * pi then works in the new session; bind() sends it to the window under the same key. An extension can stop the
+     * fork: then the session file stays the same.
      */
     async fork(key: string, id: string, at: boolean) {
       const r = await get(key).rt.fork(id, at ? { position: "at" } : undefined);
-      return { cancelled: r.cancelled, editorText: r.selectedText };
+      sendDraft(key, r.selectedText);
     },
 
     /** Board 2: "Compact now". Long; the state shows it running, errors come as a notice. */
@@ -236,7 +238,6 @@ export function createRegistry({ send, modelRuntime, grants, dialogs }: { send: 
         await rt.session.reload();
         sendState(key);
       }
-      return live.size;
     },
 
     setTools(key: string, names: string[]) {
@@ -246,15 +247,13 @@ export function createRegistry({ send, modelRuntime, grants, dialogs }: { send: 
       sendState(key);
     },
 
-    /** Take the queued messages back, as typed and with their images, to edit them in the message box. */
+    /** Remove the queued messages. The window reads them from the state first, to edit them in the message box. */
     dequeue(key: string) {
       const entry = get(key);
-      // Read ours first: clearQueue() fires queue_update at once, and that handler trims this list.
-      const back = entry.queued;
+      // Clear ours first: clearQueue() fires queue_update at once, and that handler trims this list.
       entry.queued = [];
       entry.rt.session.clearQueue();
       sendState(key);
-      return back;
     },
 
     /**

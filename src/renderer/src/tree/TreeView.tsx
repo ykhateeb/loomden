@@ -29,10 +29,11 @@ export function TreeView({ sessionKey, state }: { sessionKey: string; state: Liv
   const [labeling, setLabeling] = useState(false);
   const box = useRef<HTMLDivElement>(null);
 
-  // The tree changes with every new message: fetch it again then.
+  // The tree changes with every new message, a switch, a fork, and a label: fetch it again then.
+  const stamp = useStore((s) => s.treeStamp);
   useEffect(() => {
     actions.tree(sessionKey).then((t) => t && setTree(t));
-  }, [sessionKey, messages?.length]);
+  }, [sessionKey, messages?.length, stamp]);
   useEffect(() => box.current?.focus(), []);
 
   if (!tree) return <div className="flex flex-1 items-center justify-center gap-2 text-muted"><Spinner />Reading the tree…</div>;
@@ -54,8 +55,7 @@ export function TreeView({ sessionKey, state }: { sessionKey: string; state: Liv
 
   const switchTo = async () => {
     if (!target || isHere || busy) return;
-    const next = await actions.navigate(sessionKey, target, summarize && pick?.kind === "card" && !pick.card.current);
-    if (next) setTree(next);
+    await actions.navigate(sessionKey, target, summarize && pick?.kind === "card" && !pick.card.current);
   };
   const fork = (at: boolean) => {
     const id = at ? target : forkId;
@@ -78,7 +78,7 @@ export function TreeView({ sessionKey, state }: { sessionKey: string; state: Liv
       <button
         key={c.id}
         onClick={() => setPick({ kind: "card", card: c })}
-        onDoubleClick={() => (setPick({ kind: "card", card: c }), !c.current && actions.navigate(sessionKey, c.leafId, false).then((t) => t && setTree(t)))}
+        onDoubleClick={() => (setPick({ kind: "card", card: c }), !c.current && actions.navigate(sessionKey, c.leafId, false))}
         className={cx(
           "flex w-[min(380px,calc(50%-7px))] min-w-[240px] flex-col rounded-xl border bg-panel text-left",
           c.current && "border-accent-line bg-[linear-gradient(180deg,rgba(122,168,216,.08),var(--color-panel)_70%)]",
@@ -193,7 +193,7 @@ export function TreeView({ sessionKey, state }: { sessionKey: string; state: Liv
           point={pick.kind === "card" ? { name: pick.card.name, time: time(pick.card.at), text: pick.card.first } : { name: pick.row.kind === "you" ? "you" : "pi", time: pick.row.at ? time(pick.row.at) : "", text: pick.row.text }}
           current={pick.kind === "row" ? pick.row.label : pick.card.label}
           others={labels}
-          onSave={(label) => actions.label(sessionKey, labelId, label).then((t) => t && setTree(t))}
+          onSave={(label) => actions.label(sessionKey, labelId, label)}
           onClose={() => {
             setLabeling(false);
             box.current?.focus();

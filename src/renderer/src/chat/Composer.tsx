@@ -93,8 +93,10 @@ export function Composer({ sessionKey, state }: { sessionKey: string; state: Liv
     setCaret(0);
   };
 
-  const takeBack = async () => {
-    const back = await actions.dequeue(sessionKey);
+  const takeBack = () => {
+    // ponytail: the queue as the last state showed it; a message pi takes in the same moment also comes back to the box.
+    const back = queued;
+    actions.dequeue(sessionKey);
     setImages((old) => [...new Set([...back.flatMap((b) => b.images), ...old])]);
     edit([...back.map((b) => b.text), text].filter(Boolean).join("\n"));
   };

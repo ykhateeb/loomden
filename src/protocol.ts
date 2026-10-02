@@ -285,6 +285,8 @@ export type AgentOut =
   | { type: "state"; state: LiveState }
   | { type: "messages"; key: string; messages: AgentMessage[] }
   | { type: "closed"; key: string }
+  /** A user message pi gave back after a switch or a fork, for the message box. */
+  | { type: "draft"; key: string; text: string }
   /** The extension started the canvas server: show it in the panel. */
   | { type: "canvas"; key: string; url: string }
   /** "Start build session" (board C12): open a new session and send it the design pack. */

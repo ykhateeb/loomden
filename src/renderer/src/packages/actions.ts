@@ -1,6 +1,6 @@
 import type { GalleryItem } from "#protocol";
 import { call } from "#renderer/port";
-import { notice, type Packages, report, set } from "#renderer/store";
+import { getState, notice, type Packages, report, set } from "#renderer/store";
 
 export const packageActions = {
   loadPackages: () =>
@@ -27,10 +27,12 @@ export const packageActions = {
     }
   },
   gallery: (query: string) => call<GalleryItem[]>({ type: "packages.gallery", query }),
-  reloadPackages: () =>
-    call<number>({ type: "packages.reload" })
-      .then((n) => notice(n ? `Reloaded ${n} open ${n === 1 ? "session" : "sessions"}` : "No open session to reload", "info"))
-      .catch(report),
+  reloadPackages: () => {
+    const n = Object.keys(getState().live).length; // the agent reloads each open session
+    return call({ type: "packages.reload" })
+      .then(() => notice(n ? `Reloaded ${n} open ${n === 1 ? "session" : "sessions"}` : "No open session to reload", "info"))
+      .catch(report);
+  },
   setTrust: (cwd: string, trusted: boolean | null) =>
     call({ type: "trust.set", cwd, trusted })
       .then(() => call<Packages["trust"]>({ type: "trust.list" }))

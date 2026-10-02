@@ -19,7 +19,8 @@ export const chatActions = {
   models: (key: string) => call<ModelChoice[]>({ type: "session.models", key }).catch((e) => (report(e), [] as ModelChoice[])),
   setModel: (key: string, provider: string, id: string) => call({ type: "session.model", key, provider, id }).catch(report),
   thinking: (key: string, level: string) => call({ type: "session.thinking", key, level }).catch(report),
-  dequeue: (key: string) => call<{ text: string; images: string[] }[]>({ type: "session.dequeue", key }).catch((e) => (report(e), [])),
+  /** Remove the queued messages. Read them from the live state first, to edit them. */
+  dequeue: (key: string) => call({ type: "session.dequeue", key }).catch(report),
   abort: (key: string) => call({ type: "session.abort", key }).catch(report),
   compact: (key: string) => call({ type: "session.compact", key }).catch(report),
   reload: (key: string) =>

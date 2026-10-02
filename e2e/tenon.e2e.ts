@@ -154,7 +154,7 @@ test("+ Canvas starts a canvas from the session header", async () => {
   }
 });
 
-test("a session opens from the list at its tree, exports, clones, and moves to a new project", async () => {
+test("a session opens from the list at its tree, forks, exports, clones, and moves to a new project", async () => {
   const tenonDir = await mkdtemp(join(tmpdir(), "tenon-app-"));
   const project = await mkdtemp(join(tmpdir(), "tenon-project-"));
   const saved = join(tenonDir, "saved.html");
@@ -173,6 +173,12 @@ test("a session opens from the list at its tree, exports, clones, and moves to a
 
     // The window finds the key of a session that it opened by its file.
     await expect(win.getByRole("button", { name: /Switch to branch/ })).toBeVisible();
+
+    // Fork from the user message: pi gives the message back, and it comes to the message box.
+    await win.getByRole("main").getByText("Hello from the test").first().click();
+    await win.keyboard.press("f");
+    await expect(win.getByText("Forked into a new session")).toBeVisible();
+    await expect(win.getByLabel("Message to pi")).toHaveValue("Hello from the test");
 
     const rows = win.getByRole("navigation", { name: "Sessions" }).getByText("Seed session");
     await rows.first().click({ button: "right" });
