@@ -58,7 +58,7 @@ The window shows model output, so the agent and main treat each value from the w
 - A `cwd`: `assertProject` (`src/core/projects.ts`). A folder becomes a project only through main's folder picker.
 - A session path: `sessionFile()` (`src/core/paths.ts`).
 - A file path: `assertGranted("file", …)` (`src/core/grants.ts`). Main grants a file that the user picked or dropped, on its own channel to the agent.
-- A package install or update: `assertGranted("package", packageGrant(…))`. The user confirms in main's own dialog, and the grant is for one use.
+- A package install or update: `consumePackageGrant(packageGrant(…))`. The user confirms in main's own dialog, and the grant is for one use.
 
 ### Data locations
 

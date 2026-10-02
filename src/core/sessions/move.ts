@@ -5,12 +5,15 @@ import { designSystemDir, ensureGitignore, freeRoot, moveCanvases, moveDesignSys
 
 type Notify = (level: "info" | "error", message: string) => void;
 
-/** A copy of a session file in `dir`, with `cwd` in its header (pi reads the folder to work in from there). Never overwrites. */
-export function copyToFolder(from: string, dir: string, cwd: string) {
-  const to = join(dir, basename(from));
+/** Where copyToFolder() puts a session file in `dir`: the same file name. */
+export function folderCopyPath(from: string, dir: string) {
+  return join(dir, basename(from));
+}
+
+/** Copy a session file to `to`, with `cwd` in its header (pi reads the folder to work in from there). Never overwrites. */
+export function copyToFolder({ from, to, cwd }: { from: string; to: string; cwd: string }) {
   const [header, ...rest] = readFileSync(from, "utf8").split("\n");
   writeFileSync(to, [JSON.stringify({ ...JSON.parse(header), cwd }), ...rest].join("\n"), { flag: "wx" });
-  return to;
 }
 
 /** Board C14: the canvases of a session with no project move into the project, where the team gets them with git. */

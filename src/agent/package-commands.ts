@@ -19,7 +19,7 @@ export function packageCommands({ send, grants, modelRuntime, sessions }: Deps) 
       const items = cmd.items.filter((i): i is ImportItem => ["settings", "providers", "trust", "files", "packages"].includes(i));
       // Copying extensions or installing packages brings code into Tenon: only after main's own confirmation.
       const code = codeItems.filter((i) => items.includes(i));
-      if (code.length) await grants.assertGranted("package", packageGrant("import", code.join(",")));
+      if (code.length) await grants.consumePackageGrant(packageGrant("import", code.join(",")));
       await runImport(items, { onPackage: sendPackageProgress, onResult: (result) => send({ type: "import.result", result }) });
       await modelRuntime.refresh(); // imported providers and keys show at once
     },
@@ -28,7 +28,7 @@ export function packageCommands({ send, grants, modelRuntime, sessions }: Deps) 
       if (cmd.cwd) await assertProject(cmd.cwd);
       // Installing or updating runs new code (an update can install a missing package or a newer, unreviewed version):
       // only after the user confirmed it in main's own dialog. Removing needs no confirmation.
-      if (cmd.action !== "remove") await grants.assertGranted("package", packageGrant(cmd.action, cmd.source, cmd.cwd));
+      if (cmd.action !== "remove") await grants.consumePackageGrant(packageGrant(cmd.action, cmd.source, cmd.cwd));
       const { projects } = await listSessions();
       await changePackage(cmd.action, cmd.source, cmd.cwd, sendPackageProgress, projects[0]?.cwd ?? process.cwd());
     },

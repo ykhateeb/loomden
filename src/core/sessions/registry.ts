@@ -9,7 +9,7 @@ import type { Grants } from "#core/grants";
 import { forwardEvents } from "./events";
 import { assertNewKey } from "./keys";
 import { liveState, type OpenSession, type Session, trimQueued } from "./live-state";
-import { copyToFolder, moveFreeCanvases } from "./move";
+import { copyToFolder, folderCopyPath, moveFreeCanvases } from "./move";
 import type { Dialogs } from "./extension-ui";
 import { createRuntimes } from "./runtime";
 import type { Entry as FileEntry } from "./summary";
@@ -103,7 +103,7 @@ export function createRegistry({ send, modelRuntime, grants, dialogs }: { send: 
   }
 
   /**
-   * Opens under `key`. A file that is open already keeps its own key. If the user cancels the trust dialog, nothing opens.
+   * Opens under `key`. A file that is open already keeps its own key. If the user cancels the trust dialog, it throws DIALOG_CANCELLED.
    * `createManager` opens a session manager made elsewhere (a clone).
    */
   async function openNow({ key, cwd, path, createManager }: OpenTarget & { createManager?: () => SessionManager }) {
@@ -114,7 +114,7 @@ export function createRegistry({ send, modelRuntime, grants, dialogs }: { send: 
       sendState(found);
       return;
     }
-    if (!(await runtimes.ensureTrust(cwd))) return;
+    await runtimes.ensureTrust(cwd);
     const rt = await runtimes.create(cwd, createManager ? createManager() : path ? SessionManager.open(path) : SessionManager.create(cwd));
     live.set(key, { rt, runningTools: new Set(), queued: [] });
     rt.setRebindSession(() => bind(key));
@@ -258,20 +258,21 @@ export function createRegistry({ send, modelRuntime, grants, dialogs }: { send: 
 
     /**
      * Board 1.2: the session moves to `cwd` with its chat. Its file gets the new folder in its header and goes to that
-     * folder's sessions; pi then works in `cwd` under the same key. If the user cancels the trust dialog, nothing moves.
+     * folder's sessions; pi then works in `cwd` under the same key. If the user cancels the trust dialog, it throws DIALOG_CANCELLED.
      */
     async move(key: string, cwd: string) {
       const { rt } = get(key);
       if (rt.session.isStreaming) throw new Error("pi is working. Wait until it is done, then move the session.");
       if (rt.cwd === cwd) return;
-      if (!(await runtimes.ensureTrust(cwd))) return;
+      await runtimes.ensureTrust(cwd);
       const from = rt.session.sessionFile;
       // pi writes the file after pi's first reply: before that there is nothing to move, so start in the project.
       if (!from || !existsSync(from)) {
         await drop(key);
         return openNow({ key, cwd });
       }
-      const to = copyToFolder(from, SessionManager.create(cwd).getSessionDir(), cwd);
+      const to = folderCopyPath(from, SessionManager.create(cwd).getSessionDir());
+      copyToFolder({ from, to, cwd });
       const freeId = rt.cwd === NO_PROJECT_DIR ? rt.session.sessionManager.getSessionId() : undefined;
       const r = await rt.switchSession(to);
       if (r.cancelled) {

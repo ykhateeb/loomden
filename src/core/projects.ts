@@ -47,13 +47,13 @@ function details(path: string) {
   }
 }
 
-// The project folders from the last list, so a check does not read every session file again.
+// The project folders, so a check does not read every session file again. A miss reads them again.
 // ponytail: module state (this and detailCache), one copy per agent process; a factory when tests need a clean copy.
 let known = new Set<string>();
 
 /** Only folders in the project list may be searched from the window. */
 export async function assertProject(cwd: string) {
-  if (!known.has(cwd)) await listSessions();
+  if (!known.has(cwd)) known = new Set([...projectFolders(readAdded(), await SessionManager.listAll()), NO_PROJECT_DIR]);
   if (!known.has(cwd)) throw new Error("Not a Tenon project");
 }
 
@@ -63,6 +63,7 @@ export async function removeProject(cwd: string) {
   if (sessions.some((s) => s.cwd === cwd)) throw new Error("Only a project with no sessions can be removed.");
   mkdirSync(TENON_DIR, { recursive: true });
   writeFileSync(PROJECTS_FILE, JSON.stringify(readAdded().filter((c) => c !== cwd), null, 2));
+  known.delete(cwd);
 }
 
 /** Projects = folders you added + folders that have sessions. Sessions with no project are in NO_PROJECT_DIR, which is not a project. */
@@ -81,9 +82,13 @@ export async function listSessions(): Promise<{ projects: Project[]; sessions: S
       ...details(i.path),
     }))
     .sort((a, b) => b.modified - a.modified);
-  const cwds = new Set([...readAdded(), ...sessions.map((s) => s.cwd).filter(Boolean)]);
-  cwds.delete(NO_PROJECT_DIR);
-  known = new Set([...cwds, NO_PROJECT_DIR]);
-  const projects = [...cwds].map((cwd) => ({ cwd, name: basename(cwd) })).sort((a, b) => a.name.localeCompare(b.name));
+  const projects = [...projectFolders(readAdded(), sessions)].map((cwd) => ({ cwd, name: basename(cwd) })).sort((a, b) => a.name.localeCompare(b.name));
   return { projects, sessions, noProject: NO_PROJECT_DIR };
+}
+
+/** Projects = folders you added + folders that have sessions, except the folder of sessions with no project. */
+function projectFolders(added: string[], sessions: { cwd: string }[]) {
+  const cwds = new Set([...added, ...sessions.map((s) => s.cwd).filter(Boolean)]);
+  cwds.delete(NO_PROJECT_DIR);
+  return cwds;
 }

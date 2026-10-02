@@ -234,6 +234,36 @@ test("Attach files adds the files that the user picked in main's dialog", async 
   }
 });
 
+test("a cancel in the trust dialog shows no error and does not move the session", async () => {
+  const tenonDir = await mkdtemp(join(tmpdir(), "tenon-app-"));
+  const project = await mkdtemp(join(tmpdir(), "tenon-project-"));
+  await mkdir(join(project, ".pi", "prompts"), { recursive: true });
+  await writeFile(join(project, ".pi", "prompts", "review.md"), "Review the code."); // a project file that needs trust
+  const app = await electron.launch({ args: ["."], env: { ...process.env, TENON_DIR: tenonDir, TENON_PI_DIR: join(tenonDir, "pi") } });
+  try {
+    await app.evaluate(({ dialog }, dir) => {
+      dialog.showOpenDialog = (async () => ({ canceled: false, filePaths: [dir] })) as unknown as typeof dialog.showOpenDialog;
+    }, project);
+    const win = await app.firstWindow();
+    await win.getByText("New session").first().click();
+    const addTo = win.getByRole("button", { name: "Add to project" });
+
+    await addTo.click();
+    await win.getByRole("menuitem", { name: /Open a folder/ }).click();
+    await win.getByRole("button", { name: /^Cancel/ }).click();
+    await expect(win.getByText("Trust this project?")).toBeHidden();
+    await expect(win.getByText("Cancelled in the dialog")).toBeHidden();
+    await expect(addTo).toBeVisible(); // not moved
+
+    await addTo.click();
+    await win.getByRole("menuitem", { name: /tenon-project-/ }).click();
+    await win.getByRole("button", { name: /^Trust/ }).click();
+    await expect(win.getByText(/^Moved to tenon-project-/)).toBeVisible();
+  } finally {
+    await app.close();
+  }
+});
+
 /** A saved session with no project: a user message, a reply, and a name. */
 async function writeSession(tenonDir: string, name: string) {
   const agentDir = join(tenonDir, "agent");

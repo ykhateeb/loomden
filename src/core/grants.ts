@@ -18,16 +18,25 @@ export function createGrants() {
       granted[kind].add(norm(kind, value));
     },
 
-    /** The grant comes from main on its own channel; the window's command can arrive a moment before it. */
-    async assertGranted(kind: GrantKind, path: string) {
-      const full = norm(kind, path);
-      for (let i = 0; i < 20 && !granted[kind].has(full); i++) await new Promise((r) => setTimeout(r, 25));
-      if (!granted[kind].has(full)) throw new Error(kind === "package" ? "Not confirmed in Tenon's install dialog" : `Not a ${kind} you picked: ${path}`);
-      // A confirmation is for this one install or update: a later request for the same package asks again.
-      if (kind === "package") granted.package.delete(full);
+    /** The full path of a folder or file the user picked. Throws if main did not grant it. */
+    async assertGranted(kind: "folder" | "file", path: string) {
+      const full = resolve(path);
+      if (!(await arrives(kind, full))) throw new Error(`Not a ${kind} you picked: ${path}`);
       return full;
     },
+
+    /** Use main's confirmation of a package install, update or import. A later request for the same package asks again. */
+    async consumePackageGrant(key: string) {
+      if (!(await arrives("package", key))) throw new Error("Not confirmed in Tenon's install dialog");
+      granted.package.delete(key);
+    },
   };
+
+  /** The grant comes from main on its own channel; the window's command can arrive a moment before it. */
+  async function arrives(kind: GrantKind, value: string) {
+    for (let i = 0; i < 20 && !granted[kind].has(value); i++) await new Promise((r) => setTimeout(r, 25));
+    return granted[kind].has(value);
+  }
 }
 
 // A package grant is "<install|update|import>|<project folder or empty>|<source>", not a path. It is good for one use.

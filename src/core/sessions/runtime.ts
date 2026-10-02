@@ -11,7 +11,7 @@ import {
   ProjectTrustStore,
   type SessionManager,
 } from "@earendil-works/pi-coding-agent";
-import type { Send, TrustAnswer } from "#protocol";
+import { DIALOG_CANCELLED, type Send, type TrustAnswer } from "#protocol";
 import { settingsWithoutMissing } from "#core/packages";
 import tenonCanvas from "#canvas/extension";
 import type { Dialogs } from "./extension-ui";
@@ -45,15 +45,14 @@ export function createRuntimes({ send, modelRuntime, ask }: { send: Send; modelR
   };
 
   return {
-    /** Ask once for a folder with .pi/ extensions, skills or prompts. false = the user cancelled. */
-    async ensureTrust(cwd: string): Promise<boolean> {
+    /** Ask once for a folder with .pi/ extensions, skills or prompts. If the user cancels, it throws DIALOG_CANCELLED. */
+    async ensureTrust(cwd: string) {
       const store = new ProjectTrustStore(getAgentDir());
-      if (!hasTrustRequiringProjectResources(cwd) || store.get(cwd) !== null || trustOnce.has(cwd)) return true;
+      if (!hasTrustRequiringProjectResources(cwd) || store.get(cwd) !== null || trustOnce.has(cwd)) return;
       const answer = await ask<TrustAnswer | undefined>({ method: "trust", cwd, files: piFiles(cwd) }, undefined);
-      if (!answer) return false;
+      if (!answer) throw new Error(DIALOG_CANCELLED);
       if (answer === "trust") store.set(cwd, true);
       else trustOnce.set(cwd, false);
-      return true;
     },
 
     create: (cwd: string, sessionManager: SessionManager) => createAgentSessionRuntime(factory, { cwd, agentDir: getAgentDir(), sessionManager }),

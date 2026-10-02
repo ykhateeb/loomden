@@ -41,9 +41,7 @@ export const sessionActions = {
   move: async (key: string, cwd: string, undo = false) => {
     const from = getState().live[key]?.cwd;
     try {
-      await call({ type: "session.move", key, cwd });
-      const moved = getState().live[key]?.cwd === cwd;
-      if (!moved) return; // the trust dialog was cancelled
+      await call({ type: "session.move", key, cwd }); // a cancel of the trust dialog throws
       set({ active: key, tab: "sessions" });
       // The canvas moved with the session: its server is new, so ask for the address again.
       const canvas = getState().canvas[key];
@@ -93,9 +91,7 @@ export const sessionActions = {
     const key = crypto.randomUUID();
     return call({ type: "session.clone", key, cwd, path })
       .then(() => {
-        const cloned = key in getState().live;
-        if (!cloned) return; // the trust dialog was cancelled
-        set({ active: key, tab: "sessions" });
+        set({ active: key, tab: "sessions" }); // a cancel of the trust dialog throws
         return sessionActions.refresh();
       })
       .catch(report);
