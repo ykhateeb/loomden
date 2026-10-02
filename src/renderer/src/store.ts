@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 import type { Host } from "#preload";
-import type { AgentMessage, DesignCanvas, InstalledPackage, LiveState, ModelChoice, ModelSettings, Project, ProviderRow, SessionRow, UIRequest } from "#protocol";
+import type { AgentMessage, DesignCanvas, ImportResult, InstalledPackage, LiveState, ModelChoice, ModelSettings, Project, ProviderRow, SessionRow, UIRequest } from "#protocol";
 
 export type ModelsPage = { settings: ModelSettings; global: ModelSettings; providers: ProviderRow[]; models: ModelChoice[]; file: string };
 export type Login = { providerId: string; method: "api_key" | "oauth"; startedAt: number; url?: string; code?: { userCode: string; verificationUri: string }; message?: string };
@@ -65,6 +65,8 @@ export interface State {
   /** Board 5a and 5c: the add-provider and import dialogs are open. */
   addingProvider: boolean;
   importing: boolean;
+  /** Board 5d: the results of the import dialog, one for each item. */
+  importResults: ImportResult[];
   /** The settings page to show (the Packages "Change" link opens Project trust). */
   settingsPage: "models" | "trust";
   /** Board C1: the canvases of each project folder, and the Design page when it is open. */
@@ -79,7 +81,7 @@ export interface State {
 /** The agent's answer to sessions.list, and to the commands that change the list. */
 export type SessionList = Pick<State, "projects" | "sessions" | "noProject">;
 
-let state: State = { agent: "starting", tab: "sessions", projects: [], sessions: [], live: {}, messages: {}, dialogs: [], notices: [], searching: false, view: {}, drafts: {}, treeStamp: 0, packageWork: {}, addingProvider: false, importing: false, settingsPage: "models", canvas: {}, design: {} };
+let state: State = { agent: "starting", tab: "sessions", projects: [], sessions: [], live: {}, messages: {}, dialogs: [], notices: [], searching: false, view: {}, drafts: {}, treeStamp: 0, packageWork: {}, addingProvider: false, importing: false, importResults: [], settingsPage: "models", canvas: {}, design: {} };
 const listeners = new Set<() => void>();
 
 /** The state now. Read it when you need it: `set` replaces it. */

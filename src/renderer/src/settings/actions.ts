@@ -1,7 +1,10 @@
-import type { CustomProvider, FoundModel, ImportItem, ImportResult, ImportScan, ModelSettings } from "#protocol";
+import type { CustomProvider, FoundModel, ImportItem, ImportScan, ModelSettings } from "#protocol";
 import { call } from "#renderer/port";
 import { sessionActions } from "#renderer/sessions/actions";
 import { getState, type ModelsPage, notice, report, set } from "#renderer/store";
+
+/** runImport() throws this when the user cancels main's confirmation. The import dialog does not show it as an error. */
+export const IMPORT_CANCELLED = "Import cancelled";
 
 // Each loadModels() call gets a number; only the newest one's reply is shown.
 let modelsAsk = 0;
@@ -45,14 +48,14 @@ export const settingsActions = {
   addProvider: (provider: CustomProvider) =>
     call({ type: "providers.add", provider }).then(() => (notice(`Added ${provider.name}`, "info"), reloadModels())),
   setAddingProvider: (addingProvider: boolean) => set({ addingProvider }),
-  setImporting: (importing: boolean) => set({ importing }),
+  /** Open or close the import dialog. Each opening starts with no results. */
+  setImporting: (importing: boolean) => set({ importing, importResults: [] }),
   scanImport: () => call<ImportScan>({ type: "import.scan" }),
-  /** undefined = the user cancelled main's confirmation. */
+  /** The results arrive as agent events, in importResults. Throws IMPORT_CANCELLED if the user cancels main's confirmation. */
   runImport: async (items: ImportItem[]) => {
-    if (!(await window.tenon.confirmImport(items))) return undefined;
-    const results = await call<ImportResult[]>({ type: "import.run", items });
+    if (!(await window.tenon.confirmImport(items))) throw new Error(IMPORT_CANCELLED);
+    await call({ type: "import.run", items });
     sessionActions.refresh();
-    return results;
   },
 };
 

@@ -239,7 +239,9 @@ export type Command =
   | { type: "session.canvas"; key: string; title?: string }
   /** Board C1: the canvases of a project, and the address of one canvas (notes go to session `key`). */
   | { type: "design.list"; cwd: string }
-  | { type: "design.open"; cwd: string; canvas: string; key?: string; tab?: "ds" }
+  /** Start the design server of a project. Notes go to the session `key`. */
+  | { type: "design.open"; cwd: string; key?: string }
+  | { type: "design.url"; cwd: string; canvas: string; tab?: "ds" }
   | { type: "session.models"; key: string }
   | { type: "session.model"; key: string; provider: string; id: string }
   | { type: "session.dequeue"; key: string }
@@ -296,6 +298,8 @@ export type AgentOut =
   | { type: "ui.done"; id: string }
   | { type: "notify"; key?: string; message: string; level: "info" | "warning" | "error" }
   | { type: "auth.event"; providerId: string; event: { type: "done" } | { type: "info"; message: string } | { type: "progress"; message: string } | { type: "auth_url"; url: string; instructions?: string } | { type: "device_code"; userCode: string; verificationUri: string; expiresInSeconds?: number } }
+  /** One item of an import is done (board 5d). */
+  | { type: "import.result"; result: ImportResult }
   | { type: "package.progress"; source: string; action: string; phase: "start" | "progress" | "complete" | "error"; message?: string };
 
 export type Send = (msg: AgentOut) => void;

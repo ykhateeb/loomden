@@ -31,6 +31,8 @@ function receive(msg: AgentMessageOut) {
         const { [msg.key]: __, ...messages } = s.messages;
         return { live, messages, dialogs: s.dialogs.filter((d) => d.key !== msg.key), active: s.active === msg.key ? undefined : s.active };
       });
+    case "import.result":
+      return set((s) => ({ importResults: [...s.importResults.filter((r) => r.id !== msg.result.id), msg.result] })); // a retry replaces its item
     case "draft":
       return set((s) => ({ drafts: { ...s.drafts, [msg.key]: msg.text } }));
     case "canvas.build": {

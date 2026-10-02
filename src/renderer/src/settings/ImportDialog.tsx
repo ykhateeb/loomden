@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import type { ImportItem, ImportResult, ImportScan } from "#protocol";
+import type { ImportItem, ImportScan } from "#protocol";
 import { actions } from "#renderer/actions";
+import { IMPORT_CANCELLED } from "#renderer/settings/actions";
 import { useStore } from "#renderer/store";
 import { Button, cx, Kbd, Spinner } from "#renderer/ui/base";
 import { Checkbox } from "#renderer/ui/controls";
@@ -15,7 +16,9 @@ export function ImportDialog() {
   const [scan, setScan] = useState<ImportScan>();
   const [picked, setPicked] = useState<Set<ImportItem>>(new Set());
   const [running, setRunning] = useState(false);
-  const [results, setResults] = useState<ImportResult[]>();
+  const results = useStore((s) => s.importResults);
+  // The result screen shows after the first import that the user confirmed.
+  const [imported, setImported] = useState(false);
   const [error, setError] = useState<string>();
   const close = () => actions.setImporting(false);
   const importButton = useRef<HTMLButtonElement>(null);
@@ -33,16 +36,17 @@ export function ImportDialog() {
     setRunning(true);
     setError(undefined);
     try {
-      const r = await actions.runImport(only ?? [...picked]);
-      if (r) setResults((old) => (only && old ? [...old.filter((x) => !only.includes(x.id)), ...r] : r));
+      await actions.runImport(only ?? [...picked]);
+      setImported(true);
     } catch (e) {
-      setError((e as Error).message);
+      const cancelled = (e as Error).message === IMPORT_CANCELLED;
+      if (!cancelled) setError((e as Error).message);
     } finally {
       setRunning(false);
     }
   };
 
-  if (results && scan) {
+  if (imported && scan) {
     const done = results.filter((r) => r.status === "done").length;
     const failedIds = results.filter((r) => r.status !== "done").map((r) => r.id);
     const failed = failedIds.length > 0;

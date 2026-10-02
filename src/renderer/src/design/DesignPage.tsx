@@ -26,7 +26,11 @@ function useCanvasUrl(cwd: string, canvas: string | undefined, tab?: "ds") {
   const [url, setUrl] = useState<string>();
   useEffect(() => {
     setUrl(undefined);
-    if (canvas) actions.designUrl(cwd, canvas, key, tab).then(setUrl).catch(() => {});
+    if (canvas)
+      actions.startDesign(cwd, key)
+        .then(() => actions.designUrl(cwd, canvas, tab))
+        .then(setUrl)
+        .catch(() => {});
   }, [cwd, canvas, key, tab]);
   return url;
 }

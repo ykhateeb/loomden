@@ -198,6 +198,24 @@ test("a session opens from the list at its tree, forks, exports, clones, and mov
   }
 });
 
+test("Import from pi shows one result for each item", async () => {
+  const tenonDir = await mkdtemp(join(tmpdir(), "tenon-app-"));
+  const pi = join(tenonDir, "pi");
+  await mkdir(pi, { recursive: true });
+  await writeFile(join(pi, "settings.json"), JSON.stringify({ defaultThinkingLevel: "high" }));
+  await writeFile(join(pi, "trust.json"), JSON.stringify({ "/code/app": true }));
+  const app = await electron.launch({ args: ["."], env: { ...process.env, TENON_DIR: tenonDir, TENON_PI_DIR: pi, TENON_DIALOG: "import" } });
+  try {
+    const win = await app.firstWindow();
+    // Settings and trust are not code, so main asks nothing; each result comes as an agent event.
+    await win.getByRole("button", { name: /^Import/ }).click();
+    await expect(win.getByText("2 of 2 done")).toBeVisible();
+    await expect(win.getByText("copied · 1 setting")).toBeVisible();
+  } finally {
+    await app.close();
+  }
+});
+
 /** A saved session with no project: a user message, a reply, and a name. */
 async function writeSession(tenonDir: string, name: string) {
   const agentDir = join(tenonDir, "agent");

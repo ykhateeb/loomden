@@ -20,9 +20,8 @@ export function packageCommands({ send, grants, modelRuntime, sessions }: Deps) 
       // Copying extensions or installing packages brings code into Tenon: only after main's own confirmation.
       const code = codeItems.filter((i) => items.includes(i));
       if (code.length) await grants.assertGranted("package", packageGrant("import", code.join(",")));
-      const results = await runImport(items, sendPackageProgress);
+      await runImport(items, { onPackage: sendPackageProgress, onResult: (result) => send({ type: "import.result", result }) });
       await modelRuntime.refresh(); // imported providers and keys show at once
-      return results;
     },
     "packages.list": async () => packagesWithTrust((await listSessions()).projects),
     "packages.change": async (cmd) => {
