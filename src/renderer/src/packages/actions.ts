@@ -9,7 +9,12 @@ export const packageActions = {
       .catch(report),
   /** Install asks main's own dialog first (installing runs code); the agent refuses an install main did not confirm. */
   changePackage: async (action: "install" | "remove" | "update", source: string, cwd?: string) => {
-    if (action !== "remove" && !(await window.tenon.confirmInstall(action, source, cwd))) return false;
+    try {
+      if (action !== "remove") await window.tenon.confirmInstall(action, source, cwd);
+    } catch (e) {
+      report(e as Error); // a cancel shows nothing
+      return false;
+    }
     set((s) => ({ packageWork: { ...s.packageWork, [source]: { action } } }));
     try {
       await call({ type: "packages.change", action, source, cwd });

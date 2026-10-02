@@ -1,4 +1,4 @@
-import { SAVE_CANCELLED, type SearchResult } from "#protocol";
+import type { SearchResult } from "#protocol";
 import { folderName } from "#renderer/chat/format";
 import { designActions } from "#renderer/design/actions";
 import { call } from "#renderer/port";
@@ -61,17 +61,12 @@ export const sessionActions = {
     }
   },
   /** "Open a folder…" in the Add to project menu: the folder becomes a project, then the session moves there. */
-  moveToFolder: async (key: string) => {
-    const cwd = await window.tenon.pickFolder();
-    if (!cwd) return;
-    try {
+  moveToFolder: (key: string) =>
+    withPickedFolder(async (cwd) => {
       await call({ type: "project.add", cwd });
       await sessionActions.refresh();
       await sessionActions.move(key, cwd);
-    } catch (e) {
-      report(e as Error);
-    }
-  },
+    }),
   search: (query: string, titlesOnly: boolean, cwd?: string) =>
     call<SearchResult[]>({ type: "sessions.search", query, titlesOnly, cwd }).catch((e) => (report(e), [] as SearchResult[])),
   setSearching: (searching: boolean) => set({ searching }),
@@ -83,10 +78,11 @@ export const sessionActions = {
     // The mark is in the chat: show the chat, also if this session was on its tree.
     set((s) => ({ mark: key && at ? { key, at } : undefined, view: key ? { ...s.view, [key]: "chat" } : s.view }));
   },
-  addProject: async () => {
-    const cwd = await window.tenon.pickFolder();
-    if (cwd) await call({ type: "project.add", cwd }).then(sessionActions.refresh, report);
-  },
+  addProject: () =>
+    withPickedFolder(async (cwd) => {
+      await call({ type: "project.add", cwd });
+      await sessionActions.refresh();
+    }),
   removeProject: (cwd: string) =>
     call({ type: "project.remove", cwd })
       .then(sessionActions.refresh, report),
@@ -111,8 +107,7 @@ export const sessionActions = {
       await window.tenon.saveHtml(id, title);
       notice(`Exported “${title}”`, "info");
     } catch (e) {
-      const cancelled = (e as Error).message.includes(SAVE_CANCELLED);
-      if (!cancelled) report(e as Error);
+      report(e as Error);
     }
   },
   /** Close it if it is open, then move its file to the Trash. */
@@ -128,6 +123,18 @@ export const sessionActions = {
   },
   showInFolder: (path: string) => window.tenon.showInFolder(path),
 };
+
+/** Main's folder dialog: run `then` with the folder the user picked. Nothing runs if the user cancels. */
+async function withPickedFolder(then: (cwd: string) => Promise<void>) {
+  const id = crypto.randomUUID();
+  try {
+    await window.tenon.pickFolder(id);
+    const [cwd] = await window.tenon.picked(id);
+    if (cwd) await then(cwd);
+  } catch (e) {
+    report(e as Error);
+  }
+}
 
 /** Dev checks without clicks (see main/index.ts): #dev?open=latest|<title part>&view=tree&search=<text>, once. */
 function openDevView(list: SessionList) {

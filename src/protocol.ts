@@ -3,8 +3,8 @@ import type { AgentSessionEvent } from "@earendil-works/pi-coding-agent";
 
 export type AgentMessage = Extract<AgentSessionEvent, { type: "message_end" }>["message"];
 
-/** Main's save dialog throws this when the user cancels it. The window does not show it as an error. */
-export const SAVE_CANCELLED = "Save cancelled";
+/** Main's dialogs throw this when the user cancels them. The window does not show it as an error. */
+export const DIALOG_CANCELLED = "Cancelled in the dialog";
 
 export interface Project {
   cwd: string;

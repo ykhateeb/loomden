@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import type { ImportItem, ImportScan } from "#protocol";
+import { DIALOG_CANCELLED, type ImportItem, type ImportScan } from "#protocol";
 import { actions } from "#renderer/actions";
-import { IMPORT_CANCELLED } from "#renderer/settings/actions";
 import { useStore } from "#renderer/store";
 import { Button, cx, Kbd, Spinner } from "#renderer/ui/base";
 import { Checkbox } from "#renderer/ui/controls";
@@ -39,7 +38,7 @@ export function ImportDialog() {
       await actions.runImport(only ?? [...picked]);
       setImported(true);
     } catch (e) {
-      const cancelled = (e as Error).message === IMPORT_CANCELLED;
+      const cancelled = (e as Error).message.includes(DIALOG_CANCELLED);
       if (!cancelled) setError((e as Error).message);
     } finally {
       setRunning(false);

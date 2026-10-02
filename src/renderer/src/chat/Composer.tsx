@@ -108,6 +108,13 @@ export function Composer({ sessionKey, state }: { sessionKey: string; state: Liv
     box.current?.focus();
   };
 
+  // Main's file dialog grants the picks, and keeps them under our id.
+  const pickFiles = async () => {
+    const id = crypto.randomUUID();
+    await window.tenon.pickFiles(id);
+    attach(await window.tenon.picked(id));
+  };
+
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.nativeEvent.isComposing) return; // Enter confirms an input-method word, it does not send
     if (listOpen && rows.length > 0) {
@@ -170,7 +177,9 @@ export function Composer({ sessionKey, state }: { sessionKey: string; state: Liv
         onDrop={(e) => {
           e.preventDefault();
           setDragging(false);
-          attach([...e.dataTransfer.files].map((f) => window.tenon.pathForFile(f)).filter(Boolean));
+          const files = [...e.dataTransfer.files];
+          for (const f of files) window.tenon.grantDrop(f);
+          attach(files.map((f) => window.tenon.pathForFile(f)).filter(Boolean));
         }}
       >
         {listOpen && <CommandMenu id={listId} title={trigger.kind === "/" ? "Commands" : "Files"} rows={rows} active={current} onPick={pick} onHover={setActive} />}
@@ -237,7 +246,7 @@ export function Composer({ sessionKey, state }: { sessionKey: string; state: Liv
                 <Icon name="chevronDown" size={12} />
               </button>
             )}
-            <IconButton size={28} label="Attach files" onClick={async () => attach(await window.tenon.pickFiles())}>
+            <IconButton size={28} label="Attach files" onClick={pickFiles}>
               <Icon name="clip" />
             </IconButton>
             <span className="flex-1" />

@@ -216,6 +216,24 @@ test("Import from pi shows one result for each item", async () => {
   }
 });
 
+test("Attach files adds the files that the user picked in main's dialog", async () => {
+  const tenonDir = await mkdtemp(join(tmpdir(), "tenon-app-"));
+  const file = join(tenonDir, "notes.md");
+  await writeFile(file, "# Notes");
+  const app = await electron.launch({ args: ["."], env: { ...process.env, TENON_DIR: tenonDir, TENON_PI_DIR: join(tenonDir, "pi") } });
+  try {
+    await app.evaluate(({ dialog }, path) => {
+      dialog.showOpenDialog = (async () => ({ canceled: false, filePaths: [path] })) as unknown as typeof dialog.showOpenDialog;
+    }, file);
+    const win = await app.firstWindow();
+    await win.getByText("New session").first().click();
+    await win.getByRole("button", { name: "Attach files" }).click();
+    await expect(win.getByLabel("Message to pi")).toHaveValue(`@${file} `);
+  } finally {
+    await app.close();
+  }
+});
+
 /** A saved session with no project: a user message, a reply, and a name. */
 async function writeSession(tenonDir: string, name: string) {
   const agentDir = join(tenonDir, "agent");

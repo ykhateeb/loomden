@@ -3,9 +3,6 @@ import { call } from "#renderer/port";
 import { sessionActions } from "#renderer/sessions/actions";
 import { getState, type ModelsPage, notice, report, set } from "#renderer/store";
 
-/** runImport() throws this when the user cancels main's confirmation. The import dialog does not show it as an error. */
-export const IMPORT_CANCELLED = "Import cancelled";
-
 // Each loadModels() call gets a number; only the newest one's reply is shown.
 let modelsAsk = 0;
 
@@ -51,9 +48,9 @@ export const settingsActions = {
   /** Open or close the import dialog. Each opening starts with no results. */
   setImporting: (importing: boolean) => set({ importing, importResults: [] }),
   scanImport: () => call<ImportScan>({ type: "import.scan" }),
-  /** The results arrive as agent events, in importResults. Throws IMPORT_CANCELLED if the user cancels main's confirmation. */
+  /** The results arrive as agent events, in importResults. Throws DIALOG_CANCELLED if the user cancels main's confirmation. */
   runImport: async (items: ImportItem[]) => {
-    if (!(await window.tenon.confirmImport(items))) throw new Error(IMPORT_CANCELLED);
+    await window.tenon.confirmImport(items);
     await call({ type: "import.run", items });
     sessionActions.refresh();
   },

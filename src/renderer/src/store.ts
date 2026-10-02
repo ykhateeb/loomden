@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 import type { Host } from "#preload";
-import type { AgentMessage, DesignCanvas, ImportResult, InstalledPackage, LiveState, ModelChoice, ModelSettings, Project, ProviderRow, SessionRow, UIRequest } from "#protocol";
+import { type AgentMessage, type DesignCanvas, DIALOG_CANCELLED, type ImportResult, type InstalledPackage, type LiveState, type ModelChoice, type ModelSettings, type Project, type ProviderRow, type SessionRow, type UIRequest } from "#protocol";
 
 export type ModelsPage = { settings: ModelSettings; global: ModelSettings; providers: ProviderRow[]; models: ModelChoice[]; file: string };
 export type Login = { providerId: string; method: "api_key" | "oauth"; startedAt: number; url?: string; code?: { userCode: string; verificationUri: string }; message?: string };
@@ -112,4 +112,7 @@ export function notice(message: string, level: Notice["level"] = "error", action
   setTimeout(() => set((s) => ({ notices: s.notices.filter((n) => n.id !== id) })), 6000);
 }
 
-export const report = (e: Error) => notice(e.message);
+/** Show an error as a toast. A cancel in one of main's dialogs is the user's choice, not an error. */
+export const report = (e: Error) => {
+  if (!e.message.includes(DIALOG_CANCELLED)) notice(e.message);
+};
