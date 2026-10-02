@@ -5,6 +5,7 @@ import { actions } from "#renderer/actions";
 import { Button, Kbd } from "#renderer/ui/base";
 import { TextField } from "#renderer/ui/Field";
 import { Modal } from "#renderer/ui/Modal";
+import { prevented } from "#renderer/ui/keys";
 
 /** Board 2d: right-click › Rename…, or R. */
 export function RenameDialog({ session, onClose }: { session: SessionRow; onClose: () => void }) {
@@ -27,7 +28,7 @@ export function RenameDialog({ session, onClose }: { session: SessionRow; onClos
         </>
       }
     >
-      <form onSubmit={(e) => (e.preventDefault(), save())}>
+      <form onSubmit={prevented(save)}>
         <TextField label="Name" autoFocus value={name} onChange={(e) => setName(e.target.value)} onFocus={(e) => e.target.select()} />
       </form>
     </Modal>

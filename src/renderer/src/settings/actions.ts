@@ -43,11 +43,17 @@ export const settingsActions = {
   cancelLogin: () => call({ type: "providers.cancelLogin" }).catch(report),
   logout: (providerId: string) =>
     call({ type: "providers.logout", providerId })
-      .then(() => (notice("Logged out", "info"), reloadModels()))
+      .then(() => {
+        notice("Logged out", "info");
+        return reloadModels();
+      })
       .catch(report),
   findModels: (baseUrl: string, api: string, apiKey?: string) => call<FoundModel[]>({ type: "providers.find", baseUrl, api, apiKey }),
   addProvider: (provider: CustomProvider) =>
-    call({ type: "providers.add", provider }).then(() => (notice(`Added ${provider.name}`, "info"), reloadModels())),
+    call({ type: "providers.add", provider }).then(() => {
+      notice(`Added ${provider.name}`, "info");
+      return reloadModels();
+    }),
   setAddingProvider: (addingProvider: boolean) => set({ addingProvider }),
   /** Open or close the import dialog. Each opening starts with no results. */
   setImporting: (importing: boolean) => set({ importing, importResults: [] }),

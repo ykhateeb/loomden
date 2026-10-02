@@ -7,3 +7,11 @@ export function isTyping(target: EventTarget | null): boolean {
 export function hasModifier(e: { metaKey: boolean; ctrlKey: boolean; altKey: boolean }): boolean {
   return e.metaKey || e.ctrlKey || e.altKey;
 }
+
+/** An event handler that stops the default action (a form submit, a focus move) and runs `run`. */
+export function prevented(run: () => unknown): (e: { preventDefault(): void }) => void {
+  return (e) => {
+    e.preventDefault();
+    run();
+  };
+}

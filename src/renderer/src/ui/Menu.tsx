@@ -69,14 +69,13 @@ export function Menu({ at, items, onClose, label = "Menu", width }: { at: { x: n
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     e.stopPropagation();
-    if (e.key === "ArrowDown") (e.preventDefault(), move(1));
-    else if (e.key === "ArrowUp") (e.preventDefault(), move(-1));
-    else if (e.key === "Enter") (e.preventDefault(), items[active] && pick(items[active]));
-    else if (e.key === "Escape") onClose();
-    else {
-      const hit = items.find((i) => isAction(i) && i.shortcut?.toLowerCase() === e.key.toLowerCase());
-      if (hit) (e.preventDefault(), pick(hit));
-    }
+    if (e.key === "Escape") return onClose();
+    const shortcut = items.find((i) => isAction(i) && i.shortcut?.toLowerCase() === e.key.toLowerCase());
+    const keyActions: Record<string, () => unknown> = { ArrowDown: () => move(1), ArrowUp: () => move(-1), Enter: () => items[active] && pick(items[active]) };
+    const run = keyActions[e.key] ?? (shortcut && (() => pick(shortcut)));
+    if (!run) return;
+    e.preventDefault();
+    run();
   };
 
   return (

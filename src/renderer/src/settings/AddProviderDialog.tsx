@@ -6,6 +6,7 @@ import { Checkbox, Segmented } from "#renderer/ui/controls";
 import { TextField } from "#renderer/ui/Field";
 import { Icon } from "#renderer/ui/Icon";
 import { Modal, ModalIcon } from "#renderer/ui/Modal";
+import { prevented } from "#renderer/ui/keys";
 
 const k = (n: number) => (n >= 1000 ? `${Math.round(n / 1000)}k` : String(n));
 
@@ -68,7 +69,7 @@ export function AddProviderDialog() {
         </>
       }
     >
-      <form className="flex flex-col gap-3" onSubmit={(e) => (e.preventDefault(), save())}>
+      <form className="flex flex-col gap-3" onSubmit={prevented(save)}>
         <div className="grid grid-cols-2 gap-3">
           <TextField label="Name" autoFocus placeholder="lm-studio" value={name} onChange={(e) => setName(e.target.value)} />
           <TextField label="Base URL" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} />

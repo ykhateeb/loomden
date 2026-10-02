@@ -3,6 +3,7 @@ import { Button, Kbd } from "#renderer/ui/base";
 import { TextField } from "#renderer/ui/Field";
 import { Icon } from "#renderer/ui/Icon";
 import { Modal, ModalIcon } from "#renderer/ui/Modal";
+import { prevented } from "#renderer/ui/keys";
 
 /** Board 3a: L on a point in the tree. */
 export function LabelDialog({ point, current, others, onSave, onClose }: {
@@ -33,7 +34,7 @@ export function LabelDialog({ point, current, others, onSave, onClose }: {
         <span className="flex items-center gap-2"><b className="font-semibold text-fg">{point.name}</b><span className="text-xs text-muted">{point.time}</span></span>
         <span className="truncate text-sm">{point.text}</span>
       </div>
-      <form onSubmit={(e) => (e.preventDefault(), save())}>
+      <form onSubmit={prevented(save)}>
         <TextField
           label="Label"
           autoFocus

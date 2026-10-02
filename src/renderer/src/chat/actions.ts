@@ -1,6 +1,6 @@
 import type { ModelChoice, PromptBehavior, SlashCommand } from "#protocol";
 import { call } from "#renderer/port";
-import { notice, report, set, without } from "#renderer/store";
+import { notice, report, reportOr, set, without } from "#renderer/store";
 
 export const chatActions = {
   /** `onAccepted` runs when pi accepted the message. The run itself may still fail later, as a notice. */
@@ -8,8 +8,8 @@ export const chatActions = {
     call({ type: "session.prompt", key, text, behavior, images }).then(onAccepted, report),
   /** Remove the text pi gave back for the message box (after a switch or fork). Read it in `drafts` first. */
   clearDraft: (key: string) => set((s) => ({ drafts: without(s.drafts, key) })),
-  commands: (key: string) => call<SlashCommand[]>({ type: "session.commands", key }).catch((e) => (report(e), [] as SlashCommand[])),
-  models: (key: string) => call<ModelChoice[]>({ type: "session.models", key }).catch((e) => (report(e), [] as ModelChoice[])),
+  commands: (key: string) => call<SlashCommand[]>({ type: "session.commands", key }).catch(reportOr<SlashCommand[]>([])),
+  models: (key: string) => call<ModelChoice[]>({ type: "session.models", key }).catch(reportOr<ModelChoice[]>([])),
   setModel: (key: string, provider: string, id: string) => call({ type: "session.model", key, provider, id }).catch(report),
   thinking: (key: string, level: string) => call({ type: "session.thinking", key, level }).catch(report),
   /** Remove the queued messages. Read them from the live state first, to edit them. */

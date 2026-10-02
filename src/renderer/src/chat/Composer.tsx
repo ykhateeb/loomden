@@ -12,6 +12,11 @@ const IMAGE = /\.(png|jpe?g|gif|webp)$/i;
 const name = (path: string) => path.slice(path.lastIndexOf("/") + 1);
 
 /** Board 2, 2b, 2c: the message box — queue, attachments, / and @ menus, model and thinking, drop files. */
+/** Wait for a short pause in typing before the @ menu searches files. */
+const FILE_SEARCH_DEBOUNCE_MS = 120;
+/** The height of a menu row: a menu opens above the box, as high as its rows. */
+const MENU_ROW_PX = 34;
+
 export function Composer({ sessionKey, state }: { sessionKey: string; state: LiveState }) {
   const [text, setText] = useState("");
   const [caret, setCaret] = useState(0);
@@ -46,7 +51,7 @@ export function Composer({ sessionKey, state }: { sessionKey: string; state: Liv
   }, [trigger?.kind, commands, sessionKey]);
   useEffect(() => {
     if (trigger?.kind !== "@") return;
-    const t = setTimeout(() => actions.searchFiles(state.cwd, trigger.query).then(setFiles), 120);
+    const t = setTimeout(() => actions.searchFiles(state.cwd, trigger.query).then(setFiles), FILE_SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(t);
   }, [trigger?.kind, trigger?.query, state.cwd]);
 
@@ -141,7 +146,7 @@ export function Composer({ sessionKey, state }: { sessionKey: string; state: Liv
     const r = el.getBoundingClientRect();
     const models: ModelChoice[] = await actions.models(sessionKey);
     setMenu({
-      at: { x: r.left, y: r.top - Math.min(models.length * 34 + 16, 360) - 8 },
+      at: { x: r.left, y: r.top - Math.min(models.length * MENU_ROW_PX + 16, 360) - 8 },
       label: "Model",
       items: models.length
         ? models.map((m) => ({
@@ -158,7 +163,7 @@ export function Composer({ sessionKey, state }: { sessionKey: string; state: Liv
   const openThinking = (el: HTMLElement) => {
     const r = el.getBoundingClientRect();
     setMenu({
-      at: { x: r.left, y: r.top - state.thinkingLevels.length * 34 - 24 },
+      at: { x: r.left, y: r.top - state.thinkingLevels.length * MENU_ROW_PX - 24 },
       label: "Thinking",
       items: state.thinkingLevels.map((l) => ({ id: l, label: l, icon: checkMark(l === state.thinking), onSelect: () => actions.thinking(sessionKey, l) })),
     });

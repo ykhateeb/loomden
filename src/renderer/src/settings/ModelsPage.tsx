@@ -15,9 +15,24 @@ const MAIN = ["anthropic", "openai", "google", "openrouter"];
 const LEVELS = ["off", "low", "medium", "high"];
 
 function detail(p: ProviderRow) {
-  const how = p.subscription ? "subscription" : p.source === "environment" ? "key from the environment" : p.source === "stored" ? "api key" : p.custom ? "custom provider" : p.configured ? "configured" : undefined;
-  if (!how) return `${plural(p.models, "model")} · ${p.canLogin && p.canKey ? "subscription or api key" : p.canLogin ? "subscription" : "api key"}`;
-  return `${how} · ${plural(p.available, "model")}`;
+  const how = connection(p);
+  if (how) return `${how} · ${plural(p.available, "model")}`;
+  return `${plural(p.models, "model")} · ${waysToConnect(p)}`;
+}
+
+/** How a provider is connected now, or undefined when it is not. */
+function connection(p: ProviderRow): string | undefined {
+  if (p.subscription) return "subscription";
+  if (p.source === "environment") return "key from the environment";
+  if (p.source === "stored") return "api key";
+  if (p.custom) return "custom provider";
+  if (p.configured) return "configured";
+  return undefined;
+}
+
+function waysToConnect(p: ProviderRow): string {
+  if (p.canLogin && p.canKey) return "subscription or api key";
+  return p.canLogin ? "subscription" : "api key";
 }
 
 /** Board 5: the model new sessions start with, the providers pi can call, and the ⌃P favorites. */
@@ -62,25 +77,28 @@ export function ModelsPage() {
       : [{ label: "No models yet: add a provider key below", disabled: true, onSelect: () => {} }];
   const go = (id: string) => main.current?.querySelector(`#${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
 
-  const action = (p: ProviderRow) =>
-    p.configured ? (
-      <Button small variant="ghost" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => setMenu({ at: at(e), label: p.name, items: [
-        ...(p.canKey ? [{ label: "Replace key…", icon: <Icon name="key" />, onSelect: () => actions.login(p.id, "api_key") }] : []),
-        ...(p.canLogin ? [{ label: "Log in again…", icon: <Icon name="external" />, onSelect: () => actions.login(p.id, "oauth") }] : []),
-        "sep",
-        { label: "Log out", icon: <Icon name="x" />, danger: true, disabled: p.source !== "stored", onSelect: () => actions.logout(p.id) },
-        ...(p.source === "environment" ? [{ note: "This key comes from an environment variable: remove it there." }] : []),
-      ] })}>Manage</Button>
-    ) : p.canLogin && p.canKey ? (
-      <Button small variant="ghost" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => setMenu({ at: at(e), label: p.name, items: [
-        { label: "Log in with a subscription", icon: <Icon name="external" />, onSelect: () => actions.login(p.id, "oauth") },
-        { label: "Add an api key", icon: <Icon name="key" />, onSelect: () => actions.login(p.id, "api_key") },
-      ] })}>Connect<Icon name="chevronDown" size={12} /></Button>
-    ) : p.canLogin ? (
-      <Button small variant="ghost" onClick={() => actions.login(p.id, "oauth")}>Log in</Button>
-    ) : p.canKey ? (
-      <Button small variant="ghost" onClick={() => actions.login(p.id, "api_key")}>Add key</Button>
-    ) : null;
+  const action = (p: ProviderRow) => {
+    if (p.configured)
+      return (
+        <Button small variant="ghost" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => setMenu({ at: at(e), label: p.name, items: [
+          ...(p.canKey ? [{ label: "Replace key…", icon: <Icon name="key" />, onSelect: () => actions.login(p.id, "api_key") }] : []),
+          ...(p.canLogin ? [{ label: "Log in again…", icon: <Icon name="external" />, onSelect: () => actions.login(p.id, "oauth") }] : []),
+          "sep",
+          { label: "Log out", icon: <Icon name="x" />, danger: true, disabled: p.source !== "stored", onSelect: () => actions.logout(p.id) },
+          ...(p.source === "environment" ? [{ note: "This key comes from an environment variable: remove it there." }] : []),
+        ] })}>Manage</Button>
+      );
+    if (p.canLogin && p.canKey)
+      return (
+        <Button small variant="ghost" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => setMenu({ at: at(e), label: p.name, items: [
+          { label: "Log in with a subscription", icon: <Icon name="external" />, onSelect: () => actions.login(p.id, "oauth") },
+          { label: "Add an api key", icon: <Icon name="key" />, onSelect: () => actions.login(p.id, "api_key") },
+        ] })}>Connect<Icon name="chevronDown" size={12} /></Button>
+      );
+    if (p.canLogin) return <Button small variant="ghost" onClick={() => actions.login(p.id, "oauth")}>Log in</Button>;
+    if (p.canKey) return <Button small variant="ghost" onClick={() => actions.login(p.id, "api_key")}>Add key</Button>;
+    return null;
+  };
 
   return (
     <div className="grid min-h-0 grid-cols-[minmax(0,1fr)_300px]">

@@ -47,8 +47,12 @@ export function Modal(props: {
       if (e.key !== "Tab") return;
       const all = [...box.current.querySelectorAll<HTMLElement>(FOCUSABLE)];
       const inside = box.current.contains(document.activeElement);
-      if (!inside || (e.shiftKey && document.activeElement === all[0])) (e.preventDefault(), all.at(-1)?.focus());
-      else if (!e.shiftKey && document.activeElement === all.at(-1)) (e.preventDefault(), all[0]?.focus());
+      // Tab stays in the dialog: from the last field to the first, and back with ⇧Tab.
+      const wrapsBack = !inside || (e.shiftKey && document.activeElement === all[0]);
+      const wrapsForward = !e.shiftKey && document.activeElement === all.at(-1);
+      if (!wrapsBack && !wrapsForward) return;
+      e.preventDefault();
+      (wrapsBack ? all.at(-1) : all[0])?.focus();
     };
     document.addEventListener("keydown", onKey, true);
     const back = before.current;

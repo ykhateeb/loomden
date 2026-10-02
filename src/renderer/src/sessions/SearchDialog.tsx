@@ -9,6 +9,9 @@ import { Icon } from "#renderer/ui/Icon";
 import { ago } from "./time";
 
 /** Board 1a: ⌘K. Results show the matched text; ↵ opens the session at the match, which stays marked in the chat. */
+/** Wait for a short pause in typing before a search. */
+const SEARCH_DEBOUNCE_MS = 150;
+
 export function SearchDialog() {
   const projects = useStore((s) => s.projects);
   const live = useStore((s) => s.live);
@@ -45,7 +48,7 @@ export function SearchDialog() {
           setActive(0);
           setLoading(false);
         }),
-      150,
+      SEARCH_DEBOUNCE_MS,
     );
     return () => {
       current = false;

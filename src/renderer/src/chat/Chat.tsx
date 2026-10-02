@@ -112,6 +112,9 @@ function Elapsed({ since }: { since: number }) {
   return <span>{s >= 60 ? `${Math.floor(s / 60)}m ${s % 60}s` : `${s}s`}</span>;
 }
 
+/** Near the bottom (in px): new output scrolls into view. Further up: the user reads, and the chat stays. */
+const FOLLOW_SCROLL_PX = 200;
+
 export function Chat({ sessionKey, state }: { sessionKey: string; state: LiveState }) {
   const messages = useStore((s) => s.messages[sessionKey] ?? EMPTY);
   const mark = useStore((s) => (s.mark?.key === sessionKey ? s.mark.at : undefined));
@@ -173,7 +176,7 @@ export function Chat({ sessionKey, state }: { sessionKey: string; state: LiveSta
   // Follow new output, unless the user scrolled up to read.
   useEffect(() => {
     const el = scroller.current;
-    if (el && el.scrollHeight - el.scrollTop - el.clientHeight < 200) el.scrollTop = el.scrollHeight;
+    if (el && el.scrollHeight - el.scrollTop - el.clientHeight < FOLLOW_SCROLL_PX) el.scrollTop = el.scrollHeight;
   }, [messages]);
 
   // A date line when the day changes. pi's messages up to the next user message are one turn under one header.

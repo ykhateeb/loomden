@@ -98,11 +98,14 @@ export function useStore<T>(pick: (s: State) => T): T {
 
 let nextNoticeId = 1;
 
+/** How long a toast shows. */
+const NOTICE_MS = 6000;
+
 /** A toast that goes away after a few seconds. */
 export function notice(message: string, level: Notice["level"] = "error", action?: Notice["action"]) {
   const id = nextNoticeId++;
   set((s) => ({ notices: [...s.notices, { id, message, level, action }] }));
-  setTimeout(() => set((s) => ({ notices: s.notices.filter((n) => n.id !== id) })), 6000);
+  setTimeout(() => set((s) => ({ notices: s.notices.filter((n) => n.id !== id) })), NOTICE_MS);
 }
 
 /** A copy of `record` with no `key`. */
@@ -114,4 +117,10 @@ export function without<T>(record: Readonly<Record<string, T>>, key: string): Re
 /** Show an error as a toast. A cancel in one of main's dialogs is the user's choice, not an error. */
 export const report = (e: Error) => {
   if (!e.message.includes(DIALOG_CANCELLED)) notice(e.message);
+};
+
+/** A catch handler: show the error, and go on with `fallback`. */
+export const reportOr = <T,>(fallback: T) => (e: Error): T => {
+  report(e);
+  return fallback;
 };

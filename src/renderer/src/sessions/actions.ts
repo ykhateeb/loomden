@@ -2,7 +2,7 @@ import type { SearchResult } from "#protocol";
 import { folderName } from "#renderer/chat/format";
 import { designActions } from "#renderer/design/actions";
 import { call } from "#renderer/port";
-import { getState, notice, report, type SessionList, set, type Tab, without } from "#renderer/store";
+import { getState, notice, report, reportOr, type SessionList, set, type Tab, without } from "#renderer/store";
 
 export const sessionActions = {
   refresh: () =>
@@ -65,7 +65,7 @@ export const sessionActions = {
       await sessionActions.move(key, cwd);
     }),
   search: (query: string, titlesOnly: boolean, cwd?: string) =>
-    call<SearchResult[]>({ type: "sessions.search", query, titlesOnly, cwd }).catch((e) => (report(e), [] as SearchResult[])),
+    call<SearchResult[]>({ type: "sessions.search", query, titlesOnly, cwd }).catch(reportOr<SearchResult[]>([])),
   setSearching: (searching: boolean) => set({ searching }),
   /** Open a search result and mark the message (or only open it, for a title match). */
   openAt: async (cwd: string, path: string, at?: number) => {
@@ -85,7 +85,10 @@ export const sessionActions = {
       .then(sessionActions.refresh, report),
   rename: (path: string, name: string) =>
     call({ type: "session.rename", path, name })
-      .then(() => (notice("Session renamed", "info"), sessionActions.refresh()), report),
+      .then(() => {
+        notice("Session renamed", "info");
+        return sessionActions.refresh();
+      }, report),
   clone: (cwd: string, path: string) => {
     const key = crypto.randomUUID();
     return call({ type: "session.clone", key, cwd, path })

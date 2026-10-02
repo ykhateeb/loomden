@@ -10,6 +10,8 @@ import { LabelDialog } from "./LabelDialog";
 import { hasModifier, isTyping } from "#renderer/ui/keys";
 
 type Filter = "all" | "mine" | "labeled" | "notools";
+/** The rows each filter shows. */
+const SHOWS: Record<Filter, (r: PreviewRow) => boolean> = { all: () => true, mine: (r) => r.kind === "you", labeled: (r) => !!r.label, notools: (r) => !r.tool };
 type Pick = { kind: "row"; row: PreviewRow } | { kind: "card"; card: BranchCard };
 
 const FILTERS: { value: Filter; label: string }[] = [
@@ -39,7 +41,7 @@ export function TreeView({ sessionKey, state }: { sessionKey: string; state: Liv
 
   if (!tree) return <div className="flex flex-1 items-center justify-center gap-2 text-muted"><Spinner />Reading the tree…</div>;
 
-  const rows = tree.rows.filter((r) => (filter === "mine" ? r.kind === "you" : filter === "labeled" ? !!r.label : filter === "notools" ? !r.tool : true));
+  const rows = tree.rows.filter(SHOWS[filter]);
   const cards = (id: string) => tree.branchesAt[id] ?? [];
   const current = tree.last !== undefined ? cards(tree.last).find((c) => c.current) : undefined;
   const leaving = current?.name ?? "this branch";
@@ -66,11 +68,11 @@ export function TreeView({ sessionKey, state }: { sessionKey: string; state: Liv
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (isTyping(e.target) || hasModifier(e) || !pick) return;
-    const k = e.key.toLowerCase();
-    if (k === "enter") (e.preventDefault(), switchTo());
-    if (k === "l") (e.preventDefault(), setLabeling(true));
-    if (k === "c") (e.preventDefault(), fork(true));
-    if (k === "f") (e.preventDefault(), fork(false));
+    const keyActions: Record<string, () => unknown> = { enter: switchTo, l: () => setLabeling(true), c: () => fork(true), f: () => fork(false) };
+    const run = keyActions[e.key.toLowerCase()];
+    if (!run) return;
+    e.preventDefault();
+    run();
   };
 
   const card = (c: BranchCard) => {
@@ -79,7 +81,10 @@ export function TreeView({ sessionKey, state }: { sessionKey: string; state: Liv
       <button
         key={c.id}
         onClick={() => setPick({ kind: "card", card: c })}
-        onDoubleClick={() => (setPick({ kind: "card", card: c }), !c.current && actions.navigate(sessionKey, c.leafId, false))}
+        onDoubleClick={() => {
+          setPick({ kind: "card", card: c });
+          if (!c.current) actions.navigate(sessionKey, c.leafId, false);
+        }}
         className={cx(
           "flex w-[min(380px,calc(50%-7px))] min-w-[240px] flex-col rounded-xl border bg-panel text-left",
           c.current && "border-accent-line bg-[linear-gradient(180deg,rgba(122,168,216,.08),var(--color-panel)_70%)]",
@@ -141,7 +146,7 @@ export function TreeView({ sessionKey, state }: { sessionKey: string; state: Liv
                     className={cx("absolute left-[10px] size-2.5 rounded-full", here ? "bg-accent shadow-[0_0_0_3px_var(--color-accent-bg)]" : r.branchPoint ? "bg-warn" : "bg-muted")}
                   />
                   <Pill tone={r.kind === "you" ? "orange" : "accent"} className={cx("h-5 px-2 text-label font-semibold", r.kind === "you" && "bg-you-bg text-you")}>
-                    {r.kind === "you" ? "you" : r.kind === "pi" ? "pi" : r.kind === "compacted" ? "compacted" : "summary"}
+                    {r.kind}
                   </Pill>
                   <span className={cx("min-w-0 truncate", r.branchPoint ? "text-fg" : "text-sub")}>
                     {r.tool && <span className="mr-1.5 font-mono text-meta font-semibold text-orange">{r.tool}</span>}

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { DIALOG_CANCELLED, type ImportItem, type ImportScan } from "#protocol";
+import { DIALOG_CANCELLED, type ImportItem, type ImportResult, type ImportScan } from "#protocol";
 import { actions } from "#renderer/actions";
 import { useStore } from "#renderer/store";
 import { Button, cx, Kbd, Spinner } from "#renderer/ui/base";
@@ -7,6 +7,7 @@ import { Checkbox } from "#renderer/ui/controls";
 import { Icon } from "#renderer/ui/Icon";
 import { Modal, ModalIcon } from "#renderer/ui/Modal";
 
+const STATUS_COLOR: Record<ImportResult["status"], string> = { done: "text-ok", partial: "text-warn", failed: "text-danger" };
 const SEEN = "tenon.importOffered";
 
 /** Board 5c and 5d: bring settings, providers, trust, resources and packages over from terminal pi. */
@@ -71,7 +72,7 @@ export function ImportDialog() {
             return (
               <li key={item.id} className="flex flex-col gap-1">
                 <div className="flex items-center gap-2.5">
-                  <span className={cx("flex", !r ? "text-dim" : r.status === "done" ? "text-ok" : r.status === "partial" ? "text-warn" : "text-danger")}>
+                  <span className={cx("flex", r ? STATUS_COLOR[r.status] : "text-dim")}>
                     <Icon name={!r ? "check" : r.status === "done" ? "check" : "alert"} size={15} />
                   </span>
                   <span className={r || item.done ? "text-fg" : "text-muted"}>{item.label}</span>

@@ -1,6 +1,7 @@
 import type { SlashCommand } from "#protocol";
 import { cx, pill, type PillTone } from "#renderer/ui/base";
 import { Icon } from "#renderer/ui/Icon";
+import { prevented } from "#renderer/ui/keys";
 
 export type Row = { value: string; label: string; description?: string; source?: SlashCommand["source"] };
 
@@ -25,7 +26,7 @@ export function CommandMenu({ id, title, rows, active, onPick, onHover }: { id: 
             id={`${id}-${i}`}
             role="option"
             aria-selected={i === active}
-            onMouseDown={(e) => (e.preventDefault(), onPick(r))} // mousedown: the textarea keeps focus
+            onMouseDown={prevented(() => onPick(r))} // mousedown: the textarea keeps focus
             onMouseEnter={() => onHover(i)}
             className={cx("flex cursor-pointer items-center gap-3.5 rounded-sm px-2.5 py-[7px] text-base", i === active ? "bg-accent text-ink" : "text-fg")}
           >

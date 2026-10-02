@@ -10,13 +10,16 @@ import { SearchInput } from "#renderer/ui/Field";
 import { Icon } from "#renderer/ui/Icon";
 import { checkMark, Menu, type MenuItem } from "#renderer/ui/Menu";
 import { Callout, Card, CardBody, CardHeader, ListItem } from "#renderer/ui/surfaces";
-import { hasModifier, isTyping } from "#renderer/ui/keys";
+import { hasModifier, isTyping, prevented } from "#renderer/ui/keys";
 
 type Show = "all" | "global" | "projects";
 const galleryTones: Record<GalleryItem["kind"], PillTone> = { skills: "violet", extension: "orange", theme: "accent", prompts: "ok" };
 const keyOf = (p: InstalledPackage) => `${p.cwd ?? ""}|${p.source}`;
 
 /** Board 4: install extensions, skills, prompts and themes — for every project or for one. */
+/** Wait for a pause in typing before the npm search: each search is a request to the registry. */
+const GALLERY_DEBOUNCE_MS = 250;
+
 export function Packages() {
   const packages = useStore((s) => s.packages);
   const work = useStore((s) => s.packageWork);
@@ -37,8 +40,11 @@ export function Packages() {
   useEffect(() => {
     const t = setTimeout(() => {
       setGalleryError(undefined);
-      actions.gallery(galleryQuery).then(setGallery, (e: Error) => (setGallery([]), setGalleryError(e.message)));
-    }, 250);
+      actions.gallery(galleryQuery).then(setGallery, (e: Error) => {
+        setGallery([]);
+        setGalleryError(e.message);
+      });
+    }, GALLERY_DEBOUNCE_MS);
     return () => clearTimeout(t);
   }, [galleryQuery]);
 
@@ -48,6 +54,7 @@ export function Packages() {
   const match = (p: InstalledPackage) => !q || p.name.toLowerCase().includes(q) || p.source.toLowerCase().includes(q);
   const installCwd = forProject === "project" ? (project ?? projects[0]?.cwd) : undefined;
   const busy = (p?: InstalledPackage) => !!p && !!work[p.source];
+  const installing = !!work[source.trim()]; // the package in the field is being installed
 
   const install = async () => {
     const s = source.trim().replace(/^pi install\s+/, "");
@@ -110,14 +117,14 @@ export function Packages() {
             <span className="ml-2 truncate text-xs font-normal text-muted">npm:name@version · git:github.com/user/repo@tag · ./local/path</span>
           </CardHeader>
           <CardBody className="flex flex-col gap-3">
-            <form className="flex items-center gap-2" onSubmit={(e) => (e.preventDefault(), install())}>
+            <form className="flex items-center gap-2" onSubmit={prevented(install)}>
               <label className="flex h-9 flex-1 items-center gap-2 rounded-md border border-line2 bg-field px-3 font-mono text-body focus-within:border-accent focus-within:shadow-focus">
                 <span className="text-ok">$</span>
                 <span className="text-muted">pi install</span>
                 <input aria-label="Package source" placeholder="npm:pi-lint-skills" value={source} onChange={(e) => setSource(e.target.value)} className="min-w-0 flex-1 bg-transparent text-fg outline-none" />
               </label>
-              <Button variant="primary" type="submit" disabled={!source.trim() || busy({ source: source.trim() } as InstalledPackage)}>
-                {busy({ source: source.trim() } as InstalledPackage) ? <Spinner size={12} /> : <Icon name="import" size={14} />}Install<Kbd onFill>↵</Kbd>
+              <Button variant="primary" type="submit" disabled={!source.trim() || installing}>
+                {installing ? <Spinner size={12} /> : <Icon name="import" size={14} />}Install<Kbd onFill>↵</Kbd>
               </Button>
             </form>
             <div className="flex flex-wrap items-center gap-2">

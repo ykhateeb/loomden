@@ -40,8 +40,14 @@ export function useSessionMenus() {
 
   return {
     /** Right-click, or a "more" button (pass its bottom-left corner). */
-    sessionMenu: (e: MouseEvent, s: SessionRow, point = at(e)) => (e.preventDefault(), setMenu({ at: point, items: sessionItems(s), label: "Session actions" })),
-    projectMenu: (e: MouseEvent, p: Project, sessions: number) => (e.preventDefault(), setMenu({ at: at(e), items: projectItems(p, sessions), label: "Project actions" })),
+    sessionMenu: (e: MouseEvent, s: SessionRow, point = at(e)) => {
+      e.preventDefault();
+      setMenu({ at: point, items: sessionItems(s), label: "Session actions" });
+    },
+    projectMenu: (e: MouseEvent, p: Project, sessions: number) => {
+      e.preventDefault();
+      setMenu({ at: at(e), items: projectItems(p, sessions), label: "Project actions" });
+    },
     rename: setRenaming,
     remove: setDeleting,
     ui: (
