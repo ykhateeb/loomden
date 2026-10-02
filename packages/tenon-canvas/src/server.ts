@@ -6,7 +6,9 @@ import { randomBytes } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { watch, mkdirSync } from "node:fs";
 import { dirname, extname, join, sep } from "node:path";
-import { acceptProposal, addNote, approve, designPack, flow, readCompares, restoreRev, setDifferenceState, boardKey, canvasDir, canvasTabs, designSystemDir, discardProposal, dsReport, patchBoard, readCanvas, readHistory, undoBoard, setNoteState, slug, tokensCss, writeTokensCss, type NoteState } from "./store.js";
+import { addNote, approve, flow, restoreRev, boardKey, canvasDir, canvasTabs, designSystemDir, patchBoard, readCanvas, readHistory, undoBoard, setNoteState, slug, type NoteState } from "./store.js";
+import { acceptProposal, discardProposal, dsReport, tokensCss, writeTokensCss } from "./tokens.js";
+import { designPack, readCompares, setDifferenceState } from "./compare.js";
 import { POINT_SCRIPT, VIEWER } from "./web.js";
 
 const TYPES: Record<string, string> = {

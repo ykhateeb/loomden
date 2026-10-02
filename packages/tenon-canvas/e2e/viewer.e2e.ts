@@ -3,7 +3,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type Frame, type Page } from "@playwright/test";
 import { startServer, type CanvasServer } from "../src/server";
-import { compareBoard, createBoard, createCanvas, editBoard, freeCanvasName, planBoards, proposeTokens, markEditing, readCanvas, unmarkEditing } from "../src/store";
+import { createBoard, createCanvas, editBoard, freeCanvasName, planBoards, markEditing, readCanvas, unmarkEditing } from "../src/store";
+import { proposeTokens } from "../src/tokens";
+import { compareBoard } from "../src/compare";
 
 const board = (t: string) =>
   `<html><head><style>html,body{margin:0;width:390px;height:844px}button{margin:20px}</style></head><body><h1>${t}</h1><button>Pay now</button></body></html>`;
@@ -155,7 +157,7 @@ test("Edit mode: change text and token values, undo, history, custom value asks 
     color: { tokens: [{ name: "ink", value: "#1b1f24" }, { name: "link", value: "#4e6f94" }] },
     spacing: { tokens: [{ name: "space-4", value: "16px" }] },
   });
-  await (await import("../src/store")).acceptProposal(ds);
+  await (await import("../src/tokens")).acceptProposal(ds);
   await page.goto(server.url("demo"));
   await page.keyboard.press("e");
   const frame = page.frameLocator("iframe").first();
@@ -267,7 +269,7 @@ test("App view: differences from design_compare, Fix the code and Board is wrong
   const ds = join(root, "..", "design-system");
   await editBoard(root, { canvas: "demo", board: "cart", baseRev: 1, edits: [{ find: "<h1", replace: '<h1 style="font-weight: var(--label-strong-font-weight)"' }] });
   await proposeTokens(ds, { name: "app", type: { styles: [{ name: "label-strong", fontSize: "12px", lineHeight: "16px", fontWeight: 650 }] } });
-  await (await import("../src/store")).acceptProposal(ds);
+  await (await import("../src/tokens")).acceptProposal(ds);
   await page.goto(server.url("demo"));
   await page.getByRole("button", { name: "App", exact: true }).click();
   await expect(page.getByText("No comparison for Cart yet")).toBeVisible();

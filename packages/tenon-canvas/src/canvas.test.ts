@@ -3,7 +3,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { startServer } from "./server.js";
-import { RAW_BOARD, RAW_STATE, RAW_TOKENS, canvasMoves, compareBoard, designPack, readCompares, setDifferenceState, freeRoot, gitignoreMissing, moveCanvases, moveDesignSystem, acceptProposal, addNote, approve, flow, restoreRev, dsReport, patchBoard, proposeTokens, readHistory, undoBoard, createBoard, editBoard, ensureGitignore, readBoard, readCanvas, stamp, tokensCss, writeTokensCss, patchHtml, diffFacts, keepDecisions, boardFacts } from "./store.js";
+import { RAW_BOARD, RAW_STATE, freeRoot, addNote, approve, flow, restoreRev, patchBoard, readHistory, undoBoard, createBoard, editBoard, readBoard, readCanvas, stamp, patchHtml } from "./store.js";
+import { RAW_TOKENS, acceptProposal, dsReport, proposeTokens, tokensCss, writeTokensCss } from "./tokens.js";
+import { compareBoard, designPack, readCompares, setDifferenceState, diffFacts, keepDecisions, boardFacts } from "./compare.js";
+import { canvasMoves, gitignoreMissing, moveCanvases, moveDesignSystem, ensureGitignore } from "./project.js";
 
 const html = `<html><head><title>x</title></head><body><button>Pay</button><a href="b.html">Next</a></body></html>`;
 const setup = async () => {

@@ -8,7 +8,8 @@ Paths in this section start at the repo root.
 
 - Tenon imports the extension in `src/core/sessions/runtime.ts` (`extensionFactories`). The agent build bundles it into `out/main/agent.js`.
 - Tenon reads only `packages/tenon-canvas/skills/` from disk, at a path relative to `out/main/`. If you move the skills folder, change `src/core/sessions/runtime.ts` and `electron-builder.yml` too.
-- The host also imports `store.ts` and `server.ts` of this package through the `#canvas/*` alias. Search for `#canvas/` to find these callers.
+- The host also imports `store.ts`, `project.ts` and `server.ts` of this package through the `#canvas/*` alias. Search for `#canvas/` to find these callers.
+- `src/` has one job for each file: `store.ts` (canvases, boards, notes, history), `tokens.ts` (the design system), `compare.ts` (board against the app, and the design pack), `project.ts` (a canvas comes into a project), `server.ts` and `web.ts` (the viewer), `extension.ts` (pi's tools).
 - The extension reads `TENON_APP`, `TENON_NO_PROJECT`, and `TENON_FREE_DIR` to know that it runs inside Tenon.
 
 ## Data

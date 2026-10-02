@@ -1,7 +1,8 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { FREE_CANVAS_DIR } from "#core/paths";
-import { canvasMoves, designSystemDir, ensureGitignore, freeRoot, moveCanvases, moveDesignSystem, projectRoot } from "#canvas/store";
+import { designSystemDir, freeRoot, projectRoot } from "#canvas/store";
+import { canvasMoves, ensureGitignore, moveCanvases, moveDesignSystem } from "#canvas/project";
 
 type Notify = (level: "info" | "error", message: string) => void;
 

@@ -4,9 +4,10 @@ import { join, resolve } from "node:path";
 import { Type } from "typebox";
 import { defineTool, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { startServer, type CanvasServer } from "./server.js";
-import {
-  RAW_BOARD, RAW_STATE, RAW_TOKENS, STATUS_BUILD, STATUS_CANVAS, boardKey, canvasExists, compareBoard, designSystemDir, dsItems, projectRoot, createBoard, clearEditing, clearPlan, createCanvas, freeCanvasName, freeRoot, gitignoreMissing, planBoards, markEditing, unmarkEditing, proposeTokens, editBoard, ensureGitignore, listCanvases, readBoard, readCanvas, readCompares, setNoteState,
-} from "./store.js";
+import { RAW_BOARD, RAW_STATE, STATUS_BUILD, STATUS_CANVAS, boardKey, canvasExists, designSystemDir, projectRoot, createBoard, clearEditing, clearPlan, createCanvas, freeCanvasName, freeRoot, planBoards, markEditing, unmarkEditing, editBoard, listCanvases, readBoard, readCanvas, setNoteState } from "./store.js";
+import { RAW_TOKENS, dsItems, proposeTokens } from "./tokens.js";
+import { compareBoard, readCompares } from "./compare.js";
+import { gitignoreMissing, ensureGitignore } from "./project.js";
 
 const text = (t: string) => ({ content: [{ type: "text" as const, text: t }], details: undefined });
 
