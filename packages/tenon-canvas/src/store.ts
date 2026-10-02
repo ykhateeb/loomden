@@ -76,8 +76,10 @@ async function save(dir: string, c: Canvas, key: string, html: string, by: strin
     JSON.stringify({ board: key, rev, by, at: new Date().toISOString(), why, ...extra }) + "\n");
   Object.assign(m, { rev, by, at: new Date().toISOString() });
   await writeFile(join(dir, "canvas.json"), JSON.stringify(c, null, 2));
-  return rev;
 }
+
+/** An id that the viewer page makes for a note or an edit. */
+const PAGE_ID = /^[\w-]{1,40}$/;
 
 /** A new board is always rev 1. Makes the canvas if needed. */
 export async function createBoard(root: string, a: {
@@ -136,16 +138,20 @@ const STYLE_PROPS = new Set(["color", "margin-top", "padding", "font-size", "lin
 const TOKEN_VALUE = /^var\(--[A-Za-z0-9][\w-]*\)$/;
 const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-/** Your edit in edit mode: the text of one element, or design-system values for its style. Saved as a rev by "you". */
+/**
+ * Your edit in edit mode: the text of one element, or design-system values for its style. Saved as a rev by "you".
+ * `id` comes from the page and goes in the history log, so the page can undo this edit by its id.
+ */
 export async function patchBoard(root: string, a: {
-  canvas: string; board: string; tid: string; text?: string; style?: Record<string, string>; tell?: boolean;
+  canvas: string; board: string; id: string; tid: string; text?: string; style?: Record<string, string>; tell?: boolean;
 }) {
   const dir = canvasDir(root, a.canvas);
+  if (!PAGE_ID.test(a.id)) throw new Error("Bad edit id");
   if (!/^\d+$/.test(a.tid)) throw new Error("Bad tid");
   for (const [k, v] of Object.entries(a.style ?? {}))
     if (!STYLE_PROPS.has(k) || !TOKEN_VALUE.test(v)) throw new Error(`Only design-system values: ${k}: ${v}`);
   if (a.text != null && a.text.length > 500) throw new Error("Text is too long");
-  return locked(dir, async () => {
+  await locked(dir, async () => {
     const c = await readCanvas(root, a.canvas);
     const key = boardKey(a.board);
     if (!c.boards[key]) throw new Error(`Board ${key} not found`);
@@ -176,22 +182,22 @@ export async function patchBoard(root: string, a: {
       why = `${Object.keys(a.style ?? {}).join(", ")} of element ${a.tid}`;
     }
     html = html.slice(0, start) + tag + rest;
-    return { rev: await save(dir, c, key, html, "you", why, a.tell === false ? { quiet: true } : {}) };
+    await save(dir, c, key, html, "you", why, { edit: a.id, ...(a.tell === false ? { quiet: true } : {}) });
   });
 }
 
-/** Undo your last edit: the content before it comes back as a new rev. Only while nothing else changed the board. */
-export async function undoBoard(root: string, canvas: string, board: string, rev: number) {
+/** Undo your edit `edit` (its id from patchBoard): the content before it comes back as a new rev. Only while nothing else changed the board. */
+export async function undoBoard(root: string, canvas: string, board: string, edit: string) {
   const dir = canvasDir(root, canvas);
-  return locked(dir, async () => {
+  await locked(dir, async () => {
     const c = await readCanvas(root, canvas);
     const key = boardKey(board);
     const m = c.boards[key];
-    if (!m || m.rev !== rev || rev < 2) throw new Error("The board changed since: nothing to undo");
-    const html = await readFile(join(dir, "history", `${nameOf(key)}.r${rev - 1}.html`), "utf8");
+    const e = (await readHistory(root, canvas, board)).find((x) => x.edit === edit);
+    if (!m || !e || m.rev !== e.rev || e.rev < 2) throw new Error("The board changed since: nothing to undo");
+    const html = await readFile(join(dir, "history", `${nameOf(key)}.r${e.rev - 1}.html`), "utf8");
     // pi hears about the undo if it heard about the edit; a quiet edit is undone quietly.
-    const edit = (await readHistory(root, canvas, board)).find((e) => e.rev === rev);
-    return { rev: await save(dir, c, key, html, "you", `undo rev ${rev}`, edit?.quiet ? { quiet: true } : {}) };
+    await save(dir, c, key, html, "you", `undo rev ${e.rev}`, e.quiet ? { quiet: true } : {});
   });
 }
 
@@ -262,21 +268,21 @@ export async function clearDraftState(root: string, canvas: string, o: { editing
 /** Restore never deletes: the old content is saved as a new rev by you. */
 export async function restoreRev(root: string, canvas: string, board: string, rev: number) {
   const dir = canvasDir(root, canvas);
-  return locked(dir, async () => {
+  await locked(dir, async () => {
     const c = await readCanvas(root, canvas);
     const key = boardKey(board);
     if (!c.boards[key]) throw new Error(`Board ${key} not found`);
     const html = await readFile(join(dir, "history", `${nameOf(key)}.r${Number(rev)}.html`), "utf8").catch(() => {
       throw new Error(`Rev ${rev} not found`);
     });
-    return { rev: await save(dir, c, key, html, "you", `restore rev ${rev}`) };
+    await save(dir, c, key, html, "you", `restore rev ${rev}`);
   });
 }
 
 /** Only a person approves (the viewer calls this; no pi tool does). The approved rev is copied to approved/. */
 export async function approve(root: string, canvas: string, board: string) {
   const dir = canvasDir(root, canvas);
-  return locked(dir, async () => {
+  await locked(dir, async () => {
     const c = await readCanvas(root, canvas);
     const key = boardKey(board);
     const m = c.boards[key];
@@ -285,7 +291,6 @@ export async function approve(root: string, canvas: string, board: string) {
     await copyFile(join(dir, key), join(dir, "approved", `${nameOf(key)}.html`));
     m.approved = m.rev;
     await writeFile(join(dir, "canvas.json"), JSON.stringify(c, null, 2));
-    return { approved: m.rev };
   });
 }
 
@@ -304,15 +309,16 @@ export async function flow(root: string, canvas: string) {
   return { boards, links };
 }
 
-export async function addNote(root: string, canvas: string, n: { board: string; target: Target; text: string }) {
-  return locked(canvasDir(root, canvas), async () => {
+/** A note by you. `id` comes from the page. */
+export async function addNote(root: string, canvas: string, n: { id: string; board: string; target: Target; text: string }) {
+  if (!PAGE_ID.test(n.id)) throw new Error("Bad note id");
+  await locked(canvasDir(root, canvas), async () => {
     const c = await readCanvas(root, canvas);
     const board = boardKey(n.board);
     if (!c.boards[board]) throw new Error(`Board ${board} not found`);
-    const id = "n" + (Math.max(0, ...Object.keys(c.notes).map((k) => +k.slice(1))) + 1);
-    c.notes[id] = { board, target: n.target, text: n.text, state: "open", by: "you", at: new Date().toISOString() };
+    if (c.notes[n.id]) throw new Error(`Note ${n.id} exists`);
+    c.notes[n.id] = { board, target: n.target, text: n.text, state: "open", by: "you", at: new Date().toISOString() };
     await writeFile(join(canvasDir(root, canvas), "canvas.json"), JSON.stringify(c, null, 2));
-    return id;
   });
 }
 
@@ -343,15 +349,20 @@ export function dsItems(t: any): DsItem[] {
 
 const readJson = (f: string) => readFile(f, "utf8").then((s) => JSON.parse(s), () => undefined);
 
-/** tokens.json -> CSS variables. Writes tokens.css only when it changed (the watcher would loop otherwise). */
+/** tokens.json -> CSS variables. "" when there is no tokens.json. */
 export async function tokensCss(ds: string): Promise<string> {
   const t = await readJson(join(ds, "tokens.json"));
   if (!t) return "";
   const v = dsItems(t).flatMap((i) => i.decls.map(([n, val]) => `--${n}: ${val};`));
-  const css = `:root {\n  ${v.join("\n  ")}\n}\n`;
+  return `:root {\n  ${v.join("\n  ")}\n}\n`;
+}
+
+/** Write tokens.css from tokens.json, only when it changed (the watcher would loop otherwise). */
+export async function writeTokensCss(ds: string) {
+  const css = await tokensCss(ds);
+  if (!css) return;
   const old = await readFile(join(ds, "tokens.css"), "utf8").catch(() => "");
   if (old !== css) await writeFile(join(ds, "tokens.css"), css);
-  return css;
 }
 
 export const RAW_TOKENS = /(?:\.tenon|\/sessions\/[^/]+)\/design-system\/tokens\.json$/;
@@ -376,7 +387,7 @@ export async function acceptProposal(ds: string) {
   const old = await readJson(join(ds, "tokens.json"));
   await writeFile(join(ds, "tokens.json"), JSON.stringify({ ...p, version: old ? (old.version ?? 0) + 1 : 1 }, null, 2));
   await rm(join(ds, "tokens.proposed.json"));
-  await tokensCss(ds);
+  await writeTokensCss(ds);
 }
 
 export const discardProposal = (ds: string) => rm(join(ds, "tokens.proposed.json"), { force: true });
@@ -587,15 +598,14 @@ export async function readCompares(root: string, canvas: string): Promise<Record
   return out;
 }
 
-export function setDifferenceState(root: string, canvas: string, board: string, id: string, state: Difference["state"]) {
-  return locked(canvasDir(root, canvas), async () => {
+export async function setDifferenceState(root: string, canvas: string, board: string, id: string, state: Difference["state"]) {
+  await locked(canvasDir(root, canvas), async () => {
     const f = join(canvasDir(root, canvas), "compare", `${nameOf(boardKey(board))}.json`);
     const c: Compare = await readJson(f);
     const d = c?.differences.find((x) => x.id === id);
     if (!d) throw new Error("Difference not found");
     d.state = state;
     await writeFile(f, JSON.stringify(c, null, 2));
-    return d;
   });
 }
 

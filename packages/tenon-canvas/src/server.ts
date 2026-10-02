@@ -6,7 +6,7 @@ import { randomBytes } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { watch, mkdirSync } from "node:fs";
 import { dirname, extname, join, sep } from "node:path";
-import { acceptProposal, addNote, approve, designPack, flow, readCompares, restoreRev, setDifferenceState, boardKey, canvasDir, canvasTabs, designSystemDir, discardProposal, dsReport, patchBoard, readCanvas, readHistory, undoBoard, setNoteState, slug, tokensCss, type NoteState } from "./store.js";
+import { acceptProposal, addNote, approve, designPack, flow, readCompares, restoreRev, setDifferenceState, boardKey, canvasDir, canvasTabs, designSystemDir, discardProposal, dsReport, patchBoard, readCanvas, readHistory, undoBoard, setNoteState, slug, tokensCss, writeTokensCss, type NoteState } from "./store.js";
 import { POINT_SCRIPT, VIEWER } from "./web.js";
 
 const TYPES: Record<string, string> = {
@@ -26,6 +26,7 @@ export async function startServer(o: { root: string; onSend: (text: string) => v
   const emit = (e: object) => { for (const r of clients) r.write(`data: ${JSON.stringify(e)}\n\n`); };
 
   mkdirSync(o.root, { recursive: true });
+  await writeTokensCss(ds).catch(() => {}); // tokens.json may have changed while no server ran
   const timers = new Map<string, NodeJS.Timeout>();
   const watcher = watch(dirname(o.root), { recursive: true }, (_ev, f) => {
     if (!f) return;
@@ -34,7 +35,10 @@ export async function startServer(o: { root: string; onSend: (text: string) => v
     if (p[0] === "canvases" && p[2] === "boards") ev = { type: "board-changed", canvas: p[1], board: `boards/${p[3]}` };
     else if (p[0] === "canvases" && p[2] === "canvas.json") ev = { type: "canvas-changed", canvas: p[1] };
     else if (p[0] === "canvases" && p[2] === "compare") ev = { type: "canvas-changed", canvas: p[1] }; // a comparison from pi
-    else if (p[0] === "design-system" && p[1] === "tokens.json") ev = { type: "tokens-changed" };
+    else if (p[0] === "design-system" && p[1] === "tokens.json") {
+      ev = { type: "tokens-changed" };
+      writeTokensCss(ds).catch(() => {}); // tokens.css follows tokens.json
+    }
     else if (p[0] === "design-system" && p[1] === "tokens.proposed.json") ev = { type: "ds-changed" };
     if (!ev) return; // history/, tokens.css and the rest are ignored
     clearTimeout(timers.get(f.toString()));
@@ -92,9 +96,9 @@ export async function startServer(o: { root: string; onSend: (text: string) => v
       const b = await body(req);
       slug(b.canvas);
       if (p[1] === "note") {
-        const id = await addNote(o.root, b.canvas, b.note);
-        if (b.send) await send(b.canvas, [id]);
-        return reply(res, 200, "application/json", JSON.stringify({ id }));
+        await addNote(o.root, b.canvas, b.note);
+        if (b.send) await send(b.canvas, [b.note.id]);
+        return reply(res, 200, "application/json", "{}");
       }
       if (p[1] === "build") {
         const pack = await designPack(o.root, b.canvas, ds);
@@ -125,14 +129,14 @@ export async function startServer(o: { root: string; onSend: (text: string) => v
         }
         return reply(res, 200, "application/json", "{}");
       }
-      if (p[1] === "restore") return reply(res, 200, "application/json", JSON.stringify(await restoreRev(o.root, b.canvas, b.board, b.rev)));
-      if (p[1] === "approve") return reply(res, 200, "application/json", JSON.stringify(await approve(o.root, b.canvas, b.board)));
+      if (p[1] === "restore") return (await restoreRev(o.root, b.canvas, b.board, b.rev), reply(res, 200, "application/json", "{}"));
+      if (p[1] === "approve") return (await approve(o.root, b.canvas, b.board), reply(res, 200, "application/json", "{}"));
       if (p[1] === "addboard") {
         o.onSend(`Add a board “${String(b.name).slice(0, 40)}” (${slug(String(b.name))}.html) to canvas "${b.canvas}": “${String(b.from).slice(0, 40)}” links to it. Use canvas_create.`);
         return reply(res, 200, "application/json", "{}");
       }
-      if (p[1] === "edit") return reply(res, 200, "application/json", JSON.stringify(await patchBoard(o.root, b)));
-      if (p[1] === "undo") return reply(res, 200, "application/json", JSON.stringify(await undoBoard(o.root, b.canvas, b.board, b.rev)));
+      if (p[1] === "edit") return (await patchBoard(o.root, b), reply(res, 200, "application/json", "{}"));
+      if (p[1] === "undo") return (await undoBoard(o.root, b.canvas, b.board, b.edit), reply(res, 200, "application/json", "{}"));
       if (p[1] === "custom") {
         const c = await readCanvas(o.root, b.canvas);
         o.onSend(`On board ${c.boards[boardKey(b.board)]?.title ?? b.board}, element “${String(b.text).slice(0, 60)}” (tid ${Number(b.tid)}): I need a custom value for ${String(b.prop).slice(0, 40)}. Add it to the design system as a token, then use it.`);

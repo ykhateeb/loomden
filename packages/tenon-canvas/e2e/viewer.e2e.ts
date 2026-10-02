@@ -52,7 +52,7 @@ test("point mode: Send now puts board, element and text in the chat", async ({ p
   await page.getByRole("button", { name: "Send to pi", exact: false }).click();
   await expect.poll(() => sent.length).toBe(1);
   expect(sent[0]).toMatch(/^On board Cart, element “Pay now” \(tid \d+\): Make it bigger$/);
-  expect((await readCanvas(root, "demo")).notes.n1.state).toBe("sent");
+  expect(Object.values((await readCanvas(root, "demo")).notes).map((n) => n.state)).toEqual(["sent"]);
 });
 
 test("saved notes show a pin and are sent together", async ({ page }) => {

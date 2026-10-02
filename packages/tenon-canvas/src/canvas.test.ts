@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { startServer } from "./server.js";
-import { RAW_BOARD, RAW_STATE, RAW_TOKENS, canvasMoves, compareBoard, designPack, readCompares, setDifferenceState, freeRoot, gitignoreMissing, moveCanvases, moveDesignSystem, acceptProposal, addNote, approve, flow, restoreRev, dsReport, patchBoard, proposeTokens, readHistory, undoBoard, createBoard, editBoard, ensureGitignore, readBoard, readCanvas, stamp, tokensCss } from "./store.js";
+import { RAW_BOARD, RAW_STATE, RAW_TOKENS, canvasMoves, compareBoard, designPack, readCompares, setDifferenceState, freeRoot, gitignoreMissing, moveCanvases, moveDesignSystem, acceptProposal, addNote, approve, flow, restoreRev, dsReport, patchBoard, proposeTokens, readHistory, undoBoard, createBoard, editBoard, ensureGitignore, readBoard, readCanvas, stamp, tokensCss, writeTokensCss } from "./store.js";
 
 const html = `<html><head><title>x</title></head><body><button>Pay</button><a href="b.html">Next</a></body></html>`;
 const setup = async () => {
@@ -46,12 +46,16 @@ describe("store", () => {
   it("keeps notes, tokens and gitignore", async () => {
     const { proj, root } = await setup();
     await createBoard(root, { canvas: "c1", board: "cart", title: "Cart", w: 390, h: 844, html });
-    const id = await addNote(root, "c1", { board: "cart", target: { tid: "2", text: "Pay", box: [1, 2, 3, 4] }, text: "bigger" });
-    expect((await readCanvas(root, "c1")).notes[id].state).toBe("open");
+    await addNote(root, "c1", { id: "n1", board: "cart", target: { tid: "2", text: "Pay", box: [1, 2, 3, 4] }, text: "bigger" });
+    expect((await readCanvas(root, "c1")).notes.n1.state).toBe("open");
+    await expect(addNote(root, "c1", { id: "n1", board: "cart", target: { tid: "2", text: "Pay", box: [1, 2, 3, 4] }, text: "again" })).rejects.toThrow(/exists/);
+    await expect(addNote(root, "c1", { id: "../x", board: "cart", target: { tid: "2", text: "Pay", box: [1, 2, 3, 4] }, text: "x" })).rejects.toThrow(/Bad note id/);
     const ds = join(proj, ".tenon", "design-system");
     await mkdir(ds, { recursive: true });
     await writeFile(join(ds, "tokens.json"), JSON.stringify({ color: { tokens: [{ name: "link", value: "#4e6f94" }] } }));
     expect(await tokensCss(ds)).toContain("--link: #4e6f94;");
+    await writeTokensCss(ds);
+    expect(await readFile(join(ds, "tokens.css"), "utf8")).toContain("--link: #4e6f94;");
     await mkdir(join(proj, ".git"));
     expect(await gitignoreMissing(proj)).toBe(true);
     await ensureGitignore(proj);
@@ -80,7 +84,7 @@ describe("server", () => {
       const base = url.replace("/c/c1", "");
       const res = await fetch(`${base}/api/note`, {
         method: "POST",
-        body: JSON.stringify({ canvas: "c1", send: true, note: { board: "cart", target: { tid: "2", text: "Pay", box: [0, 0, 1, 1] }, text: "bigger" } }),
+        body: JSON.stringify({ canvas: "c1", send: true, note: { id: "n1", board: "cart", target: { tid: "2", text: "Pay", box: [0, 0, 1, 1] }, text: "bigger" } }),
       });
       expect(res.status).toBe(200);
       expect(sent).toEqual(["On board Cart, element “Pay” (tid 2): bigger"]);
@@ -135,35 +139,36 @@ describe("edit mode", () => {
     await createBoard(root, { canvas: "c1", board: "cart", title: "Cart", w: 1, h: 1, html: page });
     const tid = (await readBoard(root, "c1", "cart")).html.match(/<h1[^>]*data-tid="(\d+)"/)![1];
 
-    await patchBoard(root, { canvas: "c1", board: "cart", tid, text: "Total <to> pay" });
+    await patchBoard(root, { canvas: "c1", board: "cart", id: "e1", tid, text: "Total <to> pay" });
     let b = await readBoard(root, "c1", "cart");
     expect(b.rev).toBe(2);
     expect(b.by).toBe("you");
     expect(b.html).toContain("Total &lt;to&gt; pay</h1>");
 
-    await patchBoard(root, { canvas: "c1", board: "cart", tid, style: { color: "var(--ink)", "margin-top": "var(--space-2)" } });
+    await patchBoard(root, { canvas: "c1", board: "cart", id: "e2", tid, style: { color: "var(--ink)", "margin-top": "var(--space-2)" } });
     b = await readBoard(root, "c1", "cart");
     expect(b.html).toContain('style="color: var(--ink); margin-top: var(--space-2)"');
 
-    await expect(patchBoard(root, { canvas: "c1", board: "cart", tid, style: { color: "#ff0000" } })).rejects.toThrow(/Only design-system values/);
-    await expect(patchBoard(root, { canvas: "c1", board: "cart", tid, style: { "background-image": "var(--x)" } })).rejects.toThrow(/Only design-system values/);
-    await expect(patchBoard(root, { canvas: "c1", board: "cart", tid: "999", text: "x" })).rejects.toThrow(/not found/);
+    await expect(patchBoard(root, { canvas: "c1", board: "cart", id: "x", tid, style: { color: "#ff0000" } })).rejects.toThrow(/Only design-system values/);
+    await expect(patchBoard(root, { canvas: "c1", board: "cart", id: "x", tid, style: { "background-image": "var(--x)" } })).rejects.toThrow(/Only design-system values/);
+    await expect(patchBoard(root, { canvas: "c1", board: "cart", id: "x", tid: "999", text: "x" })).rejects.toThrow(/not found/);
     const img = b.html.match(/<img[^>]*data-tid="(\d+)"/)![1];
-    await expect(patchBoard(root, { canvas: "c1", board: "cart", tid: img, text: "x" })).rejects.toThrow(/no text/);
+    await expect(patchBoard(root, { canvas: "c1", board: "cart", id: "x", tid: img, text: "x" })).rejects.toThrow(/no text/);
 
     // undo brings back the content before your last edit, as a new rev
-    const r = await undoBoard(root, "c1", "cart", 3);
-    expect(r.rev).toBe(4);
+    await undoBoard(root, "c1", "cart", "e2"); // the edit that made rev 3
+    expect((await readBoard(root, "c1", "cart")).rev).toBe(4);
     expect((await readBoard(root, "c1", "cart")).html).toContain("color: red");
     // not when someone else changed the board since
-    await expect(undoBoard(root, "c1", "cart", 3)).rejects.toThrow(/nothing to undo/);
+    await expect(undoBoard(root, "c1", "cart", "e2")).rejects.toThrow(/nothing to undo/);
+    await expect(undoBoard(root, "c1", "cart", "e1")).rejects.toThrow(/nothing to undo/); // an older edit
 
     const h = await readHistory(root, "c1", "cart");
     expect(h.map((e) => `${e.rev}:${e.by}`)).toEqual(["4:you", "3:you", "2:you", "1:pi"]);
     expect(h[0].quiet).toBeUndefined(); // the edit was reported to pi, so its undo is too
     // a quiet edit is undone quietly
-    await patchBoard(root, { canvas: "c1", board: "cart", tid, text: "Quiet", tell: false });
-    await undoBoard(root, "c1", "cart", 5);
+    await patchBoard(root, { canvas: "c1", board: "cart", id: "e3", tid, text: "Quiet", tell: false });
+    await undoBoard(root, "c1", "cart", "e3");
     expect((await readHistory(root, "c1", "cart"))[0].quiet).toBe(true);
   });
 });
@@ -180,8 +185,8 @@ describe("play, restore, approve", () => {
     ]);
 
     await editBoard(root, { canvas: "c1", board: "cart", baseRev: 1, html: "<p>v2</p>" });
-    const r = await restoreRev(root, "c1", "cart", 1);
-    expect(r.rev).toBe(3); // restore adds a rev, it deletes nothing
+    await restoreRev(root, "c1", "cart", 1);
+    expect((await readBoard(root, "c1", "cart")).rev).toBe(3); // restore adds a rev, it deletes nothing
     expect((await readBoard(root, "c1", "cart")).html).toContain('href="pay.html"');
     await expect(restoreRev(root, "c1", "cart", 9)).rejects.toThrow(/not found/);
 
@@ -244,7 +249,7 @@ describe("sending notes", () => {
       const base = s.url("c1").replace("/c/c1", "");
       const res = await fetch(`${base}/api/note`, {
         method: "POST",
-        body: JSON.stringify({ canvas: "c1", send: true, note: { board: "cart", target: { tid: "2", text: "Pay", box: [0, 0, 1, 1] }, text: "bigger" } }),
+        body: JSON.stringify({ canvas: "c1", send: true, note: { id: "n1", board: "cart", target: { tid: "2", text: "Pay", box: [0, 0, 1, 1] }, text: "bigger" } }),
       });
       expect(res.status).toBe(400);
       expect(await res.text()).toContain("Open a session");
@@ -270,8 +275,8 @@ describe("build pack and compare with the app", () => {
     await approve(root, "c1", "cart");
     await expect(designPack(root, "c1", ds)).rejects.toThrow("Approve Payment first");
 
-    const id = await addNote(root, "c1", { board: "cart", target: { tid: "2", text: "Total", box: [0, 0, 1, 1] }, text: "Make it bold" });
-    await (await import("./store.js")).setNoteState(root, "c1", [id], "done");
+    await addNote(root, "c1", { id: "n1", board: "cart", target: { tid: "2", text: "Total", box: [0, 0, 1, 1] }, text: "Make it bold" });
+    await (await import("./store.js")).setNoteState(root, "c1", ["n1"], "done");
     await approve(root, "c1", "pay");
     const pack = await designPack(root, "c1", ds);
     expect(pack.title).toBe("c1");

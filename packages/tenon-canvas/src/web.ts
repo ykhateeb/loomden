@@ -139,6 +139,8 @@ let cv,mode="move",view={x:40,y:50,k:.6},bust=0,pending=null;
 const frames=new Map();
 const $=s=>document.querySelector(s);
 const h=(t,p={},...kids)=>{const e=document.createElement(t);for(const[k,v]of Object.entries(p)){if(k.startsWith("on"))e.addEventListener(k.slice(2),v);else if(k==="class")e.className=v;else e.setAttribute(k,v)}e.append(...kids);return e};
+// An id for a note or an edit, made here: the server keeps it, and the page uses it later (to send or to undo).
+const newId=p=>p+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const post=(path,body)=>fetch(B+"/api/"+path,{method:"POST",body:JSON.stringify({canvas:C,...body})}).then(r=>r.ok?r.json():r.text().then(t=>{throw new Error(t)}));
 let toastT;const toast=m=>{const t=$("#toast");t.textContent=m;t.style.display="block";clearTimeout(toastT);toastT=setTimeout(()=>t.style.display="none",4000)};
 addEventListener("unhandledrejection",e=>toast(e.reason&&e.reason.message||"Something went wrong"));
@@ -223,8 +225,8 @@ function renderSide(notes){
 }
 
 // edit mode: properties panel (design-system values only)
-const edit=body=>post("edit",{board:selected.board,tid:selected.tid,tell,...body}).then(r=>{lastMine={board:selected.board,rev:r.rev}});
-const undo=()=>lastMine?post("undo",{board:lastMine.board,rev:lastMine.rev}).then(()=>{lastMine=null;toast("Undone")}):toast("Nothing to undo");
+const edit=body=>{const board=selected.board,id=newId("e");return post("edit",{board,tid:selected.tid,tell,id,...body}).then(()=>{lastMine={board,edit:id}})};
+const undo=()=>lastMine?post("undo",{board:lastMine.board,edit:lastMine.edit}).then(()=>{lastMine=null;toast("Undone")}):toast("Nothing to undo");
 function curVar(prop){for(const d of selected.style.split(";")){const i=d.indexOf(":");if(i>0&&d.slice(0,i).trim()===prop){const v=d.slice(i+1).trim();if(v.startsWith("var(--")&&v.endsWith(")"))return v.slice(6,-1)}}return ""}
 function pick(title,items,mk,prop,name){
   const s=h("select",{"aria-label":title},h("option",{value:""},"—"));
@@ -306,7 +308,7 @@ function renderCmp(b,hist){
   el.replaceChildren(
     h("div",{},h("div",{class:"row",style:"display:flex;gap:8px;align-items:center;margin-bottom:8px"},sel,h("b",{},b.title+" rev "+cmp.base+" → rev "+b.rev+" · "+changed.length+" change"+(changed.length===1?"":"s")),
         h("button",{onclick:()=>post("restore",{board:cmp.board,rev:cmp.base}).then(()=>toast("Restored as a new rev"))},"Restore rev "+cmp.base),
-        h("button",{class:"primary",onclick:()=>post("approve",{board:cmp.board}).then(r=>toast("Approved "+b.title+" rev "+r.approved))},"Approve "+b.title)),
+        h("button",{class:"primary",onclick:()=>post("approve",{board:cmp.board}).then(load).then(()=>toast("Approved "+b.title+" rev "+cv.boards[cmp.board].approved))},"Approve "+b.title)),
       h("div",{class:"pair"},h("div",{class:"col"},h("span",{},"rev "+cmp.base+" · before"),frame(B+"/c/"+C+"/history/"+name+".r"+cmp.base+".html")),
         h("div",{class:"col"},h("span",{},"rev "+b.rev+" · now"),frame(B+"/c/"+C+"/boards/"+name+".html?r="+b.rev+"."+bust)))),
     h("div",{class:"side"},h("b",{},"What changed"),...changed.map(e=>h("div",{},"rev "+e.rev+" · "+e.by+(e.why?" · "+e.why:""))),
@@ -357,13 +359,13 @@ addEventListener("message",e=>{
   if(d.type==="key"&&$("#pl")&&e.source===$("#pl").contentWindow)return playKey(d.key);
   const key=[...frames.keys()].find(k=>frames.get(k).iframe.contentWindow===e.source);if(!key)return;
   if(d.type==="select"){selected={board:key,...d};return renderSide(curNotes)}
-  if(d.type==="text"){selected={style:"",tag:"",canText:true,board:key,...d,full:d.text};return void post("edit",{board:key,tid:d.tid,text:d.text,tell}).then(r=>{lastMine={board:key,rev:r.rev}})}
+  if(d.type==="text"){selected={style:"",tag:"",canText:true,board:key,...d,full:d.text};const id=newId("e");return void post("edit",{board:key,tid:d.tid,text:d.text,tell,id}).then(()=>{lastMine={board:key,edit:id}})}
   if(d.type!=="pick")return;
   const r=frames.get(key).iframe.getBoundingClientRect();
   pending={board:key,target:{tid:d.tid,text:d.text,box:d.box}};
   const pop=$("#pop");pop.replaceChildren();
   const ta=h("textarea",{placeholder:"What should change?"});
-  const send=go=>()=>{if(!ta.value.trim())return;post("note",{note:{...pending,text:ta.value.trim()},send:go});pop.style.display="none"};
+  const send=go=>()=>{if(!ta.value.trim())return;post("note",{note:{...pending,id:newId("n"),text:ta.value.trim()},send:go});pop.style.display="none"};
   ta.addEventListener("keydown",e=>{if(e.key!=="Enter"||e.shiftKey||e.isComposing)return;e.preventDefault();(e.metaKey||e.ctrlKey?send(false):send(true))()});
   pop.append(h("small",{},(cv.boards[key]?.title||key)+" › “"+d.text+"”"),ta,h("div",{},h("button",{onclick:send(false)},"Save note",h("kbd",{},"⌘↵")),h("button",{class:"primary",onclick:send(true)},"Send to pi",h("kbd",{},"↵")),h("button",{onclick:()=>pop.style.display="none"},"Cancel")));
   pop.style.display="flex";

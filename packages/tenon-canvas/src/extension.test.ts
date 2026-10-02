@@ -42,9 +42,9 @@ describe("extension", () => {
     // what you changed in edit mode reaches pi with its next turn, unless you turned "tell pi" off
     const { patchBoard, readBoard } = await import("./store.js");
     const tid = (await readBoard(join(cwd, ".tenon", "canvases"), "c1", "cart")).html.match(/<button[^>]*data-tid="(\d+)"/)![1];
-    await patchBoard(join(cwd, ".tenon", "canvases"), { canvas: "c1", board: "cart", tid, text: "Pay now" });
+    await patchBoard(join(cwd, ".tenon", "canvases"), { canvas: "c1", board: "cart", id: "e1", tid, text: "Pay now" });
     expect((await on.before_agent_start({}, ctx)).message.content).toContain("You changed boards/cart.html (rev 2)");
-    await patchBoard(join(cwd, ".tenon", "canvases"), { canvas: "c1", board: "cart", tid, text: "Pay", tell: false });
+    await patchBoard(join(cwd, ".tenon", "canvases"), { canvas: "c1", board: "cart", id: "e2", tid, text: "Pay", tell: false });
     expect((await on.before_agent_start({}, ctx)).message.content).not.toContain("You changed boards/cart.html (rev 3)");
     on.session_shutdown();
     on.session_shutdown();
