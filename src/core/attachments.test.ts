@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vitest";
-import { isImage, readImage, searchFiles } from "./attachments";
+import { readImage, searchFiles } from "./attachments";
 import { createGrants } from "./grants";
 
 test("@ search: name starts, then name contains, then path; skips node_modules", async () => {
@@ -16,8 +16,6 @@ test("@ search: name starts, then name contains, then path; skips node_modules",
 });
 
 test("only images are read as images", async () => {
-  expect(isImage("a.PNG")).toBe(true);
-  expect(isImage("a.txt")).toBe(false);
   const grants = createGrants();
   await expect(readImage(grants, "/etc/hosts")).rejects.toThrow("Not a file you picked"); // the window cannot name any file
   grants.grant("file", "/etc/hosts");

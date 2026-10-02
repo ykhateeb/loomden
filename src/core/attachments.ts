@@ -12,7 +12,6 @@ const GIT_LS_TIMEOUT_MS = 5000;
 /** A large repository lists many files: git's output can be this big. */
 const MAX_GIT_OUTPUT = 64 * 1024 * 1024;
 
-export const isImage = (path: string) => extname(path).toLowerCase() in IMAGE_TYPES;
 
 /** A dropped or picked image, as pi's ImageContent. Only image files the user picked or dropped, up to 20 MB. */
 export async function readImage(grants: Grants, input: string) {

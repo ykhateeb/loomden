@@ -8,13 +8,6 @@ export function ago(ms: number, now = Date.now()) {
   return new Date(ms).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-/** Board 1's groups: Today, Yesterday, This week (the last 7 days), Older. */
-export function groupOf(ms: number, now = Date.now()) {
-  const day = (t: number) => new Date(t).setHours(0, 0, 0, 0);
-  const days = Math.round((day(now) - day(ms)) / 86400_000);
-  return days <= 0 ? "Today" : days === 1 ? "Yesterday" : days < 7 ? "This week" : "Older";
-}
-
 /** "just now", or "5 min ago": for a sentence like "Saved just now". */
 export function agoText(ms: number, now = Date.now()): string {
   const since = ago(ms, now);

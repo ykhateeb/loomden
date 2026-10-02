@@ -1,5 +1,8 @@
 import { expect, test } from "vitest";
-import { previewRows, summarize } from "./summary";
+import { currentBranch, rowsFor, summarize, type Entry } from "./summary";
+
+/** The preview of a session: the current branch as rows. */
+const previewRows = (entries: Entry[]) => rowsFor(currentBranch(entries), entries);
 
 const msg = (id: string, parentId: string | null, message: { role: string; content?: unknown; model?: string }) => ({ type: "message", id, parentId, timestamp: "2026-09-29T10:00:00Z", message });
 

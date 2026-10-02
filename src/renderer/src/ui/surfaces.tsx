@@ -62,14 +62,13 @@ export function Toast({ level = "info", icon, children }: { level?: keyof typeof
   );
 }
 
-/** `fixed`: columns keep the widths their headers set, so grouped tables line up. */
-export function Table({ children, fixed }: { children: ReactNode; fixed?: boolean }) {
-  return <table className={cx("w-full border-collapse text-base", fixed && "table-fixed")}>{children}</table>;
+export function Table({ children }: { children: ReactNode }) {
+  return <table className="w-full border-collapse text-base">{children}</table>;
 }
 
-export function Th({ children, right, width }: { children?: ReactNode; right?: boolean; width?: string }) {
+export function Th({ children, right }: { children?: ReactNode; right?: boolean }) {
   return (
-    <th style={width ? { width } : undefined} className={cx("border-b border-line px-3 py-2 text-label font-semibold tracking-[0.6px] text-muted uppercase first:pl-4", right ? "text-right" : "text-left")}>
+    <th className={cx("border-b border-line px-3 py-2 text-label font-semibold tracking-[0.6px] text-muted uppercase first:pl-4", right ? "text-right" : "text-left")}>
       {children}
     </th>
   );
@@ -80,12 +79,10 @@ export function Td({ children, right, className }: { children?: ReactNode; right
 }
 
 /** A table row; `selected` gets the accent tint and the bar on its left. */
-export function Tr({ selected, children, onClick }: { selected?: boolean; children: ReactNode; onClick?: () => void }) {
+export function Tr({ selected, children }: { selected?: boolean; children: ReactNode }) {
   return (
     <tr
-      onClick={onClick}
       className={cx(
-        onClick && "cursor-pointer",
         selected ? "[&>td]:bg-accent-bg [&>td]:text-fg [&>td:first-child]:shadow-[inset_3px_0_0_var(--color-accent)]" : "hover:[&>td]:bg-hover",
       )}
     >
