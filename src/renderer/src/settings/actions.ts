@@ -18,8 +18,9 @@ export const settingsActions = {
     );
   },
   setModels: (patch: Partial<Record<keyof ModelSettings, unknown>>, cwd?: string) =>
-    call<ModelSettings>({ type: "settings.setModels", cwd, patch })
-      .then((settings) => set((s) => (s.modelsCwd !== cwd ? { savedAt: Date.now() } : { savedAt: Date.now(), modelsPage: s.modelsPage && { ...s.modelsPage, settings, global: cwd ? s.modelsPage.global : settings } })))
+    call({ type: "settings.setModels", cwd, patch })
+      .then(() => call<ModelsPage>({ type: "settings.models", cwd }))
+      .then((modelsPage) => set((s) => (s.modelsCwd !== cwd ? { savedAt: Date.now() } : { savedAt: Date.now(), modelsPage })))
       .catch(report),
   /** Board 5 "Add key" / 5b subscription login. pi's questions come as dialogs; links open in the browser. */
   login: async (providerId: string, method: "api_key" | "oauth") => {

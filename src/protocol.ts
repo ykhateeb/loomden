@@ -251,6 +251,7 @@ export type Command =
   | { type: "providers.logout"; providerId: string }
   | { type: "providers.find"; baseUrl: string; api: string; apiKey?: string }
   | { type: "providers.add"; provider: CustomProvider }
+  | { type: "trust.list" }
   | { type: "trust.set"; cwd: string; trusted: boolean | null }
   | { type: "import.scan" }
   | { type: "import.run"; items: ImportItem[] }

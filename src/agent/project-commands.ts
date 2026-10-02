@@ -7,19 +7,13 @@ import type { Deps, Handlers } from "./handlers";
 export function projectCommands({ grants, sessions, send }: Deps) {
   return {
     "sessions.list": () => listSessions(),
-    "project.add": async (cmd) => {
-      await addProject(grants, cmd.cwd);
-      return listSessions();
-    },
-    "project.remove": async (cmd) => {
-      await removeProject(cmd.cwd);
-      return listSessions();
-    },
+    "project.add": (cmd) => addProject(grants, cmd.cwd),
+    "project.remove": (cmd) => removeProject(cmd.cwd),
+    "trust.list": async () => trustList((await listSessions()).projects),
     "trust.set": async (cmd) => {
       await assertProject(cmd.cwd);
       if (cmd.trusted !== null && typeof cmd.trusted !== "boolean") throw new Error("Not a trust decision");
       setTrust(cmd.cwd, cmd.trusted);
-      return trustList((await listSessions()).projects);
     },
     "files.search": async (cmd) => {
       await assertProject(cmd.cwd);
