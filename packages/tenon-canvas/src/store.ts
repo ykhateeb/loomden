@@ -167,35 +167,45 @@ export async function patchBoard(root: string, a: {
   await locked(dir, async () => {
     const c = await readCanvas(root, a.canvas);
     const { key } = boardOf(c, a.board);
-    let html = await readFile(join(dir, key), "utf8");
-    const at = html.indexOf(`data-tid="${a.tid}"`);
-    if (at < 0) throw new Error(`Element ${a.tid} not found: the board changed`);
-    const start = html.lastIndexOf("<", at);
-    const end = html.indexOf(">", at);
-    let tag = html.slice(start, end + 1);
-    let why: string;
-    let rest = html.slice(end + 1);
-    if (a.text != null) {
-      const lead = rest.slice(0, Math.max(0, rest.indexOf("<")));
-      if (tag.endsWith("/>") || !lead.trim()) throw new Error("This element has no text of its own");
-      const ws = lead.match(/^\s*/)![0], tw = lead.match(/\s*$/)![0];
-      why = `text “${lead.trim().slice(0, 30)}” → “${a.text.slice(0, 30)}”`;
-      rest = ws + esc(a.text) + tw + rest.slice(lead.length);
-    } else {
-      const decls = new Map<string, string>();
-      const m = tag.match(/\sstyle="([^"]*)"/);
-      for (const d of (m?.[1] ?? "").split(";")) {
-        const i = d.indexOf(":");
-        if (i > 0) decls.set(d.slice(0, i).trim(), d.slice(i + 1).trim());
-      }
-      for (const [k, v] of Object.entries(a.style ?? {})) decls.set(k, v);
-      const attr = ` style="${[...decls].map(([k, v]) => `${k}: ${v}`).join("; ")}"`;
-      tag = m ? tag.replace(m[0], attr) : tag.replace(/\s*(\/?)>$/, `${attr}$1>`);
-      why = `${Object.keys(a.style ?? {}).join(", ")} of element ${a.tid}`;
-    }
-    html = html.slice(0, start) + tag + rest;
+    const { html, why } = patchHtml(await readFile(join(dir, key), "utf8"), a);
     await save(dir, c, key, html, "you", why, { edit: a.id, ...(a.tell === false ? { quiet: true } : {}) });
   });
+}
+
+/** The board HTML with one element changed: its own text, or its style. `why` says what changed, for the history log. */
+export function patchHtml(html: string, p: { tid: string; text?: string; style?: Record<string, string> }) {
+  const at = html.indexOf(`data-tid="${p.tid}"`);
+  if (at < 0) throw new Error(`Element ${p.tid} not found: the board changed`);
+  const start = html.lastIndexOf("<", at);
+  const end = html.indexOf(">", at);
+  const tag = html.slice(start, end + 1);
+  const rest = html.slice(end + 1);
+  const changed = p.text != null ? withOwnText(tag, rest, p.text) : withStyle(tag, rest, p.style ?? {});
+  const why = p.text != null ? changed.why : `${changed.why} of element ${p.tid}`;
+  return { html: html.slice(0, start) + changed.tag + changed.rest, why };
+}
+
+/** Replace the text right after the tag (the element's own text, before its first child). */
+function withOwnText(tag: string, rest: string, text: string) {
+  const lead = rest.slice(0, Math.max(0, rest.indexOf("<")));
+  if (tag.endsWith("/>") || !lead.trim()) throw new Error("This element has no text of its own");
+  const ws = lead.match(/^\s*/)![0], tw = lead.match(/\s*$/)![0];
+  const why = `text “${lead.trim().slice(0, 30)}” → “${text.slice(0, 30)}”`;
+  return { tag, rest: ws + esc(text) + tw + rest.slice(lead.length), why };
+}
+
+/** Merge `style` into the tag's style attribute. */
+function withStyle(tag: string, rest: string, style: Record<string, string>) {
+  const decls = new Map<string, string>();
+  const m = tag.match(/\sstyle="([^"]*)"/);
+  for (const d of (m?.[1] ?? "").split(";")) {
+    const i = d.indexOf(":");
+    if (i > 0) decls.set(d.slice(0, i).trim(), d.slice(i + 1).trim());
+  }
+  for (const [k, v] of Object.entries(style)) decls.set(k, v);
+  const attr = ` style="${[...decls].map(([k, v]) => `${k}: ${v}`).join("; ")}"`;
+  const styled = m ? tag.replace(m[0], attr) : tag.replace(/\s*(\/?)>$/, `${attr}$1>`);
+  return { tag: styled, rest, why: Object.keys(style).join(", ") };
 }
 
 /** Undo your edit `edit` (its id from patchBoard): the content before it comes back as a new rev. Only while nothing else changed the board. */
@@ -554,37 +564,14 @@ export type Compare = { board: string; rev: number; at: string; screenshot?: str
 
 /** Board against the app (board C12): pi gives what the app shows; the differences come from the approved board. Read them with readCompares(). */
 export async function compareBoard(root: string, canvas: string, ds: string, a: {
-  board: string; app: { text: string; styles?: Record<string, string | number> }[]; screenshot?: string;
+  board: string; app: AppElement[]; screenshot?: string;
 }) {
   const dir = canvasDir(root, canvas);
   const { key, meta: m } = boardOf(await readCanvas(root, canvas), a.board);
   const approved = m.approved != null;
   const html = await readFile(join(dir, approved ? "approved" : "boards", `${nameOf(key)}.html`), "utf8");
   const vars = new Map(dsItems(await readJson(join(ds, "tokens.json"))).flatMap((i) => i.decls));
-  const facts = boardFacts(html, vars);
-  const differences: Omit<Difference, "id" | "state">[] = [];
-  const norm = (t: string) => t.replace(/\s+/g, " ").trim();
-  // The same text twice (a heading and a button): the first in the app is the first on the board, and so on.
-  const seen = new Map<string, number>();
-  const used = new Set<Fact>();
-  for (const el of a.app) {
-    const text = norm(el.text);
-    const n = seen.get(text) ?? 0;
-    seen.set(text, n + 1);
-    const f = facts.filter((x) => x.text === text)[n];
-    if (!f) {
-      differences.push({ title: `“${text.slice(0, 40)}” is not on the board`, detail: "The app shows this text and the board does not." });
-      continue;
-    }
-    used.add(f);
-    for (const [prop, val] of Object.entries(el.styles ?? {})) {
-      const b = f.style[kebab(prop)];
-      if (b && plain(b.value) !== plain(String(val)))
-        differences.push({ title: `${f.text.slice(0, 40)}: ${kebab(prop)} differs`, detail: `The board uses ${b.token ? `${b.token} (${b.value})` : b.value}. The app uses ${val}.` });
-    }
-  }
-  if (a.app.length)
-    for (const f of facts) if (!used.has(f)) differences.push({ title: `“${f.text.slice(0, 40)}” is missing in the app`, detail: "The board shows this text and the app does not." });
+  const differences = diffFacts(boardFacts(html, vars), a.app);
 
   let screenshot: string | undefined;
   if (a.screenshot) {
@@ -599,14 +586,54 @@ export async function compareBoard(root: string, canvas: string, ds: string, a: 
     const before: Compare | undefined = await readJson(file);
     const result: Compare = {
       board: key, rev: m.approved ?? m.rev, at: new Date().toISOString(), screenshot: screenshot ?? before?.screenshot,
-      differences: differences.map((d, i) => ({
-        ...d, id: `d${i + 1}`,
-        state: before?.differences.find((x) => x.title === d.title && x.detail === d.detail)?.state ?? "open",
-      })),
+      differences: keepDecisions(differences, before),
     };
     await mkdir(join(dir, "compare"), { recursive: true });
     await writeFile(file, JSON.stringify(result, null, 2));
   });
+}
+
+export type AppElement = { text: string; styles?: Record<string, string | number> };
+type Found = Omit<Difference, "id" | "state">;
+
+/** What differs between the board's facts and what the app shows. */
+export function diffFacts(facts: Fact[], app: AppElement[]): Found[] {
+  const differences: Found[] = [];
+  const norm = (t: string) => t.replace(/\s+/g, " ").trim();
+  // The same text twice (a heading and a button): the first in the app is the first on the board, and so on.
+  const seen = new Map<string, number>();
+  const used = new Set<Fact>();
+  for (const el of app) {
+    const text = norm(el.text);
+    const n = seen.get(text) ?? 0;
+    seen.set(text, n + 1);
+    const f = facts.filter((x) => x.text === text)[n];
+    if (!f) {
+      differences.push({ title: `“${text.slice(0, 40)}” is not on the board`, detail: "The app shows this text and the board does not." });
+      continue;
+    }
+    used.add(f);
+    differences.push(...styleDifferences(f, el.styles ?? {}));
+  }
+  if (app.length)
+    for (const f of facts) if (!used.has(f)) differences.push({ title: `“${f.text.slice(0, 40)}” is missing in the app`, detail: "The board shows this text and the app does not." });
+  return differences;
+}
+
+function styleDifferences(f: Fact, styles: Record<string, string | number>): Found[] {
+  return Object.entries(styles).flatMap(([prop, val]) => {
+    const b = f.style[kebab(prop)];
+    if (!b || plain(b.value) === plain(String(val))) return [];
+    return [{ title: `${f.text.slice(0, 40)}: ${kebab(prop)} differs`, detail: `The board uses ${b.token ? `${b.token} (${b.value})` : b.value}. The app uses ${val}.` }];
+  });
+}
+
+/** Number the differences, and keep what a person already decided about the same one in an earlier run. */
+export function keepDecisions(differences: Found[], before?: Compare): Difference[] {
+  return differences.map((d, i) => ({
+    ...d, id: `d${i + 1}`,
+    state: before?.differences.find((x) => x.title === d.title && x.detail === d.detail)?.state ?? "open",
+  }));
 }
 
 export async function readCompares(root: string, canvas: string): Promise<Record<string, Compare>> {

@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { startServer } from "./server.js";
-import { RAW_BOARD, RAW_STATE, RAW_TOKENS, canvasMoves, compareBoard, designPack, readCompares, setDifferenceState, freeRoot, gitignoreMissing, moveCanvases, moveDesignSystem, acceptProposal, addNote, approve, flow, restoreRev, dsReport, patchBoard, proposeTokens, readHistory, undoBoard, createBoard, editBoard, ensureGitignore, readBoard, readCanvas, stamp, tokensCss, writeTokensCss } from "./store.js";
+import { RAW_BOARD, RAW_STATE, RAW_TOKENS, canvasMoves, compareBoard, designPack, readCompares, setDifferenceState, freeRoot, gitignoreMissing, moveCanvases, moveDesignSystem, acceptProposal, addNote, approve, flow, restoreRev, dsReport, patchBoard, proposeTokens, readHistory, undoBoard, createBoard, editBoard, ensureGitignore, readBoard, readCanvas, stamp, tokensCss, writeTokensCss, patchHtml, diffFacts, keepDecisions, boardFacts } from "./store.js";
 
 const html = `<html><head><title>x</title></head><body><button>Pay</button><a href="b.html">Next</a></body></html>`;
 const setup = async () => {
@@ -379,3 +379,23 @@ describe("server: ask and compare decisions", () => {
   });
 });
 const tokens0 = { name: "app", color: { tokens: [{ name: "ink", value: "#111" }] } };
+
+describe("pure helpers (no disk)", () => {
+  it("patchHtml changes the own text or merges the style of one element", () => {
+    const html = `<h1 data-tid="1" style="color: red">Total</h1><p data-tid="2">Pay <b data-tid="3">now</b></p>`;
+    expect(patchHtml(html, { tid: "1", text: "Sum" })).toEqual({ html: `<h1 data-tid="1" style="color: red">Sum</h1><p data-tid="2">Pay <b data-tid="3">now</b></p>`, why: "text “Total” → “Sum”" });
+    expect(patchHtml(html, { tid: "1", style: { color: "var(--ink)" } }).html).toContain(`style="color: var(--ink)"`);
+    expect(patchHtml(html, { tid: "2", style: { padding: "var(--s)" } }).why).toBe("padding of element 2");
+    expect(() => patchHtml(html, { tid: "9", text: "x" })).toThrow(/not found/);
+  });
+
+  it("diffFacts pairs repeated text in order, and keepDecisions keeps a person's decision", () => {
+    const facts = boardFacts(`<h2 style="font-weight: 650">Pay</h2><button style="font-weight: 400">Pay</button>`, new Map());
+    const found = diffFacts(facts, [{ text: "Pay", styles: { fontWeight: 650 } }, { text: "Pay", styles: { fontWeight: 700 } }, { text: "Extra" }]);
+    expect(found.map((d) => d.title)).toEqual(["Pay: font-weight differs", "“Extra” is not on the board"]);
+    const first = keepDecisions(found);
+    expect(first.map((d) => [d.id, d.state])).toEqual([["d1", "open"], ["d2", "open"]]);
+    const before = { board: "boards/x.html", rev: 1, at: "", differences: [{ ...first[0], state: "wrong" as const }] };
+    expect(keepDecisions(found, before)[0].state).toBe("wrong");
+  });
+});
