@@ -19,9 +19,17 @@ export function dsItems(t: any): DsItem[] {
   return out;
 }
 
+/** The top of tokens.json. dsItems() reads the token groups. */
+export type Tokens = { name?: string; version?: number; [group: string]: unknown };
+
+/** tokens.json of a design system, or undefined when it has none. */
+export function readTokens(ds: string): Promise<Tokens | undefined> {
+  return readJson(join(ds, "tokens.json"));
+}
+
 /** tokens.json -> CSS variables. "" when there is no tokens.json. */
 export async function tokensCss(ds: string): Promise<string> {
-  const t = await readJson(join(ds, "tokens.json"));
+  const t = await readTokens(ds);
   if (!t) return "";
   const v = dsItems(t).flatMap((i) => i.decls.map(([n, val]) => `--${n}: ${val};`));
   return `:root {\n  ${v.join("\n  ")}\n}\n`;
@@ -54,7 +62,7 @@ export async function proposeTokens(ds: string, t: any) {
 export async function acceptProposal(ds: string) {
   const p = await readJson(join(ds, "tokens.proposed.json"));
   if (!p) throw new Error("No proposal");
-  const old = await readJson(join(ds, "tokens.json"));
+  const old = await readTokens(ds);
   await writeFile(join(ds, "tokens.json"), JSON.stringify({ ...p, version: old ? (old.version ?? 0) + 1 : 1 }, null, 2));
   await rm(join(ds, "tokens.proposed.json"));
   await writeTokensCss(ds);
@@ -64,7 +72,7 @@ export const discardProposal = (ds: string) => rm(join(ds, "tokens.proposed.json
 
 /** Everything the Design system tab shows: tokens, the proposal and its changes, and where each token is used. */
 export async function dsReport(root: string, canvas: string, ds: string) {
-  const tokens = await readJson(join(ds, "tokens.json"));
+  const tokens = await readTokens(ds);
   const proposed = await readJson(join(ds, "tokens.proposed.json"));
   const c = await readCanvas(root, canvas);
   const htmls = await Promise.all(Object.entries(c.boards).map(async ([k, b]) =>

@@ -150,15 +150,15 @@ export async function startServer({ root, onSend, onBuild }: ServerOptions): Pro
       case "edit": await patchBoard(root, payload); break;
       case "undo": await undoBoard(root, payload.canvas, payload.board, payload.edit); break;
       case "addboard":
-        onSend(`Add a board “${String(payload.name).slice(0, 40)}” (${slug(String(payload.name))}.html) to canvas "${payload.canvas}": “${String(payload.from).slice(0, 40)}” links to it. Use canvas_create.`);
+        await onSend(`Add a board “${String(payload.name).slice(0, 40)}” (${slug(String(payload.name))}.html) to canvas "${payload.canvas}": “${String(payload.from).slice(0, 40)}” links to it. Use canvas_create.`);
         break;
       case "custom": {
         const title = (await readCanvas(root, payload.canvas)).boards[boardKey(payload.board)]?.title ?? payload.board;
-        onSend(`On board ${title}, element “${String(payload.text).slice(0, 60)}” (tid ${Number(payload.tid)}): I need a custom value for ${String(payload.prop).slice(0, 40)}. Add it to the design system as a token, then use it.`);
+        await onSend(`On board ${title}, element “${String(payload.text).slice(0, 60)}” (tid ${Number(payload.tid)}): I need a custom value for ${String(payload.prop).slice(0, 40)}. Add it to the design system as a token, then use it.`);
         break;
       }
       case "ds/update":
-        onSend("Update the design system from code. Read the theme file (for example src/theme.ts, or the paths in `source` of .tenon/design-system/tokens.json), then call design_system_propose with the full tokens.json. Do not write tokens.json yourself: I review your proposal first.");
+        await onSend("Update the design system from code. Read the theme file (for example src/theme.ts, or the paths in `source` of .tenon/design-system/tokens.json), then call design_system_propose with the full tokens.json. Do not write tokens.json yourself: I review your proposal first.");
         break;
       case "ds/accept": await acceptProposal(ds); break;
       case "ds/discard": await discardProposal(ds); break;

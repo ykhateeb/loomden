@@ -3,7 +3,7 @@ import { copyFile, mkdir, readFile, readdir, writeFile } from "node:fs/promises"
 import { existsSync } from "node:fs";
 import { extname, join } from "node:path";
 import { boardKey, boardOf, canvasDir, locked, nameOf, readCanvas, readJson } from "./store.js";
-import { dsItems } from "./tokens.js";
+import { dsItems, readTokens } from "./tokens.js";
 
 /** The pack a build session starts from: approved revs, done notes, and the tokens the boards use. */
 export async function designPack(root: string, canvas: string, ds: string) {
@@ -19,7 +19,7 @@ export async function designPack(root: string, canvas: string, ds: string) {
     const html = await readFile(join(dir, "approved", `${nameOf(k)}.html`), "utf8").catch(() => "");
     for (const m of html.matchAll(/var\(--([\w-]+)/g)) used.add(m[1]);
   }
-  const tokens = dsItems(await readJson(join(ds, "tokens.json"))).filter((i) => i.decls.some(([n]) => used.has(n)));
+  const tokens = dsItems(await readTokens(ds)).filter((i) => i.decls.some(([n]) => used.has(n)));
   const notes = Object.values(c.notes).filter((n) => n.state === "done");
   return {
     title: c.title,
@@ -77,7 +77,7 @@ export async function compareBoard(root: string, canvas: string, ds: string, a: 
   const { key, meta: m } = boardOf(await readCanvas(root, canvas), a.board);
   const approved = m.approved != null;
   const html = await readFile(join(dir, approved ? "approved" : "boards", `${nameOf(key)}.html`), "utf8");
-  const vars = new Map(dsItems(await readJson(join(ds, "tokens.json"))).flatMap((i) => i.decls));
+  const vars = new Map(dsItems(await readTokens(ds)).flatMap((i) => i.decls));
   const differences = diffFacts(boardFacts(html, vars), a.app);
 
   let screenshot: string | undefined;

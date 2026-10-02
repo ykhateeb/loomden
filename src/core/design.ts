@@ -1,9 +1,9 @@
 // The Design page (board C1): the canvases of a project, from any session.
 import { existsSync, readdirSync } from "node:fs";
-import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { startServer, type CanvasServer } from "#canvas/server";
 import { designSystemDir, listCanvases, projectRoot, readCanvas, readHistory } from "#canvas/store";
+import { readTokens } from "#canvas/tokens";
 import type { DesignCanvas } from "#protocol";
 
 export async function designList(cwd: string): Promise<{ canvases: DesignCanvas[]; system?: string }> {
@@ -29,12 +29,7 @@ export async function designList(cwd: string): Promise<{ canvases: DesignCanvas[
     }
   }
   canvases.sort((a, b) => b.updated - a.updated);
-  let system: string | undefined;
-  try {
-    system = JSON.parse(await readFile(join(designSystemDir(projectRoot(cwd)), "tokens.json"), "utf8")).name;
-  } catch {
-    // no design system yet
-  }
+  const system: string | undefined = (await readTokens(designSystemDir(root)))?.name; // undefined: no design system yet
   return { canvases, system };
 }
 

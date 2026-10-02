@@ -224,11 +224,19 @@ export async function undoBoard(root: string, canvas: string, board: string, edi
   });
 }
 
-/** The revs of one board, newest first. */
-export async function readHistory(root: string, canvas: string, board: string) {
-  const key = boardKey(board);
+/** One line of history/log.jsonl: a rev of a board, who made it, and why. */
+export type LogEntry = { board: string; rev: number; by: string; at: string; why: string; quiet?: boolean; edit?: string };
+
+/** Every rev of a canvas, oldest first. */
+export async function readLog(root: string, canvas: string): Promise<LogEntry[]> {
   const log = await readFile(join(canvasDir(root, canvas), "history", "log.jsonl"), "utf8").catch(() => "");
-  return log.split("\n").filter(Boolean).map((l) => JSON.parse(l)).filter((e) => e.board === key).reverse();
+  return log.split("\n").filter(Boolean).map((line) => JSON.parse(line) as LogEntry);
+}
+
+/** The revs of one board, newest first. */
+export async function readHistory(root: string, canvas: string, board: string): Promise<LogEntry[]> {
+  const key = boardKey(board);
+  return (await readLog(root, canvas)).filter((e) => e.board === key).reverse();
 }
 
 /** Board C3: a free name for a canvas, from what you are designing. A taken name gets -2, -3… */

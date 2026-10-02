@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("typebox", () => ({ Type: new Proxy({}, { get: () => () => ({}) }) }));
 vi.mock("@earendil-works/pi-coding-agent", () => ({ defineTool: (t: unknown) => t }));
 
-const { default: ext } = await import("./extension.js");
+const { default: ext, canvasContext, parseCanvasArgs } = await import("./extension.js");
 
 describe("extension", () => {
   it("registers tools, blocks raw board writes, tells pi about notes, stops cleanly", async () => {
@@ -123,5 +123,35 @@ describe("first draft", () => {
     await on.agent_end();
     expect((await readCanvas(root, "checkout-redesign")).editing).toEqual([]);
     delete process.env.TENON_NO_OPEN;
+  });
+});
+
+describe("pure helpers", () => {
+  it("parseCanvasArgs reads new, auto, and a canvas name", () => {
+    expect(parseCanvasArgs("new  Checkout ")).toEqual({ mode: "new", title: "Checkout" });
+    expect(parseCanvasArgs("auto")).toEqual({ mode: "auto", title: "Untitled canvas" });
+    expect(parseCanvasArgs(" demo ")).toEqual({ mode: "open", name: "demo" });
+    expect(parseCanvasArgs("")).toEqual({ mode: "open", name: "" });
+  });
+
+  it("canvasContext lists boards, open notes, and your told changes since the last turn", () => {
+    const canvas = {
+      v: 1 as const, title: "c", designSystem: "", order: ["boards/cart.html"],
+      boards: { "boards/cart.html": { title: "Cart", x: 0, y: 0, w: 1, h: 1, rev: 3, by: "you" } },
+      notes: {
+        n1: { board: "boards/cart.html", target: { tid: "2", text: "Pay", box: [] }, text: "bigger", state: "sent" as const, by: "you", at: "" },
+        n2: { board: "boards/cart.html", target: { tid: "3", text: "Total", box: [] }, text: "done one", state: "done" as const, by: "you", at: "" },
+      },
+    };
+    const log = [
+      { board: "boards/cart.html", rev: 2, by: "you", at: "2026-01-02", why: "text" },
+      { board: "boards/cart.html", rev: 3, by: "you", at: "2026-01-03", why: "", quiet: true },
+      { board: "boards/cart.html", rev: 1, by: "pi", at: "2026-01-03", why: "created" },
+    ];
+    expect(canvasContext({ name: "c", canvas, log, since: "2026-01-01" })).toEqual([
+      "Canvas c: boards/cart.html rev 3",
+      "  note n1 (sent) on boards/cart.html, tid 2 “Pay”: bigger",
+      "  You changed boards/cart.html (rev 2): text",
+    ]);
   });
 });
