@@ -7,23 +7,25 @@ export const packageActions = {
     call<Packages>({ type: "packages.list" })
       .then((packages) => set({ packages }))
       .catch(report),
-  /** Install asks main's own dialog first (installing runs code); the agent refuses an install main did not confirm. */
-  changePackage: async (action: "install" | "remove" | "update", source: string, cwd?: string) => {
+  /**
+   * Install asks main's own dialog first (installing runs code); the agent refuses an install main did not confirm.
+   * `onDone` runs when the change worked.
+   */
+  changePackage: async ({ action, source, cwd, onDone }: { action: "install" | "remove" | "update"; source: string; cwd?: string; onDone?: () => void }) => {
     try {
       if (action !== "remove") await window.tenon.confirmInstall(action, source, cwd);
     } catch (e) {
       report(e as Error); // a cancel shows nothing
-      return false;
+      return;
     }
     set((s) => ({ packageWork: { ...s.packageWork, [source]: { action } } }));
     try {
       await call({ type: "packages.change", action, source, cwd });
       await packageActions.loadPackages();
       notice(`${action === "install" ? "Installed" : action === "remove" ? "Removed" : "Updated"} ${source}. Changes load after Reload or a new session.`, "info");
-      return true;
+      onDone?.();
     } catch (e) {
       report(e as Error);
-      return false;
     } finally {
       set((s) => {
         const { [source]: _, ...rest } = s.packageWork;

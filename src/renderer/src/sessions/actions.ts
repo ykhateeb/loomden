@@ -28,7 +28,7 @@ export const sessionActions = {
   /** Board 1.1: a chat with no project. Add it to a project later. */
   newSession: () => {
     const { noProject } = getState();
-    return noProject && sessionActions.open(noProject);
+    if (noProject) sessionActions.open(noProject);
   },
   setView: (key: string, view: "chat" | "tree") => set((s) => ({ view: { ...s.view, [key]: view } })),
   /** Open a session at its tree (the Fork item in the session menus). */

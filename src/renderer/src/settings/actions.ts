@@ -13,8 +13,12 @@ export const settingsActions = {
     const ask = ++modelsAsk;
     set({ modelsPage: undefined, modelsCwd: cwd, modelsError: undefined });
     return call<ModelsPage>({ type: "settings.models", cwd }).then(
-      (modelsPage) => ask === modelsAsk && set({ modelsPage }),
-      (e: Error) => ask === modelsAsk && set({ modelsError: e.message }), // an old request's error is not news
+      (modelsPage) => {
+        if (ask === modelsAsk) set({ modelsPage });
+      },
+      (e: Error) => {
+        if (ask === modelsAsk) set({ modelsError: e.message }); // an old request's error is not news
+      },
     );
   },
   setModels: (patch: Partial<Record<keyof ModelSettings, unknown>>, cwd?: string) =>
