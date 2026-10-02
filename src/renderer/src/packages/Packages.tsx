@@ -8,13 +8,13 @@ import { Button, Chip, cx, Kbd, Label, LinkButton, pill, Pill, type PillTone, Sp
 import { Segmented } from "#renderer/ui/controls";
 import { SearchInput } from "#renderer/ui/Field";
 import { Icon } from "#renderer/ui/Icon";
-import { Menu, type MenuItem } from "#renderer/ui/Menu";
+import { checkMark, Menu, type MenuItem } from "#renderer/ui/Menu";
 import { Callout, Card, CardBody, CardHeader, ListItem } from "#renderer/ui/surfaces";
+import { hasModifier, isTyping } from "#renderer/ui/keys";
 
 type Show = "all" | "global" | "projects";
 const galleryTones: Record<GalleryItem["kind"], PillTone> = { skills: "violet", extension: "orange", theme: "accent", prompts: "ok" };
 const keyOf = (p: InstalledPackage) => `${p.cwd ?? ""}|${p.source}`;
-const typing = (e: React.KeyboardEvent) => e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
 
 /** Board 4: install extensions, skills, prompts and themes — for every project or for one. */
 export function Packages() {
@@ -55,7 +55,7 @@ export function Packages() {
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
-    if (typing(e) || e.metaKey || e.ctrlKey || e.altKey || !current || busy(current)) return;
+    if (isTyping(e.target) || hasModifier(e) || !current || busy(current)) return;
     const k = e.key.toLowerCase();
     if (k === "d") actions.changePackage({ action: "remove", source: current.source, cwd: current.cwd });
     if (k === "r") actions.reloadPackages();
@@ -84,7 +84,7 @@ export function Packages() {
     );
   };
 
-  const projectItems: MenuItem[] = projects.map((p) => ({ id: p.cwd, label: p.name, icon: p.cwd === installCwd ? <Icon name="check" size={13} /> : <span className="w-[13px]" />, onSelect: () => setProject(p.cwd) }));
+  const projectItems: MenuItem[] = projects.map((p) => ({ id: p.cwd, label: p.name, icon: checkMark(p.cwd === installCwd), onSelect: () => setProject(p.cwd) }));
 
   return (
     <div ref={screen} tabIndex={-1} onKeyDown={onKeyDown} className="grid min-h-0 flex-1 grid-cols-[300px_minmax(0,1fr)_340px] outline-none">

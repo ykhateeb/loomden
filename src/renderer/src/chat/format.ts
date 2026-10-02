@@ -1,6 +1,12 @@
 /** "app" from "/Users/me/code/app": how the UI names a project folder. */
 export const folderName = (cwd: string) => cwd.split("/").pop() ?? cwd;
 
+/** "~/code/app" from "/Users/me/code/app": a path as the UI shows it. */
+export const home = (path: string) => path.replace(/^\/Users\/[^/]+/, "~");
+
+/** "1 model", "3 models". */
+export const plural = (count: number, one: string, many = `${one}s`) => `${count} ${count === 1 ? one : many}`;
+
 export const time = (ts: number) => new Date(ts).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 
 /** "Today · 03:12", "Yesterday · 18:40", "Mon, Sep 21 · 09:05". */

@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect, useId, useRef } from "react";
 import { cx } from "./base";
+import { hasModifier, isTyping } from "./keys";
 
 const FOCUSABLE = 'button:not(:disabled), input, textarea, select, a[href], [tabindex]:not([tabindex="-1"])';
 
@@ -37,8 +38,8 @@ export function Modal(props: {
         e.stopPropagation();
         return onClose.current();
       }
-      const typing = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
-      const action = !typing && !e.metaKey && !e.ctrlKey && !e.altKey ? keys.current?.[e.key.toLowerCase()] : undefined;
+      const isLetterKey = !isTyping(e.target) && !hasModifier(e);
+      const action = isLetterKey ? keys.current?.[e.key.toLowerCase()] : undefined;
       if (action) {
         e.preventDefault();
         return action();

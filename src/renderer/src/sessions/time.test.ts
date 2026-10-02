@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { ago } from "./time";
+import { ago, agoText } from "./time";
 
 test("list times as in the design", () => {
   const now = new Date(2026, 8, 29, 12, 0).getTime();
@@ -18,4 +18,10 @@ test("board 1 groups", () => {
   expect(groupOf(new Date(2026, 8, 28, 23, 50).getTime(), now)).toBe("Yesterday");
   expect(groupOf(new Date(2026, 8, 23, 12, 0).getTime(), now)).toBe("This week");
   expect(groupOf(new Date(2026, 8, 20, 12, 0).getTime(), now)).toBe("Older");
+});
+
+test("a time in a sentence: just now, or how long ago", () => {
+  const now = new Date(2026, 8, 29, 12, 0).getTime();
+  expect(agoText(now - 10_000, now)).toBe("just now");
+  expect(agoText(now - 5 * 60_000, now)).toBe(`${ago(now - 5 * 60_000, now)} ago`);
 });

@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { cx } from "./base";
+import { Icon } from "./Icon";
 
 export type MenuItem =
   | { id?: string; label: ReactNode; icon?: ReactNode; shortcut?: string; meta?: string; danger?: boolean; disabled?: boolean; onSelect: () => void }
@@ -14,6 +15,14 @@ const isAction = (i: MenuItem): i is Action => typeof i === "object" && "onSelec
  * A popup menu at a point (right-click, or under a button).
  * ↑ ↓ move, ↵ picks, Esc or a click outside closes. A one-letter shortcut picks its item.
  */
+/** An open menu: where it shows, its items, and its name for screen readers. */
+export type MenuState = { at: { x: number; y: number }; items: MenuItem[]; label: string };
+
+/** The icon of a menu item that can be the current one: a check mark, or a space of the same width. */
+export function checkMark(on: boolean): ReactNode {
+  return on ? <Icon name="check" size={13} /> : <span className="w-[13px]" />;
+}
+
 export function Menu({ at, items, onClose, label = "Menu", width }: { at: { x: number; y: number }; items: MenuItem[]; onClose: () => void; label?: string; width?: number }) {
   const box = useRef<HTMLDivElement>(null);
   const idBase = useId();

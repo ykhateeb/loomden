@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { dayLabel, diffCounts } from "./format";
+import { dayLabel, diffCounts, home, plural } from "./format";
 
 test("diff counts from pi's display diff", () => {
   expect(diffCounts("+19 let a;\n 20 keep\n-21 old\n+22 new")).toEqual({ added: 2, removed: 1 });
@@ -37,4 +37,11 @@ test("parseDiff: pi's exact diff-string format (sign, padded line number, one de
   expect(parseDiff("   ...")).toEqual([{ kind: "skip", n: undefined, text: "..." }]);
   const multi = parseDiff("+19 a\n 20 b\n-21 c");
   expect(multi.map((l) => [l.kind, l.n])).toEqual([["add", 19], ["ctx", 20], ["del", 21]]);
+});
+
+test("plural and home folder for the UI", () => {
+  expect(plural(1, "model")).toBe("1 model");
+  expect(plural(3, "canvas", "canvases")).toBe("3 canvases");
+  expect(home("/Users/me/code/app")).toBe("~/code/app");
+  expect(home("/opt/app")).toBe("/opt/app");
 });

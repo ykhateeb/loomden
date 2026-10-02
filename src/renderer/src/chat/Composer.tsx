@@ -4,7 +4,7 @@ import { actions } from "#renderer/actions";
 import { useStore } from "#renderer/store";
 import { Button, cx, IconButton, Kbd, pill, Pill } from "#renderer/ui/base";
 import { Icon } from "#renderer/ui/Icon";
-import { Menu, type MenuItem } from "#renderer/ui/Menu";
+import { checkMark, Menu, type MenuState } from "#renderer/ui/Menu";
 import { CommandMenu, type Row } from "./CommandMenu";
 import { applyPick, findTrigger } from "./format";
 
@@ -21,7 +21,7 @@ export function Composer({ sessionKey, state }: { sessionKey: string; state: Liv
   const [files, setFiles] = useState<string[]>([]);
   const [active, setActive] = useState(0);
   const [closed, setClosed] = useState(false); // Esc hides the list until the next keystroke
-  const [menu, setMenu] = useState<{ at: { x: number; y: number }; items: MenuItem[]; label: string }>();
+  const [menu, setMenu] = useState<MenuState>();
   const box = useRef<HTMLTextAreaElement>(null);
   const listId = useId();
   const queued = state.queued;
@@ -148,7 +148,7 @@ export function Composer({ sessionKey, state }: { sessionKey: string; state: Liv
             id: `${m.provider}/${m.id}`,
             label: m.id,
             meta: m.provider,
-            icon: m.id === state.model && m.provider === state.provider ? <Icon name="check" size={13} /> : <span className="w-[13px]" />,
+            icon: checkMark(m.id === state.model && m.provider === state.provider),
             onSelect: () => actions.setModel(sessionKey, m.provider, m.id),
           }))
         : [{ label: "No models: add a key in Settings", disabled: true, onSelect: () => {} }],
@@ -160,7 +160,7 @@ export function Composer({ sessionKey, state }: { sessionKey: string; state: Liv
     setMenu({
       at: { x: r.left, y: r.top - state.thinkingLevels.length * 34 - 24 },
       label: "Thinking",
-      items: state.thinkingLevels.map((l) => ({ id: l, label: l, icon: l === state.thinking ? <Icon name="check" size={13} /> : <span className="w-[13px]" />, onSelect: () => actions.thinking(sessionKey, l) })),
+      items: state.thinkingLevels.map((l) => ({ id: l, label: l, icon: checkMark(l === state.thinking), onSelect: () => actions.thinking(sessionKey, l) })),
     });
   };
 

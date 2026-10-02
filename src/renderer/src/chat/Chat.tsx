@@ -9,8 +9,9 @@ import { Avatar, Button, cx, Kbd, Spinner } from "#renderer/ui/base";
 import { Icon } from "#renderer/ui/Icon";
 import { Menu, type MenuItem } from "#renderer/ui/Menu";
 import { Composer } from "./Composer";
-import { dayLabel, folderName, time } from "./format";
+import { dayLabel, folderName, home, plural, time } from "./format";
 import { ToolCard, type ToolResult } from "./ToolCard";
+import { hasModifier, isTyping } from "#renderer/ui/keys";
 
 const EMPTY: AgentMessage[] = [];
 
@@ -127,8 +128,8 @@ export function Chat({ sessionKey, state }: { sessionKey: string; state: LiveSta
   // Board 2a: T opens the session tree (and goes back to the chat), when you are not typing.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const t = e.target as HTMLElement;
-      if (e.key.toLowerCase() !== "t" || e.metaKey || e.ctrlKey || e.altKey || t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
+      const isTreeKey = e.key.toLowerCase() === "t" && !hasModifier(e) && !isTyping(e.target);
+      if (!isTreeKey) return;
       if (document.querySelector("[role=dialog],[role=menu]")) return;
       actions.setView(sessionKey, view === "tree" ? "chat" : "tree");
     };
@@ -143,7 +144,7 @@ export function Chat({ sessionKey, state }: { sessionKey: string; state: LiveSta
       .filter((p) => p.cwd !== state.cwd)
       .map((p): MenuItem => ({
         id: p.cwd,
-        label: <span className="flex min-w-0 flex-col"><span>{p.name}</span><span className="truncate font-mono text-label opacity-75">{p.cwd.replace(/^\/Users\/[^/]+/, "~")}</span></span>,
+        label: <span className="flex min-w-0 flex-col"><span>{p.name}</span><span className="truncate font-mono text-label opacity-75">{home(p.cwd)}</span></span>,
         icon: <Icon name="folder" />,
         onSelect: () => actions.move(sessionKey, p.cwd),
       })),
@@ -231,7 +232,7 @@ export function Chat({ sessionKey, state }: { sessionKey: string; state: LiveSta
             </button>
             {state.branch && <span className="flex items-center gap-1"><Icon name="branch" size={13} />{state.branch}</span>}
             <span className="whitespace-nowrap">{count} messages</span>
-            <span className="whitespace-nowrap">{canvasCount ? `${canvasCount} canvas${canvasCount === 1 ? "" : "es"}` : "no canvas yet"}</span>
+            <span className="whitespace-nowrap">{canvasCount ? plural(canvasCount, "canvas", "canvases") : "no canvas yet"}</span>
           </div>
         </div>
         <Button small variant={canvasOpen ? "primary" : "default"} aria-pressed={canvasOpen} title="Design canvas (⇧C)" onClick={() => actions.canvas(sessionKey)}>

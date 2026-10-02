@@ -14,3 +14,9 @@ export function groupOf(ms: number, now = Date.now()) {
   const days = Math.round((day(now) - day(ms)) / 86400_000);
   return days <= 0 ? "Today" : days === 1 ? "Yesterday" : days < 7 ? "This week" : "Older";
 }
+
+/** "just now", or "5 min ago": for a sentence like "Saved just now". */
+export function agoText(ms: number, now = Date.now()): string {
+  const since = ago(ms, now);
+  return since === "now" ? "just now" : `${since} ago`;
+}

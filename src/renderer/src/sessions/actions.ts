@@ -2,7 +2,7 @@ import type { SearchResult } from "#protocol";
 import { folderName } from "#renderer/chat/format";
 import { designActions } from "#renderer/design/actions";
 import { call } from "#renderer/port";
-import { getState, notice, report, type SessionList, set, type Tab } from "#renderer/store";
+import { getState, notice, report, type SessionList, set, type Tab, without } from "#renderer/store";
 
 export const sessionActions = {
   refresh: () =>
@@ -46,8 +46,7 @@ export const sessionActions = {
       // The canvas moved with the session: its server is new, so ask for the address again.
       const canvas = getState().canvas[key];
       if (canvas) {
-        const { [key]: _, ...rest } = getState().canvas;
-        set({ canvas: rest });
+        set({ canvas: without(getState().canvas, key) });
         if (canvas.open) designActions.canvas(key);
       }
       await sessionActions.refresh();

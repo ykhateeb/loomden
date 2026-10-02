@@ -14,6 +14,7 @@ import { ImportDialog, useFirstStartImport } from "./settings/ImportDialog";
 import { LoginDialog } from "./settings/LoginDialog";
 import { Settings } from "./settings/Settings";
 import { Workspace } from "./Workspace";
+import { hasModifier, isTyping } from "#renderer/ui/keys";
 
 
 export function App() {
@@ -29,10 +30,12 @@ export function App() {
   // ⌘K opens the search (board 1a) and ⌘N a new session (board 1.1), from anywhere.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const t = e.target as HTMLElement;
       // ⇧C: the design canvas of the open session, when you are not typing.
-      if (e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey && e.key.toLowerCase() === "c" && !t.isContentEditable && !/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) {
-        return void (active && (e.preventDefault(), actions.canvas(active)));
+      const isCanvasKey = e.shiftKey && !hasModifier(e) && e.key.toLowerCase() === "c" && !isTyping(e.target);
+      if (isCanvasKey) {
+        if (!active) return;
+        e.preventDefault();
+        return actions.canvas(active);
       }
       if (!(e.metaKey || e.ctrlKey)) return;
       const key = e.key.toLowerCase();

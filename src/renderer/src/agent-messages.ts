@@ -2,7 +2,7 @@
 import { designActions } from "./design/actions";
 import { type AgentMessageOut, call, listenForAgent } from "./port";
 import { sessionActions } from "./sessions/actions";
-import { getState, notice, report, set } from "./store";
+import { getState, notice, report, set, without } from "./store";
 
 listenForAgent({
   // After a reload the agent sends its open sessions and dialogs again; after a restart it has none.
@@ -27,9 +27,7 @@ function receive(msg: AgentMessageOut) {
       return set((s) => ({ messages: { ...s.messages, [msg.key]: msg.messages } }));
     case "closed":
       return set((s) => {
-        const { [msg.key]: _, ...live } = s.live;
-        const { [msg.key]: __, ...messages } = s.messages;
-        return { live, messages, dialogs: s.dialogs.filter((d) => d.key !== msg.key), active: s.active === msg.key ? undefined : s.active };
+        return { live: without(s.live, msg.key), messages: without(s.messages, msg.key), dialogs: s.dialogs.filter((d) => d.key !== msg.key), active: s.active === msg.key ? undefined : s.active };
       });
     case "import.result":
       return set((s) => ({ importResults: [...s.importResults.filter((r) => r.id !== msg.result.id), msg.result] })); // a retry replaces its item

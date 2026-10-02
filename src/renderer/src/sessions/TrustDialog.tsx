@@ -4,15 +4,19 @@ import { Button, Kbd } from "#renderer/ui/base";
 import { Icon } from "#renderer/ui/Icon";
 import { Modal, ModalIcon } from "#renderer/ui/Modal";
 import { Callout } from "#renderer/ui/surfaces";
+import { home } from "#renderer/chat/format";
 
 /** Board 1 (tweak): a project folder with its own .pi files asks before they load. */
+/** What trust means and does not mean. The trust dialog and Settings › Project trust show it. */
+export const TRUST_WARNING = "Extensions run code on your computer. Trust only folders you know. Trust does not limit pi’s tools. They can still read and change your files.";
+
 export function TrustDialog({ request }: { request: Extract<UIRequest, { method: "trust" }> }) {
   const reply = (value: TrustAnswer | undefined) => actions.answer(request.id, value);
 
   return (
     <Modal
       title="Trust this project?"
-      subtitle={<span className="font-mono">{request.cwd.replace(/^\/Users\/[^/]+/, "~")}</span>}
+      subtitle={<span className="font-mono">{home(request.cwd)}</span>}
       icon={<ModalIcon tone="warn"><Icon name="shield" size={18} /></ModalIcon>}
       width={560}
       onClose={() => reply(undefined)}
@@ -38,9 +42,7 @@ export function TrustDialog({ request }: { request: Extract<UIRequest, { method:
           ))}
         </ul>
       )}
-      <Callout icon={<Icon name="alert" />}>
-        Extensions run code on your computer. Trust only folders you know. Trust does not limit pi’s tools. They can still read and change your files.
-      </Callout>
+      <Callout icon={<Icon name="alert" />}>{TRUST_WARNING}</Callout>
     </Modal>
   );
 }

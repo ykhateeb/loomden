@@ -7,6 +7,7 @@ import { Button, cx, Kbd, Pill, Spinner } from "#renderer/ui/base";
 import { Checkbox, Segmented } from "#renderer/ui/controls";
 import { Icon } from "#renderer/ui/Icon";
 import { LabelDialog } from "./LabelDialog";
+import { hasModifier, isTyping } from "#renderer/ui/keys";
 
 type Filter = "all" | "mine" | "labeled" | "notools";
 type Pick = { kind: "row"; row: PreviewRow } | { kind: "card"; card: BranchCard };
@@ -64,7 +65,7 @@ export function TreeView({ sessionKey, state }: { sessionKey: string; state: Liv
   const labels = [...new Set([...tree.rows.map((r) => r.label), ...Object.values(tree.branchesAt).flat().map((c) => c.name)].filter((l): l is string => !!l))];
 
   const onKeyDown = (e: React.KeyboardEvent) => {
-    if (e.target instanceof HTMLInputElement || e.metaKey || e.ctrlKey || e.altKey || !pick) return;
+    if (isTyping(e.target) || hasModifier(e) || !pick) return;
     const k = e.key.toLowerCase();
     if (k === "enter") (e.preventDefault(), switchTo());
     if (k === "l") (e.preventDefault(), setLabeling(true));

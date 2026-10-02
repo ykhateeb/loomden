@@ -4,6 +4,8 @@ import { useStore } from "#renderer/store";
 import { Segmented } from "#renderer/ui/controls";
 import { Icon } from "#renderer/ui/Icon";
 import { Callout, Card, Table, Td, Th, Tr } from "#renderer/ui/surfaces";
+import { home } from "#renderer/chat/format";
+import { TRUST_WARNING } from "#renderer/sessions/TrustDialog";
 
 /** Settings › Project trust (the Packages "Change" link goes here). */
 export function TrustPage() {
@@ -23,9 +25,9 @@ export function TrustPage() {
             {trust?.map((t) => (
               <Tr key={t.cwd}>
                 <Td><span className="flex items-center gap-2 font-medium text-fg"><Icon name="folder" size={13} />{t.name}</span></Td>
-                <Td className="font-mono text-xs">{t.cwd.replace(/^\/Users\/[^/]+/, "~")}</Td>
+                <Td className="font-mono text-xs">{home(t.cwd)}</Td>
                 <Td right>
-                  {t.from && <span className="mr-3 text-xs text-muted" title={t.from}>from {t.from.replace(/^\/Users\/[^/]+/, "~")}</span>}
+                  {t.from && <span className="mr-3 text-xs text-muted" title={t.from}>from {home(t.from)}</span>}
                   <Segmented
                     label={`Trust for ${t.name}`}
                     value={t.trusted === true ? "yes" : t.trusted === false ? "no" : "ask"}
@@ -39,7 +41,7 @@ export function TrustPage() {
           </tbody>
         </Table>
       </Card>
-      <Callout icon={<Icon name="alert" />}>Extensions run code on your computer. Trust only folders you know. Trust does not limit pi’s tools. They can still read and change your files.</Callout>
+      <Callout icon={<Icon name="alert" />}>{TRUST_WARNING}</Callout>
     </main>
   );
 }

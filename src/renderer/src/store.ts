@@ -105,6 +105,12 @@ export function notice(message: string, level: Notice["level"] = "error", action
   setTimeout(() => set((s) => ({ notices: s.notices.filter((n) => n.id !== id) })), 6000);
 }
 
+/** A copy of `record` with no `key`. */
+export function without<T>(record: Readonly<Record<string, T>>, key: string): Record<string, T> {
+  const { [key]: _, ...rest } = record;
+  return rest;
+}
+
 /** Show an error as a toast. A cancel in one of main's dialogs is the user's choice, not an error. */
 export const report = (e: Error) => {
   if (!e.message.includes(DIALOG_CANCELLED)) notice(e.message);

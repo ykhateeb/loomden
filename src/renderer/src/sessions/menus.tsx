@@ -2,7 +2,7 @@ import { type MouseEvent, useState } from "react";
 import type { Project, SessionRow } from "#protocol";
 import { actions } from "#renderer/actions";
 import { Icon } from "#renderer/ui/Icon";
-import { Menu, type MenuItem } from "#renderer/ui/Menu";
+import { Menu, type MenuItem, type MenuState } from "#renderer/ui/Menu";
 import { DeleteDialog } from "./DeleteDialog";
 import { RenameDialog } from "./RenameDialog";
 
@@ -11,7 +11,7 @@ import { RenameDialog } from "./RenameDialog";
  * Used by the sidebar and the All sessions screen. Render `ui` once.
  */
 export function useSessionMenus() {
-  const [menu, setMenu] = useState<{ at: { x: number; y: number }; items: MenuItem[]; label: string }>();
+  const [menu, setMenu] = useState<MenuState>();
   const [renaming, setRenaming] = useState<SessionRow>();
   const [deleting, setDeleting] = useState<SessionRow>();
 

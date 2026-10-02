@@ -7,17 +7,17 @@ import { useStore } from "#renderer/store";
 import { Button, cx, Dot, IconButton, Kbd, LinkButton, pill, Pill } from "#renderer/ui/base";
 import { Segmented } from "#renderer/ui/controls";
 import { Icon } from "#renderer/ui/Icon";
-import { Menu, type MenuItem } from "#renderer/ui/Menu";
+import { checkMark, Menu, type MenuItem, type MenuState } from "#renderer/ui/Menu";
 import { Bar, Card, CardBody, CardHeader, ListItem, Table, Td, Th, Tr } from "#renderer/ui/surfaces";
+import { home, plural } from "#renderer/chat/format";
 
 const MAIN = ["anthropic", "openai", "google", "openrouter"];
 const LEVELS = ["off", "low", "medium", "high"];
-const home = (p: string) => p.replace(/^\/Users\/[^/]+/, "~");
 
 function detail(p: ProviderRow) {
   const how = p.subscription ? "subscription" : p.source === "environment" ? "key from the environment" : p.source === "stored" ? "api key" : p.custom ? "custom provider" : p.configured ? "configured" : undefined;
-  if (!how) return `${p.models} ${p.models === 1 ? "model" : "models"} · ${p.canLogin && p.canKey ? "subscription or api key" : p.canLogin ? "subscription" : "api key"}`;
-  return `${how} · ${p.available} ${p.available === 1 ? "model" : "models"}`;
+  if (!how) return `${plural(p.models, "model")} · ${p.canLogin && p.canKey ? "subscription or api key" : p.canLogin ? "subscription" : "api key"}`;
+  return `${how} · ${plural(p.available, "model")}`;
 }
 
 /** Board 5: the model new sessions start with, the providers pi can call, and the ⌃P favorites. */
@@ -31,7 +31,7 @@ export function ModelsPage() {
   const scope = projects.length ? scopeRaw : "global";
   const [project, setProject] = useState<string>();
   const [more, setMore] = useState(false);
-  const [menu, setMenu] = useState<{ at: { x: number; y: number }; items: MenuItem[]; label: string }>();
+  const [menu, setMenu] = useState<MenuState>();
   const main = useRef<HTMLElement>(null);
   // A picked project that is gone from the list falls back to the first one.
   const cwd = scope === "project" ? (projects.some((p) => p.cwd === project) ? project : projects[0]?.cwd) : undefined;
@@ -58,7 +58,7 @@ export function ModelsPage() {
   };
   const modelItems = (pick: (m: ModelChoice) => void, current?: string): MenuItem[] =>
     page.models.length
-      ? page.models.map((m) => ({ id: `${m.provider}/${m.id}`, label: m.id, meta: m.provider, icon: `${m.provider}/${m.id}` === current ? <Icon name="check" size={13} /> : <span className="w-[13px]" />, onSelect: () => pick(m) }))
+      ? page.models.map((m) => ({ id: `${m.provider}/${m.id}`, label: m.id, meta: m.provider, icon: checkMark(`${m.provider}/${m.id}` === current), onSelect: () => pick(m) }))
       : [{ label: "No models yet: add a provider key below", disabled: true, onSelect: () => {} }];
   const go = (id: string) => main.current?.querySelector(`#${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
 
@@ -98,7 +98,7 @@ export function ModelsPage() {
             <Pill tone="dim">Global</Pill>
           )}
           {scope === "project" && (
-            <button className={pill("dim", "hover:text-fg")} disabled={!projects.length} onMouseDown={(e) => e.stopPropagation()} onClick={(e) => setMenu({ at: at(e), label: "Project", items: projects.map((p) => ({ id: p.cwd, label: p.name, icon: p.cwd === cwd ? <Icon name="check" size={13} /> : <span className="w-[13px]" />, onSelect: () => setProject(p.cwd) })) })}>
+            <button className={pill("dim", "hover:text-fg")} disabled={!projects.length} onMouseDown={(e) => e.stopPropagation()} onClick={(e) => setMenu({ at: at(e), label: "Project", items: projects.map((p) => ({ id: p.cwd, label: p.name, icon: checkMark(p.cwd === cwd), onSelect: () => setProject(p.cwd) })) })}>
               <Icon name="folder" size={12} />{cwd ? folderName(cwd) : "no project"}<Icon name="chevronDown" size={12} />
             </button>
           )}
