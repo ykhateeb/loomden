@@ -36,10 +36,7 @@ export function sessionCommands({ sessions, dialogs }: Deps) {
     "session.tools": (cmd) => sessions.setTools(cmd.key, cmd.names),
     "session.abort": (cmd) => sessions.abort(cmd.key),
     "session.thinking": (cmd) => sessions.setThinking(cmd.key, cmd.level),
-    "session.rename": (cmd) => {
-      sessions.rename(sessionFile(cmd.path), cmd.name);
-      return listSessions();
-    },
+    "session.rename": (cmd) => sessions.rename(sessionFile(cmd.path), cmd.name),
     "session.clone": async (cmd) => {
       await assertProject(cmd.cwd);
       return sessions.clone(cmd.cwd, sessionFile(cmd.path));

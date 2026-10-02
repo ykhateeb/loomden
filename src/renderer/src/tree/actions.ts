@@ -16,7 +16,8 @@ export const treeActions = {
     }
   },
   label: (key: string, id: string, label: string) =>
-    call<SessionTree>({ type: "session.label", key, id, label })
+    call({ type: "session.label", key, id, label })
+      .then(() => call<SessionTree>({ type: "session.tree", key }))
       .then((t) => (set((s) => ({ treeStamp: s.treeStamp + 1 })), t))
       .catch((e) => (report(e), undefined)),
   fork: async (key: string, id: string, at: boolean) => {

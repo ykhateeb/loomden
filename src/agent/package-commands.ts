@@ -32,7 +32,6 @@ export function packageCommands({ send, grants, modelRuntime, sessions }: Deps) 
       if (cmd.action !== "remove") await grants.assertGranted("package", packageGrant(cmd.action, cmd.source, cmd.cwd));
       const { projects } = await listSessions();
       await changePackage(cmd.action, cmd.source, cmd.cwd, sendPackageProgress, projects[0]?.cwd ?? process.cwd());
-      return packagesWithTrust(projects);
     },
     "packages.gallery": (cmd) => searchGallery(cmd.query),
     "packages.reload": () => sessions.reloadAll(),

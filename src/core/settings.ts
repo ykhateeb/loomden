@@ -46,5 +46,4 @@ export function writeModelSettings(patch: Partial<Record<keyof ModelSettings, un
   }
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, `${JSON.stringify(s, null, 2)}\n`);
-  return readModelSettings(cwd);
 }

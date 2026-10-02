@@ -202,7 +202,6 @@ export function createRegistry({ send, modelRuntime, grants, dialogs }: { send: 
     /** Board 3a: an empty label removes it. */
     label(key: string, id: string, label: string) {
       get(key).rt.session.sessionManager.appendLabelChange(id, label.trim() || undefined);
-      return this.tree(key);
     },
 
     /**

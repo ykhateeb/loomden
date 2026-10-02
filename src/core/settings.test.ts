@@ -8,7 +8,8 @@ test("project settings: change only the model keys, keep the rest, null removes,
   const cwd = mkdtempSync(join(tmpdir(), "tenon-settings-"));
   mkdirSync(join(cwd, ".pi"));
   writeFileSync(join(cwd, ".pi", "settings.json"), JSON.stringify({ packages: ["npm:x"], defaultModel: "old" }));
-  expect(writeModelSettings({ defaultProvider: "anthropic", defaultModel: "claude-sonnet-5", enabledModels: ["anthropic/*"] }, cwd)).toEqual({
+  writeModelSettings({ defaultProvider: "anthropic", defaultModel: "claude-sonnet-5", enabledModels: ["anthropic/*"] }, cwd);
+  expect(readModelSettings(cwd)).toEqual({
     defaultProvider: "anthropic",
     defaultModel: "claude-sonnet-5",
     defaultThinkingLevel: undefined,

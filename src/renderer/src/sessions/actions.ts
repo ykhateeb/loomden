@@ -60,7 +60,8 @@ export const sessionActions = {
     const cwd = await window.tenon.pickFolder();
     if (!cwd) return;
     try {
-      set(await call<SessionList>({ type: "project.add", cwd }));
+      await call({ type: "project.add", cwd });
+      await sessionActions.refresh();
       await sessionActions.move(key, cwd);
     } catch (e) {
       report(e as Error);
@@ -78,16 +79,14 @@ export const sessionActions = {
   },
   addProject: async () => {
     const cwd = await window.tenon.pickFolder();
-    if (cwd) await call<SessionList>({ type: "project.add", cwd }).then(set).catch(report);
+    if (cwd) await call({ type: "project.add", cwd }).then(sessionActions.refresh, report);
   },
   removeProject: (cwd: string) =>
-    call<SessionList>({ type: "project.remove", cwd })
-      .then(set)
-      .catch(report),
+    call({ type: "project.remove", cwd })
+      .then(sessionActions.refresh, report),
   rename: (path: string, name: string) =>
-    call<SessionList>({ type: "session.rename", path, name })
-      .then((r) => (set(r), notice("Session renamed", "info")))
-      .catch(report),
+    call({ type: "session.rename", path, name })
+      .then(() => (notice("Session renamed", "info"), sessionActions.refresh()), report),
   clone: (cwd: string, path: string) =>
     call<string | undefined>({ type: "session.clone", cwd, path })
       .then((key) => {

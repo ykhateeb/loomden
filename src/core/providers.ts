@@ -149,5 +149,4 @@ export async function addCustomProvider(rt: ModelRuntime, p: CustomProvider) {
   await rt.refresh({ providers: [p.name] });
   const problem = rt.getError();
   if (problem) throw new Error(`pi could not load models.json: ${problem}`);
-  return listProviders(rt);
 }
