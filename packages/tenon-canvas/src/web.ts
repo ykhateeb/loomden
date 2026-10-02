@@ -141,7 +141,8 @@ const $=s=>document.querySelector(s);
 const h=(t,p={},...kids)=>{const e=document.createElement(t);for(const[k,v]of Object.entries(p)){if(k.startsWith("on"))e.addEventListener(k.slice(2),v);else if(k==="class")e.className=v;else e.setAttribute(k,v)}e.append(...kids);return e};
 // An id for a note or an edit, made here: the server keeps it, and the page uses it later (to send or to undo).
 const newId=p=>p+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-const post=(path,body)=>fetch(B+"/api/"+path,{method:"POST",body:JSON.stringify({canvas:C,...body})}).then(r=>r.ok?r.json():r.text().then(t=>{throw new Error(t)}));
+// A command to the server: it gives back nothing. Read the new state with a GET (load, loadDs, loadApp).
+const post=(path,body)=>fetch(B+"/api/"+path,{method:"POST",body:JSON.stringify({canvas:C,...body})}).then(r=>{if(!r.ok)return r.text().then(t=>{throw new Error(t)})});
 let toastT;const toast=m=>{const t=$("#toast");t.textContent=m;t.style.display="block";clearTimeout(toastT);toastT=setTimeout(()=>t.style.display="none",4000)};
 addEventListener("unhandledrejection",e=>toast(e.reason&&e.reason.message||"Something went wrong"));
 
