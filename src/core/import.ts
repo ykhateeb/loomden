@@ -1,11 +1,11 @@
-import { chmodSync, copyFileSync, existsSync, mkdirSync, readdirSync, realpathSync, statSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readdirSync, realpathSync, statSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { getAgentDir, type ProgressEvent, ProjectTrustStore } from "@earendil-works/pi-coding-agent";
 import type { ImportItem, ImportResult, ImportScan } from "#protocol";
 import { manager } from "./packages";
 import { PI_AGENT_DIR } from "./paths";
-import { readModelsFile } from "./providers";
-import { MODEL_SETTING_KEYS, readJson, writeModelSettings } from "./settings";
+import { readModelsFile, writeModelsFile } from "./providers";
+import { MODEL_SETTING_KEYS, readJson, writeJson, writeModelSettings } from "./settings";
 
 const FOLDERS = ["extensions", "skills", "prompts", "themes"];
 const TOP_FILES = ["AGENTS.md", "SYSTEM.md", "APPEND_SYSTEM.md"];
@@ -128,13 +128,10 @@ export async function runImport(items: ImportItem[], { onPackage, onResult }: { 
 
   await step("providers", () => {
     const theirs = (readJson(join(PI_AGENT_DIR, "models.json")).providers ?? {}) as Record<string, unknown>;
-    const file = join(tenon, "models.json");
-    const ours: { providers?: Record<string, unknown> } = readModelsFile(); // throws on a file it cannot read: nothing is lost
+    const ours = readModelsFile(); // throws on a file it cannot read: nothing is lost
     const added = Object.keys(theirs).filter((k) => !ours.providers?.[k]); // Tenon's own entries win
-    ours.providers = { ...ours.providers, ...Object.fromEntries(added.map((k) => [k, theirs[k]])) };
-    mkdirSync(tenon, { recursive: true });
-    writeFileSync(file, `${JSON.stringify(ours, null, 2)}\n`, { mode: 0o600 });
-    chmodSync(file, 0o600); // it can hold keys
+    ours.providers = { ...ours.providers, ...Object.fromEntries(added.map((k) => [k, theirs[k] as Record<string, unknown>])) };
+    writeModelsFile(ours);
     return { status: "done", detail: `copied · ${plural(added.length, "provider")}`, errors: [] };
   });
 
@@ -196,7 +193,7 @@ export async function runImport(items: ImportItem[], { onPackage, onResult }: { 
           const hit = typeof p === "string" && filtered.find((f) => same(p, f.source));
           return hit ? { ...hit, source: p } : p;
         });
-        writeFileSync(path, `${JSON.stringify(s, null, 2)}\n`);
+        writeJson(path, s);
       }
     }
     const ok = all.length - errors.length;

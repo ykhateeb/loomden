@@ -6,6 +6,11 @@ import { promisify } from "node:util";
 
 const IMAGE_TYPES: Record<string, string> = { ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif", ".webp": "image/webp" };
 const MAX_IMAGE = 20 * 1024 * 1024;
+/** The @ menu reads the file list again after this time. */
+const FILE_LIST_TTL_MS = 30_000;
+const GIT_LS_TIMEOUT_MS = 5000;
+/** A large repository lists many files: git's output can be this big. */
+const MAX_GIT_OUTPUT = 64 * 1024 * 1024;
 
 export const isImage = (path: string) => extname(path).toLowerCase() in IMAGE_TYPES;
 
@@ -26,10 +31,10 @@ const cache = new Map<string, { at: number; files: string[] }>();
 /** Files of a project: git's list (tracked + untracked, not ignored), else a folder walk. */
 async function listFiles(cwd: string): Promise<string[]> {
   const hit = cache.get(cwd);
-  if (hit && Date.now() - hit.at < 30_000) return hit.files;
+  if (hit && Date.now() - hit.at < FILE_LIST_TTL_MS) return hit.files;
   let files: string[];
   try {
-    const { stdout } = await promisify(execFile)("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard"], { cwd, maxBuffer: 64 * 1024 * 1024, timeout: 5000 });
+    const { stdout } = await promisify(execFile)("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard"], { cwd, maxBuffer: MAX_GIT_OUTPUT, timeout: GIT_LS_TIMEOUT_MS });
     files = stdout.split("\0").filter(Boolean).slice(0, LIMIT); // -z: names as they are, not quoted
   } catch {
     files = [];

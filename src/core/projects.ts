@@ -1,10 +1,11 @@
-import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import { basename, join } from "node:path";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import type { Project, SessionRow } from "#protocol";
 import type { Grants } from "./grants";
 import { readEntries, summarize } from "./sessions/summary";
 import { NO_PROJECT_DIR, TENON_DIR } from "./paths";
+import { writeJson } from "./settings";
 
 const PROJECTS_FILE = join(TENON_DIR, "projects.json");
 
@@ -21,8 +22,7 @@ export async function addProject(grants: Grants, path: string) {
   const cwd = await grants.assertGranted("folder", path);
   const added = readAdded();
   if (added.includes(cwd)) return;
-  mkdirSync(TENON_DIR, { recursive: true });
-  writeFileSync(PROJECTS_FILE, JSON.stringify([...added, cwd], null, 2));
+  writeJson(PROJECTS_FILE, [...added, cwd]);
 }
 
 // Model and branch count need a read of the file: keep them until the file changes.
@@ -61,8 +61,7 @@ export async function assertProject(cwd: string) {
 export async function removeProject(cwd: string) {
   const { sessions } = await listSessions();
   if (sessions.some((s) => s.cwd === cwd)) throw new Error("Only a project with no sessions can be removed.");
-  mkdirSync(TENON_DIR, { recursive: true });
-  writeFileSync(PROJECTS_FILE, JSON.stringify(readAdded().filter((c) => c !== cwd), null, 2));
+  writeJson(PROJECTS_FILE, readAdded().filter((c) => c !== cwd));
   known.delete(cwd);
 }
 

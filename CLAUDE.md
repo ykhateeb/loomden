@@ -83,7 +83,7 @@ The window shows model output, so the agent and main treat each value from the w
 - One module has one job. If a module gets a second job, split it by job, as in `src/core/sessions/`.
 - Keep state in a `create…()` factory (`createRegistry`, `createRuntimes`, `createGrants`, `createDialogs`), not at module level. `src/agent/index.ts` makes each one once and passes it on. Old exceptions, marked `ponytail:`: `projects.ts`, `attachments.ts`, `design.ts`, `providers.ts`.
 - Use the shared helpers. Do not copy them:
-  - `readJson()`, `MODEL_SETTING_KEYS`: `src/core/settings.ts`
+  - `readJson()`, `writeJson()`, `writePrivateJson()` (a file that can hold a key), `MODEL_SETTING_KEYS`: `src/core/settings.ts`
   - `manager()`, `resourceName()`: `src/core/packages.ts`
   - `availableModels()`: `src/core/providers.ts`
   - `contentText()`: `src/core/sessions/summary.ts`

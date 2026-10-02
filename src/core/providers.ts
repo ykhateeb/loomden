@@ -1,8 +1,12 @@
-import { chmodSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { getAgentDir, type ModelRuntime } from "@earendil-works/pi-coding-agent";
 import type { CustomProvider, FoundModel, ModelChoice, ProviderRow, Send } from "#protocol";
 import type { Dialogs } from "./sessions/extension-ui";
+import { writePrivateJson } from "./settings";
+
+/** A model list from a server that does not answer is an error, not a wait with no end. */
+const FIND_MODELS_TIMEOUT_MS = 8000;
 
 /** Board 5's table: every provider pi knows, with how it is connected. */
 export function listProviders(rt: ModelRuntime): ProviderRow[] {
@@ -71,6 +75,11 @@ export const API_KINDS = ["openai-completions", "openai-responses", "anthropic-m
 const modelsFile = () => join(getAgentDir(), "models.json");
 
 /** A missing file is empty. Any other problem stops the change: a rewrite would drop what Tenon could not read. */
+/** models.json can hold keys. */
+export function writeModelsFile(data: ReturnType<typeof readModelsFile>): void {
+  writePrivateJson(modelsFile(), data);
+}
+
 export function readModelsFile(): { providers?: Record<string, Record<string, unknown>> } {
   let text: string;
   try {
@@ -103,7 +112,7 @@ export async function findModels(baseUrl: string, api: string, apiKey?: string):
   if (!/^https?:\/\//.test(baseUrl)) throw new Error("The base URL must start with http:// or https://");
   const url = `${baseUrl.replace(/\/+$/, "")}/models`;
   const headers: Record<string, string> = api === "anthropic-messages" ? { "anthropic-version": "2023-06-01", ...(apiKey ? { "x-api-key": apiKey } : {}) } : apiKey ? { authorization: `Bearer ${apiKey}` } : {};
-  const res = await fetch(url, { headers, signal: AbortSignal.timeout(8000) });
+  const res = await fetch(url, { headers, signal: AbortSignal.timeout(FIND_MODELS_TIMEOUT_MS) });
   if (!res.ok) throw new Error(`${url} answered ${res.status}`);
   const body = (await res.json()) as { data?: Record<string, unknown>[]; models?: Record<string, unknown>[] };
   return (body.data ?? body.models ?? []).flatMap((m) => {
@@ -143,9 +152,7 @@ export async function addCustomProvider(rt: ModelRuntime, p: CustomProvider) {
       models: [...oldModels.filter((m) => !newIds.has(m.id)), ...p.models.map((m) => ({ id: m.id, ...(m.contextWindow ? { contextWindow: m.contextWindow } : {}) }))],
     },
   };
-  mkdirSync(getAgentDir(), { recursive: true });
-  writeFileSync(modelsFile(), `${JSON.stringify(file, null, 2)}\n`, { mode: 0o600 });
-  chmodSync(modelsFile(), 0o600); // also for a file that existed with wider permissions: it can hold a key
+  writeModelsFile(file);
   await rt.refresh({ providers: [p.name] });
   const problem = rt.getError();
   if (problem) throw new Error(`pi could not load models.json: ${problem}`);

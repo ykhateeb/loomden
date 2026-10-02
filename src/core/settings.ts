@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import type { ModelSettings } from "#protocol";
@@ -15,6 +15,24 @@ export function readJson(path: string): Record<string, unknown> {
   } catch {
     return {};
   }
+}
+
+/** Write a JSON file, with its folder. */
+export function writeJson(path: string, data: unknown): void {
+  writeJsonFile(path, data);
+}
+
+/** Write a JSON file that can hold a key: only you can read it. */
+export function writePrivateJson(path: string, data: unknown): void {
+  writeJsonFile(path, data, PRIVATE_FILE_MODE); // a new file is private from the start
+  chmodSync(path, PRIVATE_FILE_MODE); // and so is a file that existed with wider permissions
+}
+
+const PRIVATE_FILE_MODE = 0o600;
+
+function writeJsonFile(path: string, data: unknown, mode?: number) {
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, `${JSON.stringify(data, null, 2)}\n`, { mode });
 }
 
 /** Board 5: the model settings of one file (not merged: the page edits one file at a time). */
@@ -44,6 +62,5 @@ export function writeModelSettings(patch: Partial<Record<keyof ModelSettings, un
     else if (valid[k](patch[k])) s[k] = patch[k];
     else throw new Error(`Not a valid ${k}`);
   }
-  mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, `${JSON.stringify(s, null, 2)}\n`);
+  writeJson(path, s);
 }
