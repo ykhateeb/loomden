@@ -7,6 +7,11 @@ import { writePrivateJson } from "./settings";
 
 /** A model list from a server that does not answer is an error, not a wait with no end. */
 const FIND_MODELS_TIMEOUT_MS = 8000;
+const BASE_URL_RULE = "The base URL must start with http:// or https://";
+/** The API version that Anthropic-style servers need on each request. */
+const ANTHROPIC_VERSION = "2023-06-01";
+const MAX_MODEL_ID = 200;
+const MAX_KEY = 4000;
 
 /** Board 5's table: every provider pi knows, with how it is connected. */
 export function listProviders(rt: ModelRuntime): ProviderRow[] {
@@ -33,15 +38,15 @@ export const availableModels = (rt: ModelRuntime): ModelChoice[] => rt.getAvaila
 
 // One login at a time; Cancel in the window aborts it.
 // ponytail: module state, one copy per agent process; a factory when tests need a clean copy.
-let running: AbortController | undefined;
+let activeLogin: AbortController | undefined;
 
 /**
  * Board 5 "Add key" and 5b "Log in with a subscription": pi asks through the dialogs in the window and
  * reports links and codes as auth events. pi saves the credential in the shared auth.json itself.
  */
 export async function login(rt: ModelRuntime, providerId: string, type: "api_key" | "oauth", { send, ask }: { send: Send; ask: Dialogs["ask"] }) {
-  running?.abort();
-  const controller = (running = new AbortController());
+  activeLogin?.abort();
+  const controller = (activeLogin = new AbortController());
   const cancelled = () => new Error("Login cancelled");
   try {
     await rt.login(providerId, type, {
@@ -62,13 +67,13 @@ export async function login(rt: ModelRuntime, providerId: string, type: "api_key
       notify: (event) => send({ type: "auth.event", providerId, event }),
     });
   } finally {
-    if (running === controller) running = undefined;
+    if (activeLogin === controller) activeLogin = undefined;
     send({ type: "auth.event", providerId, event: { type: "done" } });
   }
 }
 
 export function cancelLogin() {
-  running?.abort();
+  activeLogin?.abort();
 }
 
 export const API_KINDS = ["openai-completions", "openai-responses", "anthropic-messages"] as const;
@@ -109,18 +114,24 @@ const customIds = () => new Set(Object.keys(readModelsFile().providers ?? {}));
 
 /** Board 5a "Find models": ask the server which models it has (OpenAI- and Anthropic-style /models lists). */
 export async function findModels(baseUrl: string, api: string, apiKey?: string): Promise<FoundModel[]> {
-  if (!/^https?:\/\//.test(baseUrl)) throw new Error("The base URL must start with http:// or https://");
+  if (!/^https?:\/\//.test(baseUrl)) throw new Error(BASE_URL_RULE);
   const url = `${baseUrl.replace(/\/+$/, "")}/models`;
-  const headers: Record<string, string> = api === "anthropic-messages" ? { "anthropic-version": "2023-06-01", ...(apiKey ? { "x-api-key": apiKey } : {}) } : apiKey ? { authorization: `Bearer ${apiKey}` } : {};
-  const res = await fetch(url, { headers, signal: AbortSignal.timeout(FIND_MODELS_TIMEOUT_MS) });
+  const res = await fetch(url, { headers: authHeaders(api, apiKey), signal: AbortSignal.timeout(FIND_MODELS_TIMEOUT_MS) });
   if (!res.ok) throw new Error(`${url} answered ${res.status}`);
   const body = (await res.json()) as { data?: Record<string, unknown>[]; models?: Record<string, unknown>[] };
   return (body.data ?? body.models ?? []).flatMap((m) => {
     const id = typeof m.id === "string" ? m.id : typeof m.name === "string" ? m.name : undefined;
     if (!id) return [];
-    const ctx = [m.context_length, m.context_window, m.max_model_len, m.max_context_length].find((v) => typeof v === "number") as number | undefined;
-    return [{ id, contextWindow: ctx, embeddings: /embed/i.test(id) }];
+    const contextWindow = [m.context_length, m.context_window, m.max_model_len, m.max_context_length].find((v): v is number => typeof v === "number");
+    return [{ id, contextWindow, embeddings: /embed/i.test(id) }];
   });
+}
+
+/** Anthropic-style servers want the key in x-api-key and a version; the others want a Bearer token. */
+function authHeaders(api: string, apiKey?: string): Record<string, string> {
+  if (api === "anthropic-messages") return { "anthropic-version": ANTHROPIC_VERSION, ...(apiKey ? { "x-api-key": apiKey } : {}) };
+  if (apiKey) return { authorization: `Bearer ${apiKey}` };
+  return {};
 }
 
 /**
@@ -128,32 +139,44 @@ export async function findModels(baseUrl: string, api: string, apiKey?: string):
  * The window is not trusted: the name, URL, API and model ids are checked.
  */
 export async function addCustomProvider(rt: ModelRuntime, p: CustomProvider) {
-  if (!/^[a-z0-9][a-z0-9._-]{0,40}$/i.test(p.name)) throw new Error("Use letters, digits, . _ or - for the name");
-  if (!/^https?:\/\/[^\s]+$/.test(p.baseUrl)) throw new Error("The base URL must start with http:// or https://");
-  if (!(API_KINDS as readonly string[]).includes(p.api)) throw new Error("Pick one of the APIs");
-  if (!p.models.length || !p.models.every((m) => typeof m.id === "string" && m.id.length > 0 && m.id.length <= 200)) throw new Error("Add at least one model");
-  if (!p.models.every((m) => m.contextWindow === undefined || (Number.isInteger(m.contextWindow) && m.contextWindow > 0))) throw new Error("A context window must be a whole number");
-  if (p.apiKey !== undefined && (typeof p.apiKey !== "string" || p.apiKey.length > 4000)) throw new Error("Not a valid key");
+  validateCustomProvider(p);
   const file = readModelsFile();
-  // A name already in models.json is ours to change; any other known provider is built in.
-  if (!file.providers?.[p.name] && rt.getProviders().some((x) => x.id === p.name)) throw new Error(`${p.name} is a built-in provider: pick another name`);
-  // An entry that exists keeps its other fields (headers, compat, overrides, other models) and its key if none is given.
-  const old = file.providers?.[p.name] ?? {};
-  const oldModels = Array.isArray(old.models) ? (old.models as { id: string }[]) : [];
-  const newIds = new Set(p.models.map((m) => m.id));
-  file.providers = {
-    ...file.providers,
-    [p.name]: {
-      ...old,
-      baseUrl: p.baseUrl,
-      api: p.api,
-      // A keyless local server still needs some key for pi to call it.
-      apiKey: p.apiKey?.trim() ? literalKey(p.apiKey.trim()) : (old.apiKey ?? "none"),
-      models: [...oldModels.filter((m) => !newIds.has(m.id)), ...p.models.map((m) => ({ id: m.id, ...(m.contextWindow ? { contextWindow: m.contextWindow } : {}) }))],
-    },
-  };
+  const isOurs = !!file.providers?.[p.name]; // a name already in models.json is ours to change
+  if (!isOurs && rt.getProviders().some((x) => x.id === p.name)) throw new Error(`${p.name} is a built-in provider: pick another name`);
+  file.providers = { ...file.providers, [p.name]: mergeProvider(file.providers?.[p.name] ?? {}, p) };
   writeModelsFile(file);
   await rt.refresh({ providers: [p.name] });
   const problem = rt.getError();
   if (problem) throw new Error(`pi could not load models.json: ${problem}`);
+}
+
+/** The window is not trusted: check the name, the URL, the API, the models and the key of a custom provider. */
+export function validateCustomProvider(p: CustomProvider): void {
+  if (!/^[a-z0-9][a-z0-9._-]{0,40}$/i.test(p.name)) throw new Error("Use letters, digits, . _ or - for the name");
+  if (!/^https?:\/\/[^\s]+$/.test(p.baseUrl)) throw new Error(BASE_URL_RULE);
+  if (!(API_KINDS as readonly string[]).includes(p.api)) throw new Error("Pick one of the APIs");
+  if (!p.models.length || !p.models.every(hasValidId)) throw new Error("Add at least one model");
+  if (!p.models.every(hasValidContextWindow)) throw new Error("A context window must be a whole number");
+  if (p.apiKey !== undefined && (typeof p.apiKey !== "string" || p.apiKey.length > MAX_KEY)) throw new Error("Not a valid key");
+}
+
+type CustomModel = CustomProvider["models"][number];
+const hasValidId = (m: CustomModel) => typeof m.id === "string" && m.id.length > 0 && m.id.length <= MAX_MODEL_ID;
+const hasValidContextWindow = (m: CustomModel) => m.contextWindow === undefined || (Number.isInteger(m.contextWindow) && m.contextWindow > 0);
+
+/**
+ * The models.json entry of a custom provider. An entry that exists keeps its other fields (headers, compat,
+ * overrides, other models), and its key if none is given.
+ */
+export function mergeProvider(old: Readonly<Record<string, unknown>>, p: CustomProvider): Record<string, unknown> {
+  const oldModels = Array.isArray(old.models) ? (old.models as { id: string }[]) : []; // models.json keeps an array of { id }
+  const newIds = new Set(p.models.map((m) => m.id));
+  return {
+    ...old,
+    baseUrl: p.baseUrl,
+    api: p.api,
+    // A keyless local server still needs some key for pi to call it.
+    apiKey: p.apiKey?.trim() ? literalKey(p.apiKey.trim()) : (old.apiKey ?? "none"),
+    models: [...oldModels.filter((m) => !newIds.has(m.id)), ...p.models.map((m) => ({ id: m.id, ...(m.contextWindow ? { contextWindow: m.contextWindow } : {}) }))],
+  };
 }
