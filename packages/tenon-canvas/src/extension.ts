@@ -5,7 +5,7 @@ import { Type } from "typebox";
 import { defineTool, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { startServer, type CanvasServer } from "./server.js";
 import {
-  RAW_BOARD, RAW_STATE, RAW_TOKENS, STATUS_BUILD, STATUS_CANVAS, boardKey, canvasExists, compareBoard, designSystemDir, dsItems, projectRoot, createBoard, clearDraftState, createCanvas, freeCanvasName, freeRoot, gitignoreMissing, planBoards, setEditing, proposeTokens, editBoard, ensureGitignore, listCanvases, readBoard, readCanvas, readCompares, setNoteState,
+  RAW_BOARD, RAW_STATE, RAW_TOKENS, STATUS_BUILD, STATUS_CANVAS, boardKey, canvasExists, compareBoard, designSystemDir, dsItems, projectRoot, createBoard, clearEditing, clearPlan, createCanvas, freeCanvasName, freeRoot, gitignoreMissing, planBoards, markEditing, unmarkEditing, proposeTokens, editBoard, ensureGitignore, listCanvases, readBoard, readCanvas, readCompares, setNoteState,
 } from "./store.js";
 
 const text = (t: string) => ({ content: [{ type: "text" as const, text: t }], details: undefined });
@@ -162,7 +162,7 @@ export default function (pi: ExtensionAPI) {
   // "pi is writing" and "pi is editing" while a canvas tool works on a board (board C6).
   const busy = new Map<string, { root: string; canvas: string; board: string }>();
   const clearBusy = async (id?: string) => {
-    for (const [k, b] of [...busy]) if (!id || k === id) { busy.delete(k); await setEditing(b.root, b.canvas, b.board, false).catch(() => {}); }
+    for (const [k, b] of [...busy]) if (!id || k === id) { busy.delete(k); await unmarkEditing(b.root, b.canvas, b.board).catch(() => {}); }
   };
   pi.on("tool_result", (event) => clearBusy(event.toolCallId));
   const planned = new Set<string>(); // canvases this session planned boards for
@@ -170,13 +170,13 @@ export default function (pi: ExtensionAPI) {
   pi.on("agent_end", async () => {
     await clearBusy(); // a stopped run leaves nothing marked
     // Boards pi planned but did not make are not coming any more.
-    for (const name of planned) await clearDraftState(lastRoot!, name, { plan: true }).catch(() => {});
+    for (const name of planned) await clearPlan(lastRoot!, name).catch(() => {});
     planned.clear();
   });
   // A crash between a tool's start and end left a board marked: start clean.
   pi.on("session_start", async (_e, ctx) => {
     lastRoot = rootOf(ctx);
-    for (const name of await listCanvases(lastRoot)) await clearDraftState(lastRoot, name, { editing: true }).catch(() => {});
+    for (const name of await listCanvases(lastRoot)) await clearEditing(lastRoot, name).catch(() => {});
   });
 
   // Write guard: board files change only through the tools.
@@ -186,7 +186,7 @@ export default function (pi: ExtensionAPI) {
       if (i.canvas && i.board) {
         try {
           busy.set(event.toolCallId, { root: rootOf(ctx), canvas: i.canvas, board: i.board });
-          await setEditing(rootOf(ctx), i.canvas, i.board, true);
+          await markEditing(rootOf(ctx), i.canvas, i.board);
         } catch {
           busy.delete(event.toolCallId); // a bad name fails in the tool itself, with its own message
         }

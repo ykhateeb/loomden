@@ -25,7 +25,10 @@ export const slug = (s: string) => {
 };
 /** "cart", "cart.html" and "boards/cart.html" all give "boards/cart.html". */
 export const boardKey = (b: string) => `boards/${slug(b.replace(/^boards\//, "").replace(/\.html$/, ""))}.html`;
-const nameOf = (key: string) => key.slice(7, -5);
+const BOARD_DIR = "boards/";
+const BOARD_EXT = ".html";
+/** "boards/cart.html" gives "cart". */
+const nameOf = (key: string) => key.slice(BOARD_DIR.length, -BOARD_EXT.length);
 export const canvasDir = (root: string, canvas: string) => join(root, slug(canvas));
 export const RAW_BOARD = /(?:\.tenon|\/sessions\/[^/]+)\/canvases\/[^/]+\/boards\/[^/]+\.html$/;
 /** canvas.json (it holds approvals), approved/ and history/ change only through the tools and the viewer. */
@@ -47,21 +50,36 @@ export function stamp(html: string): string {
     SKIP.test(tag) || /\sdata-tid=/.test(attrs) ? m : `<${tag}${attrs} data-tid="${++n}"${slash}>`);
 }
 
+/** A phone screen: the size of a planned board that has no size. */
+const PHONE = { w: 390, h: 844 };
+
+const canvasFile = (dir: string) => join(dir, "canvas.json");
+const writeCanvas = (dir: string, c: Canvas) => writeFile(canvasFile(dir), JSON.stringify(c, null, 2));
+const emptyCanvas = (title: string): Canvas => ({ v: 1, title, designSystem: "../../design-system", boards: {}, order: [], notes: {} });
+
+/** The key and the meta of a board. Throws if the canvas has no such board. */
+function boardOf(c: Canvas, board: string) {
+  const key = boardKey(board);
+  const meta = c.boards[key];
+  if (!meta) throw new Error(`Board ${key} not found`);
+  return { key, meta };
+}
+
 export async function readCanvas(root: string, canvas: string): Promise<Canvas> {
   try {
-    return JSON.parse(await readFile(join(canvasDir(root, canvas), "canvas.json"), "utf8"));
+    return JSON.parse(await readFile(canvasFile(canvasDir(root, canvas)), "utf8"));
   } catch {
     throw new Error(`Canvas "${canvas}" not found`);
   }
 }
 
 /** True when the canvas has its canvas.json. */
-export const canvasExists = (root: string, canvas: string) => existsSync(join(canvasDir(root, canvas), "canvas.json"));
+export const canvasExists = (root: string, canvas: string) => existsSync(canvasFile(canvasDir(root, canvas)));
 
 export async function listCanvases(root: string): Promise<string[]> {
   if (!existsSync(root)) return [];
   const dirs = await readdir(root, { withFileTypes: true });
-  return dirs.filter((d) => d.isDirectory() && existsSync(join(root, d.name, "canvas.json"))).map((d) => d.name);
+  return dirs.filter((d) => d.isDirectory() && existsSync(canvasFile(join(root, d.name)))).map((d) => d.name);
 }
 
 async function save(dir: string, c: Canvas, key: string, html: string, by: string, why: string, extra: object = {}) {
@@ -75,7 +93,7 @@ async function save(dir: string, c: Canvas, key: string, html: string, by: strin
   await appendFile(join(dir, "history", "log.jsonl"),
     JSON.stringify({ board: key, rev, by, at: new Date().toISOString(), why, ...extra }) + "\n");
   Object.assign(m, { rev, by, at: new Date().toISOString() });
-  await writeFile(join(dir, "canvas.json"), JSON.stringify(c, null, 2));
+  await writeCanvas(dir, c);
 }
 
 /** An id that the viewer page makes for a note or an edit. */
@@ -88,8 +106,7 @@ export async function createBoard(root: string, a: {
   const dir = canvasDir(root, a.canvas);
   await locked(dir, async () => {
     const key = boardKey(a.board);
-    let c: Canvas | undefined = existsSync(join(dir, "canvas.json")) ? await readCanvas(root, a.canvas) : undefined;
-    c ??= { v: 1, title: a.canvasTitle ?? a.canvas, designSystem: "../../design-system", boards: {}, order: [], notes: {} };
+    const c = existsSync(canvasFile(dir)) ? await readCanvas(root, a.canvas) : emptyCanvas(a.canvasTitle ?? a.canvas);
     if (c.boards[key]) throw new Error(`Board ${key} exists at rev ${c.boards[key].rev}. Use canvas_edit.`);
     const x = Object.values(c.boards).reduce((m, b) => Math.max(m, b.x + b.w + 80), 0);
     c.boards[key] = { title: a.title, x, y: 0, w: a.w, h: a.h, rev: 0, by: "pi" };
@@ -101,10 +118,8 @@ export async function createBoard(root: string, a: {
 }
 
 export async function readBoard(root: string, canvas: string, board: string) {
-  const key = boardKey(board);
-  const m = (await readCanvas(root, canvas)).boards[key];
-  if (!m) throw new Error(`Board ${key} not found`);
-  return { ...m, html: await readFile(join(canvasDir(root, canvas), key), "utf8") };
+  const { key, meta } = boardOf(await readCanvas(root, canvas), board);
+  return { ...meta, html: await readFile(join(canvasDir(root, canvas), key), "utf8") };
 }
 
 /** The write guard: fails when the board moved on since `baseRev`. So the new rev is always `baseRev + 1`. */
@@ -115,9 +130,7 @@ export async function editBoard(root: string, a: {
   const dir = canvasDir(root, a.canvas);
   await locked(dir, async () => {
     const c = await readCanvas(root, a.canvas);
-    const key = boardKey(a.board);
-    const m = c.boards[key];
-    if (!m) throw new Error(`Board ${key} not found`);
+    const { key, meta: m } = boardOf(c, a.board);
     if (m.rev !== a.baseRev)
       throw new Error(`Board changed by ${m.by} at rev ${m.rev} (you had rev ${a.baseRev}). Read it again with canvas_read and redo your change.`);
     let html = a.html;
@@ -153,8 +166,7 @@ export async function patchBoard(root: string, a: {
   if (a.text != null && a.text.length > 500) throw new Error("Text is too long");
   await locked(dir, async () => {
     const c = await readCanvas(root, a.canvas);
-    const key = boardKey(a.board);
-    if (!c.boards[key]) throw new Error(`Board ${key} not found`);
+    const { key } = boardOf(c, a.board);
     let html = await readFile(join(dir, key), "utf8");
     const at = html.indexOf(`data-tid="${a.tid}"`);
     if (at < 0) throw new Error(`Element ${a.tid} not found: the board changed`);
@@ -194,7 +206,8 @@ export async function undoBoard(root: string, canvas: string, board: string, edi
     const key = boardKey(board);
     const m = c.boards[key];
     const e = (await readHistory(root, canvas, board)).find((x) => x.edit === edit);
-    if (!m || !e || m.rev !== e.rev || e.rev < 2) throw new Error("The board changed since: nothing to undo");
+    const undoable = m && e && m.rev === e.rev && e.rev > 1; // your edit is still the last change, and there is a rev before it
+    if (!undoable) throw new Error("The board changed since: nothing to undo");
     const html = await readFile(join(dir, "history", `${nameOf(key)}.r${e.rev - 1}.html`), "utf8");
     // pi hears about the undo if it heard about the edit; a quiet edit is undone quietly.
     await save(dir, c, key, html, "you", `undo rev ${e.rev}`, e.quiet ? { quiet: true } : {});
@@ -221,8 +234,7 @@ export async function createCanvas(root: string, { name, title }: { name: string
   await locked(canvasDir(root, name), async () => {
     await mkdir(root, { recursive: true });
     await mkdir(join(root, name)); // fails if the name was taken in the meantime
-    const c: Canvas = { v: 1, title, designSystem: "../../design-system", boards: {}, order: [], notes: {} };
-    await writeFile(join(root, name, "canvas.json"), JSON.stringify(c, null, 2));
+    await writeCanvas(join(root, name), emptyCanvas(title));
   });
 }
 
@@ -230,38 +242,54 @@ export async function createCanvas(root: string, { name, title }: { name: string
 export async function planBoards(root: string, canvas: string, boards: { board: string; title: string; w?: number; h?: number }[], title?: string) {
   const dir = canvasDir(root, canvas);
   await locked(dir, async () => {
-    const isNew = !existsSync(join(dir, "canvas.json"));
-    const c: Canvas = isNew ? { v: 1, title: title ?? canvas, designSystem: "../../design-system", boards: {}, order: [], notes: {} } : await readCanvas(root, canvas);
-    c.plan = boards.map((b) => ({ key: boardKey(b.board), title: b.title, w: b.w ?? 390, h: b.h ?? 844 })).filter((p) => !c.boards[p.key]);
+    const c = existsSync(canvasFile(dir)) ? await readCanvas(root, canvas) : emptyCanvas(title ?? canvas);
+    c.plan = boards.map((b) => ({ key: boardKey(b.board), title: b.title, w: b.w ?? PHONE.w, h: b.h ?? PHONE.h })).filter((p) => !c.boards[p.key]);
     await mkdir(dir, { recursive: true });
-    await writeFile(join(dir, "canvas.json"), JSON.stringify(c, null, 2));
+    await writeCanvas(dir, c);
   });
 }
 
-/** Board C6: "pi is writing" and "pi is editing" on a board while a tool works on it. */
-export async function setEditing(root: string, canvas: string, board: string, on: boolean) {
-  const dir = canvasDir(root, canvas);
-  if (!existsSync(join(dir, "canvas.json"))) return;
-  return locked(dir, async () => {
-    const c = await readCanvas(root, canvas);
-    const key = boardKey(board);
-    const now = new Set(c.editing ?? []);
-    if (on) now.add(key); else now.delete(key);
-    c.editing = [...now];
-    await writeFile(join(dir, "canvas.json"), JSON.stringify(c, null, 2));
+/** Board C6: "pi is writing" or "pi is editing" shows on a board while a tool works on it. */
+export function markEditing(root: string, canvas: string, board: string) {
+  return changeCanvas(root, canvas, (c) => {
+    c.editing = [...new Set([...(c.editing ?? []), boardKey(board)])];
+    return true;
   });
 }
 
-/** After a crash or a stopped run: nothing is being written, and the boards pi never made are no longer planned. */
-export async function clearDraftState(root: string, canvas: string, o: { editing?: boolean; plan?: boolean }) {
+/** The tool is done with the board. */
+export function unmarkEditing(root: string, canvas: string, board: string) {
+  return changeCanvas(root, canvas, (c) => {
+    c.editing = (c.editing ?? []).filter((k) => k !== boardKey(board));
+    return true;
+  });
+}
+
+/** After a crash: nothing is being written. */
+export function clearEditing(root: string, canvas: string) {
+  return changeCanvas(root, canvas, (c) => {
+    if (!c.editing?.length) return false; // nothing to change: no write, no event
+    c.editing = [];
+    return true;
+  });
+}
+
+/** After a stopped run: the boards pi never made are no longer planned. */
+export function clearPlan(root: string, canvas: string) {
+  return changeCanvas(root, canvas, (c) => {
+    if (!c.plan?.length) return false; // nothing to change: no write, no event
+    c.plan = [];
+    return true;
+  });
+}
+
+/** Read, change and write canvas.json under the lock. `change` returns false when it changed nothing. No canvas: nothing to do. */
+async function changeCanvas(root: string, canvas: string, change: (c: Canvas) => boolean) {
   const dir = canvasDir(root, canvas);
-  if (!existsSync(join(dir, "canvas.json"))) return;
-  return locked(dir, async () => {
+  if (!existsSync(canvasFile(dir))) return;
+  await locked(dir, async () => {
     const c = await readCanvas(root, canvas);
-    if (!(o.editing && c.editing?.length) && !(o.plan && c.plan?.length)) return; // nothing to change: no write, no event
-    if (o.editing) c.editing = [];
-    if (o.plan) c.plan = [];
-    await writeFile(join(dir, "canvas.json"), JSON.stringify(c, null, 2));
+    if (change(c)) await writeCanvas(dir, c);
   });
 }
 
@@ -270,8 +298,7 @@ export async function restoreRev(root: string, canvas: string, board: string, re
   const dir = canvasDir(root, canvas);
   await locked(dir, async () => {
     const c = await readCanvas(root, canvas);
-    const key = boardKey(board);
-    if (!c.boards[key]) throw new Error(`Board ${key} not found`);
+    const { key } = boardOf(c, board);
     const html = await readFile(join(dir, "history", `${nameOf(key)}.r${Number(rev)}.html`), "utf8").catch(() => {
       throw new Error(`Rev ${rev} not found`);
     });
@@ -284,13 +311,11 @@ export async function approve(root: string, canvas: string, board: string) {
   const dir = canvasDir(root, canvas);
   await locked(dir, async () => {
     const c = await readCanvas(root, canvas);
-    const key = boardKey(board);
-    const m = c.boards[key];
-    if (!m) throw new Error(`Board ${key} not found`);
+    const { key, meta: m } = boardOf(c, board);
     await mkdir(join(dir, "approved"), { recursive: true });
     await copyFile(join(dir, key), join(dir, "approved", `${nameOf(key)}.html`));
     m.approved = m.rev;
-    await writeFile(join(dir, "canvas.json"), JSON.stringify(c, null, 2));
+    await writeCanvas(dir, c);
   });
 }
 
@@ -314,11 +339,10 @@ export async function addNote(root: string, canvas: string, n: { id: string; boa
   if (!PAGE_ID.test(n.id)) throw new Error("Bad note id");
   await locked(canvasDir(root, canvas), async () => {
     const c = await readCanvas(root, canvas);
-    const board = boardKey(n.board);
-    if (!c.boards[board]) throw new Error(`Board ${board} not found`);
+    const { key: board } = boardOf(c, n.board);
     if (c.notes[n.id]) throw new Error(`Note ${n.id} exists`);
     c.notes[n.id] = { board, target: n.target, text: n.text, state: "open", by: "you", at: new Date().toISOString() };
-    await writeFile(join(canvasDir(root, canvas), "canvas.json"), JSON.stringify(c, null, 2));
+    await writeCanvas(canvasDir(root, canvas), c);
   });
 }
 
@@ -327,7 +351,7 @@ export async function setNoteState(root: string, canvas: string, ids: string[], 
   return locked(canvasDir(root, canvas), async () => {
     const c = await readCanvas(root, canvas);
     for (const id of ids) if (c.notes[id]) c.notes[id].state = state;
-    await writeFile(join(canvasDir(root, canvas), "canvas.json"), JSON.stringify(c, null, 2));
+    await writeCanvas(canvasDir(root, canvas), c);
   });
 }
 
@@ -533,10 +557,7 @@ export async function compareBoard(root: string, canvas: string, ds: string, a: 
   board: string; app: { text: string; styles?: Record<string, string | number> }[]; screenshot?: string;
 }) {
   const dir = canvasDir(root, canvas);
-  const c = await readCanvas(root, canvas);
-  const key = boardKey(a.board);
-  const m = c.boards[key];
-  if (!m) throw new Error(`Board ${key} not found`);
+  const { key, meta: m } = boardOf(await readCanvas(root, canvas), a.board);
   const approved = m.approved != null;
   const html = await readFile(join(dir, approved ? "approved" : "boards", `${nameOf(key)}.html`), "utf8");
   const vars = new Map(dsItems(await readJson(join(ds, "tokens.json"))).flatMap((i) => i.decls));

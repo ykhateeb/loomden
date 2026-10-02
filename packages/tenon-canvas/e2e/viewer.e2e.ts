@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type Frame, type Page } from "@playwright/test";
 import { startServer, type CanvasServer } from "../src/server";
-import { compareBoard, createBoard, createCanvas, editBoard, freeCanvasName, planBoards, proposeTokens, readCanvas, setEditing } from "../src/store";
+import { compareBoard, createBoard, createCanvas, editBoard, freeCanvasName, planBoards, proposeTokens, markEditing, readCanvas, unmarkEditing } from "../src/store";
 
 const board = (t: string) =>
   `<html><head><style>html,body{margin:0;width:390px;height:844px}button{margin:20px}</style></head><body><h1>${t}</h1><button>Pay now</button></body></html>`;
@@ -307,11 +307,11 @@ test("First draft: an empty canvas, places for planned boards, and pi is writing
   await expect(page.getByText("This is a first draft.")).toBeHidden(); // not while boards are still coming
 
   // a tool works on a board: it is marked, then cleared
-  await setEditing(root, empty, "signup", true);
+  await markEditing(root, empty, "signup");
   await expect(page.locator(".hold .lbl").first()).toHaveText("Sign up · pi is writing");
-  await setEditing(root, empty, "welcome", true);
+  await markEditing(root, empty, "welcome");
   await expect(page.locator(".board:not(.hold) .lbl")).toContainText("pi is editing");
   await expect(page.locator("iframe.busy")).toHaveCount(1);
-  await setEditing(root, empty, "welcome", false);
+  await unmarkEditing(root, empty, "welcome");
   await expect(page.locator("iframe.busy")).toHaveCount(0);
 });
