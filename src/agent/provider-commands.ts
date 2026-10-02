@@ -1,11 +1,12 @@
 import { assertProject } from "#core/projects";
 import { addCustomProvider, availableModels, cancelLogin, findModels, listProviders, login } from "#core/providers";
 import { readModelSettings, settingsFile, writeModelSettings } from "#core/settings";
+import type { ModelsPage } from "#protocol";
 import type { Deps, Handlers } from "./handlers";
 
 export function providerCommands({ modelRuntime, send, dialogs }: Deps) {
   return {
-    "settings.models": async (cmd) => {
+    "settings.models": async (cmd): Promise<ModelsPage> => {
       if (cmd.cwd) await assertProject(cmd.cwd);
       return { settings: readModelSettings(cmd.cwd), global: readModelSettings(), providers: listProviders(modelRuntime), models: availableModels(modelRuntime), file: settingsFile(cmd.cwd) };
     },

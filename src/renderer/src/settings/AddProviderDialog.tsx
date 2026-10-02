@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { FoundModel } from "#protocol";
+import { API_KINDS, type ApiKind, type FoundModel } from "#protocol";
 import { actions } from "#renderer/actions";
 import { Button, Kbd, Spinner } from "#renderer/ui/base";
 import { Checkbox, Segmented } from "#renderer/ui/controls";
@@ -7,14 +7,13 @@ import { TextField } from "#renderer/ui/Field";
 import { Icon } from "#renderer/ui/Icon";
 import { Modal, ModalIcon } from "#renderer/ui/Modal";
 
-const APIS = ["openai-completions", "openai-responses", "anthropic-messages"];
 const k = (n: number) => (n >= 1000 ? `${Math.round(n / 1000)}k` : String(n));
 
 /** Board 5a: a server pi calls with one of these APIs, saved in Tenon's models.json. */
 export function AddProviderDialog() {
   const [name, setName] = useState("");
   const [baseUrl, setBaseUrl] = useState("http://localhost:1234/v1");
-  const [api, setApi] = useState(APIS[0]);
+  const [api, setApi] = useState<ApiKind>(API_KINDS[0]);
   const [apiKey, setApiKey] = useState("");
   const [models, setModels] = useState<FoundModel[]>();
   const [picked, setPicked] = useState<Set<string>>(new Set());
@@ -76,7 +75,7 @@ export function AddProviderDialog() {
         </div>
         <div className="flex flex-col gap-1.5">
           <span className="text-xs font-medium text-muted">API</span>
-          <Segmented label="API" value={api} onChange={setApi} options={APIS.map((a) => ({ value: a, label: <span className="font-mono text-xs">{a}</span> }))} />
+          <Segmented label="API" value={api} onChange={setApi} options={API_KINDS.map((a) => ({ value: a, label: <span className="font-mono text-xs">{a}</span> }))} />
         </div>
         <TextField label="API key" type="password" placeholder="Optional for a local server" value={apiKey} onChange={(e) => setApiKey(e.target.value)} hint="Saved in models.json (only readable by you)." />
         <button type="submit" hidden />
