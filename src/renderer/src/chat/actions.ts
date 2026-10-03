@@ -1,4 +1,4 @@
-import type { ModelChoice, SlashCommand } from "#protocol";
+import type { ModelChoice, SlashCommand, ThinkingLevel } from "#protocol";
 import { call } from "#renderer/port";
 import { notice, report, set } from "#renderer/store";
 
@@ -11,7 +11,7 @@ export const chatActions = {
   commands: (key: string) => call<SlashCommand[]>({ type: "session.commands", key }).catch((e) => (report(e), [] as SlashCommand[])),
   models: (key: string) => call<ModelChoice[]>({ type: "session.models", key }).catch((e) => (report(e), [] as ModelChoice[])),
   setModel: (key: string, provider: string, id: string) => call({ type: "session.model", key, provider, id }).catch(report),
-  thinking: (key: string, level: string) => call({ type: "session.thinking", key, level }).catch(report),
+  thinking: (key: string, level: ThinkingLevel) => call({ type: "session.thinking", key, level }).catch(report),
   /** Remove the queued messages. Read them from the live state first, to edit them. */
   dequeue: (key: string) => call({ type: "session.dequeue", key }).catch(report),
   abort: (key: string) => call({ type: "session.abort", key }).catch(report),
