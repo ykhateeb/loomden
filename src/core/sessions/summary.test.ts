@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { previewRows, summarize } from "./summary";
+import { currentBranch, rowsFor, summarize } from "./summary";
 
 const msg = (id: string, parentId: string | null, message: { role: string; content?: unknown; model?: string }) => ({ type: "message", id, parentId, timestamp: "2026-09-29T10:00:00Z", message });
 
@@ -19,8 +19,8 @@ test("model = the last one used; branches = leaves", () => {
   expect(summarize(entries)).toEqual({ model: "gpt-5", branches: 2 });
 });
 
-test("preview = the current branch, short, with labels, tools and the branch point", () => {
-  const rows = previewRows(entries).map((r) => [r.kind, r.tool ?? "", r.text, r.label ?? "", r.branchPoint]);
+test("rows of the current branch: short, with labels, tools and the branch point", () => {
+  const rows = rowsFor(currentBranch(entries), entries).map((r) => [r.kind, r.tool ?? "", r.text, r.label ?? "", r.branchPoint]);
   expect(rows).toEqual([
     ["you", "", "Split the settings screen.", "", false],
     ["pi", "", "Proposed 4 section components", "plan agreed", true],
@@ -48,5 +48,5 @@ test("a pi message with only a tool call keeps its label and branch point", () =
     msg("d", "b", { role: "user", content: "two" }),
     { type: "label", id: "e", parentId: "d", targetId: "b", label: "tests" },
   ];
-  expect(previewRows(es)[1]).toMatchObject({ id: "b", tool: "bash", branchPoint: true, label: "tests" });
+  expect(rowsFor(currentBranch(es), es)[1]).toMatchObject({ id: "b", tool: "bash", branchPoint: true, label: "tests" });
 });

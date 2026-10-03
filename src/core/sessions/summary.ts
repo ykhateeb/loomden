@@ -120,11 +120,6 @@ export function visibleBranch(entries: Entry[]): Entry[] {
   return branch.slice(kept >= 0 && kept < last ? kept : last);
 }
 
-/** Board 1's preview: the current branch (up from the last entry), short, newest last. */
-export function previewRows(entries: Entry[]): PreviewRow[] {
-  return rowsFor(currentBranch(entries), entries);
-}
-
 /** Labels by the entry they mark (the last label entry wins; an empty one removes it). */
 export function labelsOf(entries: Entry[]) {
   const labels = new Map<string, string>();
