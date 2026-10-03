@@ -1,11 +1,11 @@
-import type { DesignCanvas } from "#protocol";
+import type { DesignList } from "#protocol";
 import { call } from "#renderer/port";
 import { getState, report, set } from "#renderer/store";
 
 export const designActions = {
   /** Board C1: read the canvases of a project folder. */
   loadDesign: (cwd: string) =>
-    call<{ canvases: DesignCanvas[]; system?: string }>({ type: "design.list", cwd })
+    call<DesignList>({ type: "design.list", cwd })
       .then((d) => set((s) => ({ design: { ...s.design, [cwd]: d } })))
       .catch(() => {}), // a folder that is no project (yet) has no Design row
   openDesign: (cwd: string, canvas?: string, tab: "canvases" | "system" = "canvases") => {

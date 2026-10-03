@@ -3,6 +3,15 @@ import type { AgentSessionEvent } from "@earendil-works/pi-coding-agent";
 
 export type AgentMessage = Extract<AgentSessionEvent, { type: "message_end" }>["message"];
 
+/** How a message waits while pi works: "steer" goes into the current run, "followUp" waits for its end. */
+export type PromptBehavior = "steer" | "followUp";
+export type LoginMethod = "api_key" | "oauth";
+export type PackageAction = "install" | "remove" | "update";
+export type NoticeLevel = "info" | "warning" | "error";
+/** The APIs a custom provider can speak. */
+export const API_KINDS = ["openai-completions", "openai-responses", "anthropic-messages"] as const;
+export type ApiKind = (typeof API_KINDS)[number];
+
 /** Main's dialogs throw this when the user cancels them. The window does not show it as an error. */
 export const DIALOG_CANCELLED = "Cancelled in the dialog";
 
@@ -141,7 +150,7 @@ export interface FoundModel {
 export interface CustomProvider {
   name: string;
   baseUrl: string;
-  api: string;
+  api: ApiKind;
   apiKey?: string;
   models: { id: string; contextWindow?: number }[];
 }
@@ -162,6 +171,36 @@ export interface ImportResult {
   errors: string[];
   /** Things to do by hand that are not failures (for example: run npm install in a copied extension). */
   notes?: string[];
+}
+
+/** Board C1: the canvases of a project, and the name of its design system. Reply of design.list. */
+export interface DesignList {
+  canvases: DesignCanvas[];
+  system?: string;
+}
+
+/** Board 5: the models page of one scope. Reply of settings.models. */
+export interface ModelsPage {
+  settings: ModelSettings;
+  global: ModelSettings;
+  providers: ProviderRow[];
+  models: ModelChoice[];
+  file: string;
+}
+
+/** What pi decided about a project's own files, and the parent folder the decision comes from. */
+export interface TrustRow {
+  cwd: string;
+  name: string;
+  trusted: boolean | null;
+  from?: string;
+}
+
+/** Board 4: installed packages and project trust. Reply of packages.list. */
+export interface PackageList {
+  global: InstalledPackage[];
+  projects: { cwd: string; name: string; packages: InstalledPackage[] }[];
+  trust: TrustRow[];
 }
 
 /** Board C1: a canvas of a project, for the Design page. */
@@ -236,7 +275,7 @@ export type Command =
   | { type: "session.open"; key: string; cwd: string; path?: string }
   /** Board 1.2: move an open session to another project folder. The chat stays; pi then works in that folder. */
   | { type: "session.move"; key: string; cwd: string }
-  | { type: "session.prompt"; key: string; text: string; behavior?: "steer" | "followUp"; images?: string[] }
+  | { type: "session.prompt"; key: string; text: string; behavior?: PromptBehavior; images?: string[] }
   | { type: "session.commands"; key: string }
   /** Open the design canvas panel of a session (it runs the extension's /canvas). */
   | { type: "session.canvas"; key: string; title?: string }
@@ -255,7 +294,7 @@ export type Command =
   | { type: "session.fork"; key: string; id: string; at: boolean }
   | { type: "settings.models"; cwd?: string }
   | { type: "settings.setModels"; cwd?: string; patch: Partial<Record<keyof ModelSettings, unknown>> }
-  | { type: "providers.login"; providerId: string; method: "api_key" | "oauth" }
+  | { type: "providers.login"; providerId: string; method: LoginMethod }
   | { type: "providers.cancelLogin" }
   | { type: "providers.logout"; providerId: string }
   | { type: "providers.find"; baseUrl: string; api: string; apiKey?: string }
@@ -265,7 +304,7 @@ export type Command =
   | { type: "import.scan" }
   | { type: "import.run"; items: ImportItem[] }
   | { type: "packages.list" }
-  | { type: "packages.change"; action: "install" | "remove" | "update"; source: string; cwd?: string }
+  | { type: "packages.change"; action: PackageAction; source: string; cwd?: string }
   | { type: "packages.gallery"; query: string }
   | { type: "packages.reload" }
   | { type: "session.compact"; key: string }
@@ -299,7 +338,7 @@ export type AgentOut =
   | { type: "message"; key: string; message: AgentMessage; push: boolean }
   | { type: "ui.request"; request: UIRequest }
   | { type: "ui.done"; id: string }
-  | { type: "notify"; key?: string; message: string; level: "info" | "warning" | "error" }
+  | { type: "notify"; key?: string; message: string; level: NoticeLevel }
   | { type: "auth.event"; providerId: string; event: { type: "done" } | { type: "info"; message: string } | { type: "progress"; message: string } | { type: "auth_url"; url: string; instructions?: string } | { type: "device_code"; userCode: string; verificationUri: string; expiresInSeconds?: number } }
   /** One item of an import is done (board 5d). */
   | { type: "import.result"; result: ImportResult }

@@ -5,10 +5,10 @@ import { changePackage, listPackages, searchGallery } from "#core/packages";
 import { assertProject } from "#core/projects";
 import { listSessions } from "#core/sessions/list";
 import { trustList } from "#core/trust";
-import { CODE_ITEMS, type ImportItem, type Project } from "#protocol";
+import { CODE_ITEMS, type ImportItem, type PackageList, type Project } from "#protocol";
 import type { Deps, Handlers } from "./handlers";
 
-async function packagesWithTrust(projects: Project[]) {
+async function packagesWithTrust(projects: Project[]): Promise<PackageList> {
   return { ...(await listPackages(projects)), trust: trustList(projects) };
 }
 

@@ -4,9 +4,9 @@ import { join } from "node:path";
 import { startServer, type CanvasServer } from "#canvas/server";
 import { designSystemDir, listCanvases, projectRoot, readCanvas, readHistory } from "#canvas/store";
 import { readTokens } from "#canvas/tokens";
-import type { DesignCanvas } from "#protocol";
+import type { Command, DesignCanvas, DesignList } from "#protocol";
 
-export async function designList(cwd: string): Promise<{ canvases: DesignCanvas[]; system?: string }> {
+export async function designList(cwd: string): Promise<DesignList> {
   const root = projectRoot(cwd);
   const canvases: DesignCanvas[] = [];
   for (const slug of await listCanvases(root)) {
@@ -37,7 +37,7 @@ export async function designList(cwd: string): Promise<{ canvases: DesignCanvas[
 // ponytail: module state, one copy per agent process; a factory when tests need a clean copy.
 const servers = new Map<string, { server: CanvasServer; key?: string }>();
 
-type DesignTarget = { cwd: string; canvas: string; tab?: "ds" };
+type DesignTarget = Omit<Extract<Command, { type: "design.url" }>, "type">;
 type DesignHost = {
   prompt: (key: string, text: string) => Promise<void>;
   build: (cwd: string, pack: { title: string; text: string }) => void;

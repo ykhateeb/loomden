@@ -1,17 +1,17 @@
-import type { GalleryItem } from "#protocol";
+import type { GalleryItem, PackageAction, PackageList, TrustRow } from "#protocol";
 import { call } from "#renderer/port";
-import { getState, notice, type Packages, report, set } from "#renderer/store";
+import { getState, notice, report, set } from "#renderer/store";
 
 export const packageActions = {
   loadPackages: () =>
-    call<Packages>({ type: "packages.list" })
+    call<PackageList>({ type: "packages.list" })
       .then((packages) => set({ packages }))
       .catch(report),
   /**
    * Install asks main's own dialog first (installing runs code); the agent refuses an install main did not confirm.
    * `onDone` runs when the change worked.
    */
-  changePackage: async ({ action, source, cwd, onDone }: { action: "install" | "remove" | "update"; source: string; cwd?: string; onDone?: () => void }) => {
+  changePackage: async ({ action, source, cwd, onDone }: { action: PackageAction; source: string; cwd?: string; onDone?: () => void }) => {
     try {
       if (action !== "remove") await window.tenon.confirmInstall(action, source, cwd);
     } catch (e) {
@@ -42,7 +42,7 @@ export const packageActions = {
   },
   setTrust: (cwd: string, trusted: boolean | null) =>
     call({ type: "trust.set", cwd, trusted })
-      .then(() => call<Packages["trust"]>({ type: "trust.list" }))
+      .then(() => call<TrustRow[]>({ type: "trust.list" }))
       .then((trust) => set((s) => ({ savedAt: Date.now(), packages: s.packages ? { ...s.packages, trust } : { global: [], projects: [], trust } })))
       .catch(report),
 };

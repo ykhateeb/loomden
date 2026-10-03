@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
-import type { LiveState, ModelChoice, SlashCommand } from "#protocol";
+import type { LiveState, ModelChoice, PromptBehavior, SlashCommand } from "#protocol";
 import { actions } from "#renderer/actions";
 import { useStore } from "#renderer/store";
 import { Button, cx, IconButton, Kbd, pill, Pill } from "#renderer/ui/base";
@@ -75,7 +75,7 @@ export function Composer({ sessionKey, state }: { sessionKey: string; state: Liv
 
   // While pi works: Enter steers the current run (as in terminal pi), ⌥Enter waits for the run to end.
   // The text and images stay until pi accepts them, so a failed send (a moved image) loses nothing.
-  const send = async (behavior: "steer" | "followUp") => {
+  const send = async (behavior: PromptBehavior) => {
     if ((!text.trim() && images.length === 0) || sending) return;
     setSending(true);
     const [sentText, sentImages] = [text, images];

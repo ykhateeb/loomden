@@ -1,7 +1,7 @@
 import { existsSync, statSync } from "node:fs";
 import { basename, dirname, extname } from "node:path";
 import { DefaultPackageManager, getAgentDir, ProjectTrustStore, type ProgressEvent, SettingsManager } from "@earendil-works/pi-coding-agent";
-import type { GalleryItem, InstalledPackage, Project } from "#protocol";
+import type { GalleryItem, InstalledPackage, PackageAction, Project } from "#protocol";
 
 /** The npm search of the gallery: a slow registry is an error, not a wait with no end. */
 const GALLERY_TIMEOUT_MS = 8000;
@@ -65,7 +65,7 @@ export async function listPackages(projects: Project[]) {
 }
 
 /** Board 4: install, remove, update. `cwd` = one project (--local); none = global. Progress goes to `onProgress`. */
-export async function changePackage(action: "install" | "remove" | "update", source: string, cwd: string | undefined, onProgress: (e: ProgressEvent) => void, anyCwd: string) {
+export async function changePackage(action: PackageAction, source: string, cwd: string | undefined, onProgress: (e: ProgressEvent) => void, anyCwd: string) {
   const pm = manager(cwd ?? anyCwd);
   pm.setProgressCallback(onProgress);
   const local = !!cwd;

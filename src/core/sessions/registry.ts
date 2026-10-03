@@ -3,7 +3,7 @@ import { existsSync, rmSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { promisify } from "node:util";
 import { type ModelRuntime, SessionManager } from "@earendil-works/pi-coding-agent";
-import type { AgentMessage, ModelChoice, Send, SlashCommand } from "#protocol";
+import type { AgentMessage, ModelChoice, NoticeLevel, PromptBehavior, Send, SlashCommand } from "#protocol";
 import { readImage } from "#core/attachments";
 import type { Grants } from "#core/grants";
 import { forwardEvents } from "./events";
@@ -32,7 +32,7 @@ export function createRegistry({ send, modelRuntime, grants, dialogs }: { send: 
   const opening = new Map<string, Promise<void>>();
   const runtimes = createRuntimes({ send, modelRuntime, ask: dialogs.ask });
 
-  const notify = (level: "info" | "warning" | "error", message: string, key?: string) => send({ type: "notify", key, level, message });
+  const notify = (level: NoticeLevel, message: string, key?: string) => send({ type: "notify", key, level, message });
   const sendMessages = (key: string, session: Session) => send({ type: "messages", key, messages: session.messages as AgentMessage[] });
   // A run can end after its session was closed (deleted while it streamed): then there is nothing to send.
   const sendState = (key: string) => live.has(key) && send({ type: "state", state: liveState(key, get(key)) });
@@ -134,7 +134,7 @@ export function createRegistry({ send, modelRuntime, grants, dialogs }: { send: 
      * Resolves when pi accepted the message (its checks passed: model, key, not compacting), and rejects
      * with pi's reason if not. The run itself continues; its errors arrive as notices.
      */
-    async prompt(key: string, text: string, behavior?: "steer" | "followUp", imagePaths: string[] = []) {
+    async prompt(key: string, text: string, behavior?: PromptBehavior, imagePaths: string[] = []) {
       const entry = get(key);
       const s = entry.rt.session;
       const images = await Promise.all(imagePaths.map((path) => readImage(grants, path)));

@@ -2,7 +2,7 @@ import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { expect, test } from "vitest";
 import { findModels, literalKey, mergeProvider, validateCustomProvider } from "./providers";
-import type { CustomProvider } from "#protocol";
+import type { ApiKind, CustomProvider } from "#protocol";
 
 test("a typed key stays a literal in models.json (no command, no environment variable)", () => {
   expect(literalKey("sk-abc")).toBe("sk-abc");
@@ -39,7 +39,7 @@ test("a custom provider from the window must pass each check", () => {
   expect(() => validateCustomProvider(provider())).not.toThrow();
   expect(() => validateCustomProvider(provider({ name: "../x" }))).toThrow("name");
   expect(() => validateCustomProvider(provider({ baseUrl: "file:///etc" }))).toThrow("base URL");
-  expect(() => validateCustomProvider(provider({ api: "grpc" }))).toThrow("APIs");
+  expect(() => validateCustomProvider(provider({ api: "grpc" as ApiKind }))).toThrow("APIs"); // the window can send any string
   expect(() => validateCustomProvider(provider({ models: [] }))).toThrow("at least one model");
   expect(() => validateCustomProvider(provider({ models: [{ id: "x".repeat(201) }] }))).toThrow("at least one model");
   expect(() => validateCustomProvider(provider({ models: [{ id: "q", contextWindow: 1.5 }] }))).toThrow("whole number");

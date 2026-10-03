@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { getAgentDir, type ModelRuntime } from "@earendil-works/pi-coding-agent";
-import type { CustomProvider, FoundModel, ModelChoice, ProviderRow, Send } from "#protocol";
+import { API_KINDS, type CustomProvider, type FoundModel, type LoginMethod, type ModelChoice, type ProviderRow, type Send } from "#protocol";
 import type { Dialogs } from "#core/sessions/extension-ui";
 import { writePrivateJson } from "./settings";
 
@@ -44,7 +44,7 @@ let activeLogin: AbortController | undefined;
  * Board 5 "Add key" and 5b "Log in with a subscription": pi asks through the dialogs in the window and
  * reports links and codes as auth events. pi saves the credential in the shared auth.json itself.
  */
-export async function login(rt: ModelRuntime, providerId: string, type: "api_key" | "oauth", { send, ask }: { send: Send; ask: Dialogs["ask"] }) {
+export async function login(rt: ModelRuntime, providerId: string, type: LoginMethod, { send, ask }: { send: Send; ask: Dialogs["ask"] }) {
   activeLogin?.abort();
   const controller = (activeLogin = new AbortController());
   const cancelled = () => new Error("Login cancelled");
@@ -76,7 +76,6 @@ export function cancelLogin() {
   activeLogin?.abort();
 }
 
-export const API_KINDS = ["openai-completions", "openai-responses", "anthropic-messages"] as const;
 const modelsFile = () => join(getAgentDir(), "models.json");
 
 /** A missing file is empty. Any other problem stops the change: a rewrite would drop what Tenon could not read. */
