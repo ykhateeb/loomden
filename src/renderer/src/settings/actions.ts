@@ -1,7 +1,7 @@
 import type { CustomProvider, ImportItem, ModelSettings } from "#protocol";
 import { call } from "#renderer/port";
 import { sessionActions } from "#renderer/sessions/actions";
-import { getState, notice, report, set } from "#renderer/store";
+import { getState, type Login, notice, report, set } from "#renderer/store";
 
 // Each loadModels() call gets a number; only the newest one's reply is shown.
 let modelsAsk = 0;
@@ -27,7 +27,7 @@ export const settingsActions = {
       .then((modelsPage) => set((s) => (s.modelsCwd !== cwd ? { savedAt: Date.now() } : { savedAt: Date.now(), modelsPage })))
       .catch(report),
   /** Board 5 "Add key" / 5b subscription login. pi's questions come as dialogs; links open in the browser. */
-  login: async (providerId: string, method: "api_key" | "oauth") => {
+  login: async (providerId: string, method: Login["method"]) => {
     const mine = { providerId, method, startedAt: Date.now() };
     set({ login: mine });
     try {

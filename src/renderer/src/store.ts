@@ -1,8 +1,10 @@
 import { useSyncExternalStore } from "react";
 import type { Host } from "#preload";
-import { type AgentMessage, type DesignList, DIALOG_CANCELLED, type ImportResult, type LiveState, type ModelsPage, type PackageList, type Project, type SessionRow, type UIRequest } from "#protocol";
+import { type AgentMessage, type AgentOut, type Command, type DesignList, DIALOG_CANCELLED, type ImportResult, type LiveState, type ModelsPage, type PackageList, type Project, type SessionRow, type UIRequest } from "#protocol";
 
-export type Login = { providerId: string; method: "api_key" | "oauth"; startedAt: number; url?: string; code?: { userCode: string; verificationUri: string }; message?: string };
+export type Login = { providerId: string; method: Extract<Command, { type: "providers.login" }>["method"]; startedAt: number; url?: string; code?: Pick<DeviceCode, "userCode" | "verificationUri">; message?: string };
+
+type DeviceCode = Extract<Extract<AgentOut, { type: "auth.event" }>["event"], { type: "device_code" }>;
 
 declare global {
   interface Window {
@@ -13,7 +15,7 @@ declare global {
 export interface Notice {
   id: number;
   message: string;
-  level: "info" | "warning" | "error";
+  level: Extract<AgentOut, { type: "notify" }>["level"];
   /** A button in the toast, like Undo. */
   action?: { label: string; run: () => void };
 }
