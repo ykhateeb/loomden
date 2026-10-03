@@ -28,6 +28,14 @@ export interface SessionRow {
   branches: number;
 }
 
+/** The agent's answer to sessions.list. */
+export interface SessionList {
+  projects: Project[];
+  sessions: SessionRow[];
+  /** The folder of sessions with no project (board 1.1). Not in `projects`. */
+  noProject: string;
+}
+
 /** A short line of a session, for board 1's preview (and the tree later). */
 export interface PreviewRow {
   id: string;
@@ -99,6 +107,21 @@ export interface InstalledPackage {
   resources: { extensions: string[]; skills: string[]; prompts: string[]; themes: string[] };
 }
 
+/** Board 4, right: what pi decided for the files of one project. `from` is the parent folder that has the decision. */
+export interface TrustRow {
+  cwd: string;
+  name: string;
+  trusted: boolean | null;
+  from?: string;
+}
+
+/** Board 4: global packages, the packages of each project, and project trust. */
+export interface PackageList {
+  global: InstalledPackage[];
+  projects: { cwd: string; name: string; packages: InstalledPackage[] }[];
+  trust: TrustRow[];
+}
+
 export interface GalleryItem {
   name: string;
   version: string;
@@ -113,6 +136,15 @@ export interface ModelSettings {
   defaultThinkingLevel?: string;
   /** Quick switch favorites (⌃P), as provider/model patterns. */
   enabledModels?: string[];
+}
+
+/** Board 5: the settings page data. `file` is the settings file that it comes from. */
+export interface ModelsPage {
+  settings: ModelSettings;
+  global: ModelSettings;
+  providers: ProviderRow[];
+  models: ModelChoice[];
+  file: string;
 }
 
 /** Board 5: one provider and how pi is connected to it. */
@@ -176,6 +208,12 @@ export interface DesignCanvas {
   updated: number;
   openNotes: number;
   status: "draft" | "review" | "approved";
+}
+
+/** Board C1: the canvases of a project, and its design system. */
+export interface DesignList {
+  canvases: DesignCanvas[];
+  system?: string;
 }
 
 /** A row of the / menu (board 2c). */
@@ -282,6 +320,26 @@ export type Command =
   | { type: "session.close"; path: string }
   | { type: "project.remove"; cwd: string }
   | { type: "ui.answer"; id: string; value: unknown };
+
+/** The reply data of each command that answers with data. */
+type DataReplies = {
+  "sessions.list": SessionList;
+  "session.commands": SlashCommand[];
+  "session.models": ModelChoice[];
+  "sessions.search": SearchResult[];
+  "session.tree": SessionTree;
+  "design.list": DesignList;
+  "design.url": string;
+  "settings.models": ModelsPage;
+  "providers.find": FoundModel[];
+  "trust.list": TrustRow[];
+  "import.scan": ImportScan;
+  "packages.list": PackageList;
+  "packages.gallery": GalleryItem[];
+  "files.search": string[];
+};
+/** The reply of each command. The agent handlers must return it, and `call()` in the window gets it. */
+export type Replies = DataReplies & Record<Exclude<Command["type"], keyof DataReplies>, void>;
 
 export type Request = Command & { rid: number };
 

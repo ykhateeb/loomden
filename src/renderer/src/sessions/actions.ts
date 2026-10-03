@@ -1,12 +1,12 @@
-import type { SearchResult } from "#protocol";
+import type { SearchResult, SessionList } from "#protocol";
 import { folderName } from "#renderer/chat/format";
 import { designActions } from "#renderer/design/actions";
 import { call } from "#renderer/port";
-import { getState, notice, report, type SessionList, set, type Tab } from "#renderer/store";
+import { getState, notice, report, set, type Tab } from "#renderer/store";
 
 export const sessionActions = {
   refresh: () =>
-    call<SessionList>({ type: "sessions.list" })
+    call({ type: "sessions.list" })
       .then((r) => {
         set(r);
         for (const p of r.projects) designActions.loadDesign(p.cwd);
@@ -66,7 +66,7 @@ export const sessionActions = {
       await sessionActions.move(key, cwd);
     }),
   search: (query: string, titlesOnly: boolean, cwd?: string) =>
-    call<SearchResult[]>({ type: "sessions.search", query, titlesOnly, cwd }).catch((e) => (report(e), [] as SearchResult[])),
+    call({ type: "sessions.search", query, titlesOnly, cwd }).catch((e) => (report(e), [] as SearchResult[])),
   setSearching: (searching: boolean) => set({ searching }),
   /** Open a search result and mark the message (or only open it, for a title match). */
   openAt: async (cwd: string, path: string, at?: number) => {

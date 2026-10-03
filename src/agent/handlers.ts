@@ -2,10 +2,10 @@ import type { ModelRuntime } from "@earendil-works/pi-coding-agent";
 import type { Grants } from "#core/grants";
 import type { Dialogs } from "#core/sessions/extension-ui";
 import type { createRegistry } from "#core/sessions/registry";
-import type { AgentOut, Command, Send } from "#protocol";
+import type { AgentOut, Command, Replies, Send } from "#protocol";
 
-/** One handler for each window command. tsc fails if a command has no handler. */
-export type Handlers = { [K in Command["type"]]: (cmd: Extract<Command, { type: K }>) => unknown };
+/** One handler for each window command. tsc fails if a command has no handler, or if a handler returns a different reply. */
+export type Handlers = { [K in Command["type"]]: (cmd: Extract<Command, { type: K }>) => Replies[K] | Promise<Replies[K]> };
 
 /** The agent state that the handlers use. `src/agent/index.ts` makes each part once. */
 export interface Deps {

@@ -1,10 +1,9 @@
-import type { GalleryItem } from "#protocol";
 import { call } from "#renderer/port";
-import { getState, notice, type Packages, report, set } from "#renderer/store";
+import { getState, notice, report, set } from "#renderer/store";
 
 export const packageActions = {
   loadPackages: () =>
-    call<Packages>({ type: "packages.list" })
+    call({ type: "packages.list" })
       .then((packages) => set({ packages }))
       .catch(report),
   /**
@@ -33,7 +32,7 @@ export const packageActions = {
       });
     }
   },
-  gallery: (query: string) => call<GalleryItem[]>({ type: "packages.gallery", query }),
+  gallery: (query: string) => call({ type: "packages.gallery", query }),
   reloadPackages: () => {
     const n = Object.keys(getState().live).length; // the agent reloads each open session
     return call({ type: "packages.reload" })
@@ -42,7 +41,7 @@ export const packageActions = {
   },
   setTrust: (cwd: string, trusted: boolean | null) =>
     call({ type: "trust.set", cwd, trusted })
-      .then(() => call<Packages["trust"]>({ type: "trust.list" }))
+      .then(() => call({ type: "trust.list" }))
       .then((trust) => set((s) => ({ savedAt: Date.now(), packages: s.packages ? { ...s.packages, trust } : { global: [], projects: [], trust } })))
       .catch(report),
 };

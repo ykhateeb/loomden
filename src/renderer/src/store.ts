@@ -1,15 +1,8 @@
 import { useSyncExternalStore } from "react";
 import type { Host } from "#preload";
-import { type AgentMessage, type DesignCanvas, DIALOG_CANCELLED, type ImportResult, type InstalledPackage, type LiveState, type ModelChoice, type ModelSettings, type Project, type ProviderRow, type SessionRow, type UIRequest } from "#protocol";
+import { type AgentMessage, type DesignList, DIALOG_CANCELLED, type ImportResult, type LiveState, type ModelsPage, type PackageList, type Project, type SessionRow, type UIRequest } from "#protocol";
 
-export type ModelsPage = { settings: ModelSettings; global: ModelSettings; providers: ProviderRow[]; models: ModelChoice[]; file: string };
 export type Login = { providerId: string; method: "api_key" | "oauth"; startedAt: number; url?: string; code?: { userCode: string; verificationUri: string }; message?: string };
-
-export type Packages = {
-  global: InstalledPackage[];
-  projects: { cwd: string; name: string; packages: InstalledPackage[] }[];
-  trust: { cwd: string; name: string; trusted: boolean | null; from?: string }[];
-};
 
 declare global {
   interface Window {
@@ -50,7 +43,7 @@ export interface State {
   /** Goes up when a tree changes without a new message (switch, label, fork): tree views fetch again. */
   treeStamp: number;
   /** Board 4: installed packages and project trust (loaded when the Packages tab opens). */
-  packages?: Packages;
+  packages?: PackageList;
   /** Package installs, removes and updates that run now, by source. */
   packageWork: Record<string, { action: string; message?: string }>;
   /** Board 5: the settings page data, for the scope it was read for. */
@@ -70,16 +63,13 @@ export interface State {
   /** The settings page to show (the Packages "Change" link opens Project trust). */
   settingsPage: "models" | "trust";
   /** Board C1: the canvases of each project folder, and the Design page when it is open. */
-  design: Record<string, { canvases: DesignCanvas[]; system?: string }>;
+  design: Record<string, DesignList>;
   designPage?: { cwd: string; canvas?: string; tab: "canvases" | "system" };
   /** Each session's design canvas: the server address, and whether the panel is open. */
   canvas: Record<string, { url: string; open: boolean }>;
   /** Dev: the text the ⌘K search starts with. */
   devSearch?: string;
 }
-
-/** The agent's answer to sessions.list, and to the commands that change the list. */
-export type SessionList = Pick<State, "projects" | "sessions" | "noProject">;
 
 let state: State = { agent: "starting", tab: "sessions", projects: [], sessions: [], live: {}, messages: {}, dialogs: [], notices: [], searching: false, view: {}, drafts: {}, treeStamp: 0, packageWork: {}, addingProvider: false, importing: false, importResults: [], settingsPage: "models", canvas: {}, design: {} };
 const listeners = new Set<() => void>();

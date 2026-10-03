@@ -1,10 +1,9 @@
-import type { SessionTree } from "#protocol";
 import { call } from "#renderer/port";
 import { sessionActions } from "#renderer/sessions/actions";
 import { getState, notice, report, set } from "#renderer/store";
 
 export const treeActions = {
-  tree: (key: string) => call<SessionTree>({ type: "session.tree", key }).catch((e) => (report(e), undefined)),
+  tree: (key: string) => call({ type: "session.tree", key }).catch((e) => (report(e), undefined)),
   /** Switch to a point. A user message comes back as a draft (an agent event) to edit and send. */
   navigate: (key: string, id: string, summarize: boolean) =>
     call({ type: "session.navigate", key, id, summarize })

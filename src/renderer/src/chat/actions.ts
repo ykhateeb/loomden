@@ -8,8 +8,8 @@ export const chatActions = {
     call({ type: "session.prompt", key, text, behavior, images }).then(onAccepted, report),
   /** Remove the text pi gave back for the message box (after a switch or fork). Read it in `drafts` first. */
   clearDraft: (key: string) => set((s) => ({ drafts: Object.fromEntries(Object.entries(s.drafts).filter(([k]) => k !== key)) })),
-  commands: (key: string) => call<SlashCommand[]>({ type: "session.commands", key }).catch((e) => (report(e), [] as SlashCommand[])),
-  models: (key: string) => call<ModelChoice[]>({ type: "session.models", key }).catch((e) => (report(e), [] as ModelChoice[])),
+  commands: (key: string) => call({ type: "session.commands", key }).catch((e) => (report(e), [] as SlashCommand[])),
+  models: (key: string) => call({ type: "session.models", key }).catch((e) => (report(e), [] as ModelChoice[])),
   setModel: (key: string, provider: string, id: string) => call({ type: "session.model", key, provider, id }).catch(report),
   thinking: (key: string, level: ThinkingLevel) => call({ type: "session.thinking", key, level }).catch(report),
   /** Remove the queued messages. Read them from the live state first, to edit them. */
@@ -21,5 +21,5 @@ export const chatActions = {
       .then(() => notice("Context reloaded", "info"))
       .catch(report),
   setTools: (key: string, names: string[]) => call({ type: "session.tools", key, names }).catch(report),
-  searchFiles: (cwd: string, query: string) => call<string[]>({ type: "files.search", cwd, query }).catch(() => [] as string[]),
+  searchFiles: (cwd: string, query: string) => call({ type: "files.search", cwd, query }).catch(() => [] as string[]),
 };

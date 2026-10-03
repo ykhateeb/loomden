@@ -38,7 +38,7 @@ The app has three processes:
 
 ### Add a window command
 
-1. Add a variant to `Command` in `src/protocol.ts`.
+1. Add a variant to `Command` in `src/protocol.ts`. If the command answers with data, add its reply type to `DataReplies` there. `tsc` then checks the handler and the `call()` in the window.
 2. Add its handler to the `<area>Commands()` map in `src/agent/<area>-commands.ts`. `tsc` fails until each `Command` type has a handler. For a new area, add a new file, and add its map to `createHandle()` in `src/agent/index.ts`.
 3. Guard each value from the window (see "Trust model").
 4. Add an action to `src/renderer/src/<feature>/actions.ts` that sends the command with `call()`.
