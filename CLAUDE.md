@@ -137,7 +137,17 @@ Follow Clean Code, Clean Architecture, and Effective TypeScript. The rules below
 
 ### Change size
 
-- A reviewer must be able to review each commit in 5 minutes or less.
+- Each pull request is one self-contained change that works alone.
+- Aim for 200 changed lines or fewer, tests included. Lockfiles, generated files, and deleted files do not count.
+- Avoid pull requests above 400 changed lines. Allow a larger one only when:
+  - a split would harm correctness or reviewability, or
+  - the change is mechanical (a rename, a move, or a codemod).
+- Do not remove tests or move them to a later pull request to make a pull request smaller. If the tests make it large, that is a valid exception.
+- Put a mechanical change in its own commit, apart from the changes that you wrote by hand.
+- For each exception, write in the description:
+  - why you did not split the change,
+  - the order to read the files,
+  - the validation: the commands that you ran and their results, or the command that made the mechanical change.
 - Ship small working parts. Each commit is one complete small cycle: the change, its tests, and a pass of `npm run typecheck`, `npm test`, and `npm run build`.
 - Split a large task into a series of such commits. Commit each part before you start the next one.
 - Put a refactor and a behavior change in different commits.
@@ -145,7 +155,7 @@ Follow Clean Code, Clean Architecture, and Effective TypeScript. The rules below
 ### Pull requests
 
 - Do not commit directly to `main`. Make a branch for each task, push it, and open a pull request to `main`.
-- One pull request has one topic. It has the same size limit as a commit (see "Change size").
+- One pull request has one topic. Its size follows "Change size".
 - CI (`.github/workflows/ci.yml`) runs `npm run typecheck`, `npm test`, and `npm run build` on each pull request, and a merge to `main` needs it to pass. Run the same checks locally before you open or update a pull request. CI does not run the e2e tests: if you changed the agent or the UI, run `npm run test:e2e` locally after the build.
 - The description follows `.github/pull_request_template.md`. Its parts are:
   - **Summary:** the problem, and what the change does about it.
