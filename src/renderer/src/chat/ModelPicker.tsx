@@ -4,12 +4,8 @@ import { actions } from "#renderer/actions";
 import { pill } from "#renderer/ui/base";
 import { Icon } from "#renderer/ui/Icon";
 import { Menu, type MenuItem } from "#renderer/ui/Menu";
+import { MENU_MAX_HEIGHT, menuAbove } from "./menu-position";
 
-// A menu opens above its button, so its height is estimated before it renders.
-const ROW_HEIGHT = 34;
-const MENU_PADDING = 16;
-const MODEL_MENU_MAX_HEIGHT = 360;
-const GAP = 8;
 const MODEL_MENU_WIDTH = 300;
 const THINKING_MENU_WIDTH = 180;
 
@@ -23,7 +19,7 @@ export function ModelPicker({ sessionKey, state }: { sessionKey: string; state: 
     const r = el.getBoundingClientRect();
     const models: ModelChoice[] = await actions.models(sessionKey);
     setMenu({
-      at: above(r, Math.min(models.length * ROW_HEIGHT + MENU_PADDING, MODEL_MENU_MAX_HEIGHT)),
+      at: menuAbove(r, Math.max(models.length, 1)), // no models still shows one row
       label: "Model",
       width: MODEL_MENU_WIDTH,
       items: models.length
@@ -40,7 +36,7 @@ export function ModelPicker({ sessionKey, state }: { sessionKey: string; state: 
 
   const openThinking = (el: HTMLElement) =>
     setMenu({
-      at: above(el.getBoundingClientRect(), state.thinkingLevels.length * ROW_HEIGHT + MENU_PADDING),
+      at: menuAbove(el.getBoundingClientRect(), state.thinkingLevels.length),
       label: "Thinking",
       width: THINKING_MENU_WIDTH,
       items: state.thinkingLevels.map((l) => ({ id: l, label: l, icon: checkMark(l === state.thinking), onSelect: () => actions.thinking(sessionKey, l) })),
@@ -59,14 +55,9 @@ export function ModelPicker({ sessionKey, state }: { sessionKey: string; state: 
           <Icon name="chevronDown" size={12} />
         </button>
       )}
-      {menu && <Menu at={menu.at} label={menu.label} items={menu.items} width={menu.width} onClose={() => setMenu(undefined)} />}
+      {menu && <Menu at={menu.at} label={menu.label} items={menu.items} width={menu.width} maxHeight={MENU_MAX_HEIGHT} onClose={() => setMenu(undefined)} />}
     </>
   );
-}
-
-/** Where a menu of `height` starts, so that it ends just above the button at `r`. */
-function above(r: DOMRect, height: number) {
-  return { x: r.left, y: r.top - height - GAP };
 }
 
 function checkMark(on: boolean) {
