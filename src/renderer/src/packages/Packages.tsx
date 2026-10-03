@@ -11,6 +11,7 @@ import { Icon } from "#renderer/ui/Icon";
 import { isTypingTarget } from "#renderer/ui/keys";
 import { Menu, type MenuItem } from "#renderer/ui/Menu";
 import { Callout, Card, CardBody, CardHeader, ListItem } from "#renderer/ui/surfaces";
+import { TRUST, trustChoice } from "./trust";
 
 type Show = "all" | "global" | "projects";
 const galleryTones: Record<GalleryItem["kind"], PillTone> = { skills: "violet", extension: "orange", theme: "accent", prompts: "ok" };
@@ -245,9 +246,7 @@ export function Packages() {
               <div key={t.cwd} className="flex items-center gap-2">
                 <span className="text-muted"><Icon name="folder" size={13} /></span>
                 <span className="truncate text-sub">{t.name}</span>
-                <span className={cx("ml-auto shrink-0", t.trusted === true ? "text-ok" : t.trusted === false ? "text-warn" : "text-muted")}>
-                  {t.trusted === true ? "✓ trusted" : t.trusted === false ? "✗ not trusted" : "not asked yet"}
-                </span>
+                <span className={cx("ml-auto shrink-0", TRUST[trustChoice(t.trusted)].className)}>{TRUST[trustChoice(t.trusted)].status}</span>
               </div>
             ))}
             <span className="text-xs text-muted">Project packages load only in trusted projects.</span>
