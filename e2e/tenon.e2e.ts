@@ -7,6 +7,9 @@ import { _electron as electron, expect, test } from "@playwright/test";
 import { approve, createBoard } from "#canvas/store";
 
 // Needs a build first: npm run build
+// The tests do not need a visible window, so a run does not take the focus. TENON_HIDE_WINDOW=0 shows it.
+process.env.TENON_HIDE_WINDOW ??= "1";
+
 test("/canvas in Tenon opens the canvas panel next to the chat", async () => {
   const tenonDir = await mkdtemp(join(tmpdir(), "tenon-app-"));
   const html = "<html><body style='margin:0;width:390px;height:844px'><h1>Cart</h1></body></html>";

@@ -25,6 +25,7 @@ Tenon is an Electron desktop app for pi (`@earendil-works/pi-coding-agent`), a c
   - `TENON_SEARCH=<text>`, `TENON_TAB=sessions|packages|settings`, `TENON_DIALOG=provider|import`.
 - `npm run gallery` (`TENON_GALLERY=1`): show the UI design system page (`src/renderer/src/ui/Gallery.tsx`). `TENON_GALLERY=open` also opens its menu and dialog.
 - `TENON_NO_OPEN=1`: the canvas extension does not open a browser.
+- `TENON_HIDE_WINDOW=1`: the app window does not show. `e2e/tenon.e2e.ts` sets it, so a test run does not take the focus. Set `TENON_HIDE_WINDOW=0` to watch a run.
 
 ## Architecture
 
