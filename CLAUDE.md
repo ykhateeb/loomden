@@ -65,6 +65,7 @@ The window shows model output, so the agent and main treat each value from the w
 - Tenon keeps its own pi agent folder at `~/.tenon/agent`. Main sets `PI_CODING_AGENT_DIR` to it.
 - Tenon shares only `auth.json` with terminal pi. The import feature copies other items from `~/.pi/agent`.
 - `src/core/paths.ts` reads `TENON_DIR` and `TENON_PI_DIR` when a module imports it. A test that touches these folders sets `process.env` first and then uses `await import(…)`. A static import uses the real `~/.tenon`.
+- In the agent, `paths.ts` is the only module that reads the environment, and `settings.ts` holds the helpers that read and write the settings files. These two are the config modules.
 
 ### Build
 
@@ -90,12 +91,12 @@ From Clean Code, Clean Architecture, and common practice. The sections below app
 - **Meaningful names:** a name tells why the value exists. If a name needs a comment, change the name. Give each magic number or string a named `const`.
 - **Explanatory variables:** put each middle result of a long expression in a `const` with a name.
 - **Encapsulate conditionals:** give a complex condition a name, for example `if (shouldSkip(p))` instead of `if (p.a && !p.b || p.c)`.
-- **Positive conditionals:** write a condition in the positive form, for example `if (installed)`, not `if (!notInstalled)`.
+- **Positive conditionals:** write a condition in the positive form, for example `if (isInstalled)`, not `if (!isNotInstalled)`.
 - **Avoid deep nesting:** return early for each guard case, so the main path has the lowest indent.
 - **No flag arguments:** write two functions instead of one function with a boolean that selects between two behaviors.
 - **No side effects:** a function does only what its name says. If it must change other state, put that change in its name.
 - **Command-query separation:** a function changes state or returns an answer, not both.
-- **Dependency Rule:** dependencies point inward, to the logic. `src/core/` imports no `electron`, `#renderer/*`, or `#preload` code. The renderer talks to the agent only through `#protocol`.
+- **Dependency Rule:** dependencies point inward, to the logic. `src/core/` imports no `electron`, `#renderer/*`, or `#preload` code. The renderer talks to the agent only through `#protocol`. pi is the platform of Tenon, not a detail: `src/core/` and `src/agent/` import pi directly, with no port.
 - **Humble Object:** keep disk, network, and pi calls in a thin shell. Put the decisions in a pure function, so a unit test can call it with no disk.
 
 ### Modules
@@ -121,14 +122,16 @@ From Clean Code, Clean Architecture, and common practice. The sections below app
 - `tsconfig.json` has `strict: true`. Write new code without `any`. Old uses remain in `packages/tenon-canvas/`.
 - Give data from outside the process (window commands, files, JSON) the type `unknown`, and narrow it before use.
 - Derive types from their source: use `Command` and `AgentOut` from `#protocol`, and `Extract<…>`, `Pick<…>`, or `ReturnType<…>`, instead of a second copy of the shape.
+- `src/protocol.ts` derives `AgentMessage` from the pi type `AgentSessionEvent`, so the window gets pi messages unchanged. The import is type-only, so no pi code loads in the renderer.
 - Use a union of string literals for a fixed set of values, not an `enum`.
-- Give each exported function an explicit parameter type. Let `tsc` infer local variables.
+- Give each exported function an explicit parameter type. Let `tsc` infer its return type and local variables.
 
 ### Imports
 
 - Use `./x` in the same folder. For any other folder, use a `#` alias from the `"imports"` field of `package.json` (`#protocol`, `#preload`, `#core/*`, `#renderer/*`, `#canvas/*`). Do not use `../`.
 - `tsconfig.json` `paths` repeats the wildcard aliases, because `tsc` does not add `.ts`/`.tsx` to them. If you add an alias, change both files.
-- Import each file directly. The folders have no `index.ts` barrel files.
+- Import each file directly. The folders have no `index.ts` barrel files. A barrel would load `src/core/paths.ts` before a test sets `process.env` (see "Data locations"). It would also put agent-only code (`import.meta.dirname`) in the main build (see "Build").
+- No tool enforces the layer boundaries. A reviewer checks each import against the Dependency Rule (see "Principles").
 - Code in `packages/tenon-canvas/` does not use the aliases. Terminal pi loads it without this app.
 
 ### Tests
