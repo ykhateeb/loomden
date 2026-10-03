@@ -46,6 +46,16 @@ test("a pick replaces the typed token", () => {
   expect(applyPick("fix @ref please", t, "src/refresh.ts")).toEqual({ text: "fix @src/refresh.ts please", caret: 20 });
 });
 
+import { splitAttachments } from "./format";
+
+test("attachments: images as pictures, other files as @refs relative to the project", () => {
+  const paths = ["/p/app/shot.PNG", "/p/app/src/a.ts", "/elsewhere/notes.md", "/p/application/b.ts"];
+  expect(splitAttachments(paths, "/p/app")).toEqual({
+    images: ["/p/app/shot.PNG"],
+    refs: ["@src/a.ts", "@/elsewhere/notes.md", "@/p/application/b.ts"],
+  });
+});
+
 import { parseDiff, plural } from "./format";
 
 test("plural picks the word for the count", () => {

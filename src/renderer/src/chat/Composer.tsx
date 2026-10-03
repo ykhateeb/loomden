@@ -7,9 +7,7 @@ import { Icon } from "#renderer/ui/Icon";
 import { Menu, type MenuItem } from "#renderer/ui/Menu";
 import type { Behavior } from "./actions";
 import { CommandMenu, type Row } from "./CommandMenu";
-import { applyPick, findTrigger, folderName } from "./format";
-
-const IMAGE = /\.(png|jpe?g|gif|webp)$/i;
+import { applyPick, findTrigger, folderName, splitAttachments } from "./format";
 
 /** Board 2, 2b, 2c: the message box — queue, attachments, / and @ menus, model and thinking, drop files. */
 export function Composer({ sessionKey, state }: { sessionKey: string; state: LiveState }) {
@@ -102,8 +100,8 @@ export function Composer({ sessionKey, state }: { sessionKey: string; state: Liv
   };
 
   const attach = (paths: string[]) => {
-    const refs = paths.filter((p) => !IMAGE.test(p)).map((p) => `@${p.startsWith(state.cwd + "/") ? p.slice(state.cwd.length + 1) : p}`);
-    setImages((old) => [...old, ...paths.filter((p) => IMAGE.test(p) && !old.includes(p))]);
+    const { images: added, refs } = splitAttachments(paths, state.cwd);
+    setImages((old) => [...old, ...added.filter((p) => !old.includes(p))]);
     if (refs.length) edit(`${text}${text && !text.endsWith(" ") ? " " : ""}${refs.join(" ")} `);
     box.current?.focus();
   };
