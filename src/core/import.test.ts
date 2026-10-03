@@ -84,6 +84,25 @@ test("import keeps the filters of every filtered package, local paths too", asyn
   expect(saved.map((p: { extensions?: unknown; skills?: unknown }) => [p.extensions, p.skills])).toEqual([[[], undefined], [undefined, []]]);
 });
 
+test("trust: only pi's decisions that Tenon has none for, and only true or false", async () => {
+  const { newTrust } = await import("./import");
+  expect(newTrust({ "/a": true, "/b": false, "/c": "yes", "/d": true }, { "/d": false })).toEqual([
+    { path: "/a", decision: true },
+    { path: "/b", decision: false },
+  ]);
+});
+
+test("filters: a saved source gets pi's filters back, also as a path relative to Tenon's folder", async () => {
+  const { restoreFilters } = await import("./import");
+  const saved = ["npm:a", "../pkgs/b", "npm:c"];
+  const withFilters = [{ source: "npm:a", extensions: [] }, { source: "/home/me/pkgs/b", skills: [] }];
+  expect(restoreFilters(saved, withFilters, "/home/me/tenon")).toEqual([
+    { source: "npm:a", extensions: [] },
+    { source: "../pkgs/b", skills: [] },
+    "npm:c",
+  ]);
+});
+
 /** The results of an import, in order. */
 async function collect(runImport: (typeof import("./import"))["runImport"], items: ImportItem[]) {
   const results: ImportResult[] = [];
