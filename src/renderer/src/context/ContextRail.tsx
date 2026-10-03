@@ -27,7 +27,11 @@ export function ContextRail({ state }: { state: LiveState }) {
   const noProject = useStore((s) => s.noProject);
   const [tree, setTree] = useState<SessionTree>();
   useEffect(() => {
-    actions.tree(state.key).then(setTree);
+    let current = true;
+    actions.tree(state.key).then((t) => current && setTree(t));
+    return () => {
+      current = false;
+    };
   }, [state.key, messages, stamp]);
   const branches = tree && tree.last !== undefined ? (tree.branchesAt[tree.last] ?? []) : [];
 
