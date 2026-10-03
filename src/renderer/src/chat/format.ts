@@ -1,4 +1,4 @@
-/** "app" from "/Users/me/code/app": how the UI names a project folder. */
+/** "app" from "/Users/me/code/app": how the UI names a project folder, or a file. */
 export const folderName = (cwd: string) => cwd.split("/").pop() ?? cwd;
 
 /** "model" for 1, "models" for any other count. */

@@ -7,10 +7,9 @@ import { Icon } from "#renderer/ui/Icon";
 import { Menu, type MenuItem } from "#renderer/ui/Menu";
 import type { Behavior } from "./actions";
 import { CommandMenu, type Row } from "./CommandMenu";
-import { applyPick, findTrigger } from "./format";
+import { applyPick, findTrigger, folderName } from "./format";
 
 const IMAGE = /\.(png|jpe?g|gif|webp)$/i;
-const name = (path: string) => path.slice(path.lastIndexOf("/") + 1);
 
 /** Board 2, 2b, 2c: the message box — queue, attachments, / and @ menus, model and thinking, drop files. */
 export function Composer({ sessionKey, state }: { sessionKey: string; state: LiveState }) {
@@ -202,8 +201,8 @@ export function Composer({ sessionKey, state }: { sessionKey: string; state: Liv
             {images.map((p) => (
               <span key={p} className={pill("dim", "h-7 rounded-md pr-1")} title={p}>
                 <Icon name="image" size={13} />
-                {name(p)}
-                <IconButton bare size={20} label={`Remove ${name(p)}`} onClick={() => setImages(images.filter((x) => x !== p))}>
+                {folderName(p)}
+                <IconButton bare size={20} label={`Remove ${folderName(p)}`} onClick={() => setImages(images.filter((x) => x !== p))}>
                   <Icon name="x" size={12} />
                 </IconButton>
               </span>

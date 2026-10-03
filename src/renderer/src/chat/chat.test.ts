@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { dayLabel, diffCounts, formatTokens, homePath } from "./format";
+import { dayLabel, diffCounts, folderName, formatTokens, homePath } from "./format";
 
 test("diff counts from pi's display diff", () => {
   expect(diffCounts("+19 let a;\n 20 keep\n-21 old\n+22 new")).toEqual({ added: 2, removed: 1 });
@@ -23,6 +23,11 @@ test("token counts show one decimal from 1000 up", () => {
   expect(formatTokens(999)).toBe("999");
   expect(formatTokens(1000)).toBe("1.0k");
   expect(formatTokens(131_072)).toBe("131.1k");
+});
+
+test("folder name also names a file", () => {
+  expect(folderName("/Users/me/Desktop/shot.png")).toBe("shot.png");
+  expect(folderName("shot.png")).toBe("shot.png");
 });
 
 import { applyPick, findTrigger } from "./format";
