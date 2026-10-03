@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { createGrants } from "./grants";
+import { createGrants, importCodeItems, importGrant } from "./grants";
 
 test("a path is usable only after main grants it, also if the grant comes a moment later", async () => {
   const { assertGranted, grant } = createGrants();
@@ -14,4 +14,11 @@ test("a package confirmation is good for one install", async () => {
   grant("package", "install||npm:foo");
   await expect(consumePackageGrant("install||npm:foo")).resolves.toBeUndefined();
   await expect(consumePackageGrant("install||npm:foo")).rejects.toThrow("Not confirmed");
+});
+
+test("main and the agent build the same import key, in any order of the picked items", () => {
+  // main gets the window's picks as unknown values; the agent gets checked ImportItems
+  expect(importGrant(["packages", "settings", "files"])).toBe(importGrant(["files", "packages"]));
+  expect(importGrant(["packages", "files"])).toBe("import||files,packages");
+  expect(importCodeItems(["settings", "keys", 42])).toEqual([]);
 });

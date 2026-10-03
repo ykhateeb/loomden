@@ -106,9 +106,6 @@ export function scanImport(): ImportScan {
   };
 }
 
-/** Items that bring code into Tenon: they need the confirmation in main's own dialog. */
-export const codeItems: ImportItem[] = ["files", "packages"];
-
 /** Board 5d: import the picked items, and give one result for each. A failure in one item does not stop the others. */
 export async function runImport(items: ImportItem[], { onPackage, onResult }: { onPackage: (e: ProgressEvent) => void; onResult: (r: ImportResult) => void }): Promise<void> {
   const tenonAgentDir = getAgentDir();

@@ -148,6 +148,8 @@ export interface CustomProvider {
 
 /** Board 5c: an item terminal pi has. */
 export type ImportItem = "keys" | "settings" | "providers" | "trust" | "files" | "packages";
+/** Items that bring code into Tenon: they need the confirmation in main's own dialog. */
+export const CODE_IMPORT_ITEMS = ["files", "packages"] as const satisfies readonly ImportItem[];
 export interface ImportScan {
   found: boolean;
   items: { id: ImportItem; label: string; action: string; detail: string; count: number; done?: boolean }[];

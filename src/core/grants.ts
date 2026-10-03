@@ -1,4 +1,5 @@
 import { resolve } from "node:path";
+import { CODE_IMPORT_ITEMS } from "#protocol";
 
 /** main's grant arrives on its own channel, a moment after the window's command: wait up to 20 × 25 ms. */
 const GRANT_POLL_TRIES = 20;
@@ -9,6 +10,12 @@ export type Grants = ReturnType<typeof createGrants>;
 
 /** The key main grants for a package install or update the user confirmed. */
 export const packageGrant = (action: string, source: string, cwd?: string) => `${action}|${cwd ?? ""}|${source}`;
+
+/** The picked import items that bring code into Tenon, always in the order of CODE_IMPORT_ITEMS. */
+export const importCodeItems = (items: readonly unknown[]) => CODE_IMPORT_ITEMS.filter((i) => items.includes(i));
+
+/** The key main grants for an import the user confirmed. Main and the agent must build the same key. */
+export const importGrant = (items: readonly unknown[]) => packageGrant("import", importCodeItems(items).join(","));
 
 /**
  * Paths the user picked or dropped, as the main process saw them. The window is not trusted,

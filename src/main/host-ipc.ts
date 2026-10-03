@@ -1,7 +1,7 @@
 import { copyFile, rm } from "node:fs/promises";
 import { resolve } from "node:path";
 import { BrowserWindow, dialog, ipcMain, shell } from "electron";
-import { type GrantKind, packageGrant } from "#core/grants";
+import { type GrantKind, importCodeItems, importGrant, packageGrant } from "#core/grants";
 import { exportFile, sessionFile } from "#core/paths";
 import { isUuid } from "#core/ids";
 import { DIALOG_CANCELLED } from "#protocol";
@@ -65,7 +65,7 @@ export function registerHostIpc(grant: (kind: GrantKind, path: string) => void) 
 
   // Import from pi (board 5c): copying extensions or installing packages brings code into Tenon. Confirmed here.
   ipcMain.handle("host:confirm-import", async (e, items: unknown) => {
-    const code = (Array.isArray(items) ? items : []).filter((i): i is string => i === "files" || i === "packages").sort();
+    const code = importCodeItems(Array.isArray(items) ? items : []);
     if (!code.length) return;
     const options: Electron.MessageBoxOptions = {
       type: "warning",
@@ -78,7 +78,7 @@ export function registerHostIpc(grant: (kind: GrantKind, path: string) => void) 
     const win = parent(e);
     const { response } = win ? await dialog.showMessageBox(win, options) : await dialog.showMessageBox(options);
     if (response !== 0) throw new Error(DIALOG_CANCELLED);
-    grant("package", packageGrant("import", code.join(",")));
+    grant("package", importGrant(code));
   });
 
   // A login page (board 5b). Only https: a page cannot make main open a file or another app.
