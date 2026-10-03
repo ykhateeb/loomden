@@ -32,7 +32,11 @@ export function TreeView({ sessionKey, state }: { sessionKey: string; state: Liv
   // The tree changes with every new message, a switch, a fork, and a label: fetch it again then.
   const stamp = useStore((s) => s.treeStamp);
   useEffect(() => {
-    actions.tree(sessionKey).then((t) => t && setTree(t));
+    let current = true;
+    actions.tree(sessionKey).then((t) => current && t && setTree(t));
+    return () => {
+      current = false;
+    };
   }, [sessionKey, messages?.length, stamp]);
   useEffect(() => box.current?.focus(), []);
 

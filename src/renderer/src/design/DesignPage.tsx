@@ -3,7 +3,7 @@ import type { DesignCanvas } from "#protocol";
 import { folderName } from "#renderer/chat/format";
 import { ago } from "#renderer/sessions/time";
 import { actions } from "#renderer/actions";
-import { useStore } from "#renderer/store";
+import { report, useStore } from "#renderer/store";
 import { Button } from "#renderer/ui/base";
 import { Icon } from "#renderer/ui/Icon";
 import { Segmented } from "#renderer/ui/controls";
@@ -26,11 +26,15 @@ function useCanvasUrl(cwd: string, canvas: string | undefined, tab?: "ds") {
   const [url, setUrl] = useState<string>();
   useEffect(() => {
     setUrl(undefined);
-    if (canvas)
-      actions.startDesign(cwd, key)
-        .then(() => actions.designUrl(cwd, canvas, tab))
-        .then(setUrl)
-        .catch(() => {});
+    if (!canvas) return;
+    let current = true;
+    actions.startDesign(cwd, key)
+      .then(() => actions.designUrl(cwd, canvas, tab))
+      .then((u) => current && setUrl(u))
+      .catch((e) => current && report(e));
+    return () => {
+      current = false;
+    };
   }, [cwd, canvas, key, tab]);
   return url;
 }
