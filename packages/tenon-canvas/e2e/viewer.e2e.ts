@@ -79,6 +79,28 @@ test("a board cannot reach the network", async ({ page }) => {
   expect(blocked).toBe(true);
 });
 
+test("a board cannot save an edit outside edit mode", async ({ page }) => {
+  await page.goto(server.url("demo"));
+  await expect(page.frameLocator("iframe").first().locator("h1")).toBeVisible();
+  const post = (text: string) => boardFrame(page, "cart").evaluate((text) =>
+    parent.postMessage({ type: "text", tid: document.querySelector("h1")!.dataset.tid, text }, "*"), text);
+  await post("Forged");
+  await page.keyboard.press("e");
+  await post("Real");
+  await expect(page.locator(".lbl").first()).toContainText("Cart rev 2 · edited by you");
+  await expect(page.frameLocator("iframe").first().locator("h1")).toHaveText("Real");
+  expect((await readCanvas(root, "demo")).boards["boards/cart.html"].rev).toBe(2);
+});
+
+test("a board cannot select for another board", async ({ page }) => {
+  await page.goto(server.url("demo"));
+  await expect(page.frameLocator("iframe").first().locator("h1")).toBeVisible();
+  await page.keyboard.press("e");
+  await boardFrame(page, "cart").evaluate(() =>
+    parent.postMessage({ type: "select", tid: document.querySelector("h1")!.dataset.tid, board: "boards/other.html", style: "", tag: "h1" }, "*"));
+  await expect.poll(() => page.evaluate("selected?.board")).toBe("boards/cart.html");
+});
+
 test("a request without the token fails", async ({ request }) => {
   const origin = new URL(server.url("demo")).origin;
   expect((await request.get(`${origin}/nope/c/demo`)).status()).toBe(404);
