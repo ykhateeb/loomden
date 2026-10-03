@@ -17,6 +17,11 @@ export function readJson(path: string): Record<string, unknown> {
   }
 }
 
+/** A parsed JSON value that is an object, so its fields can be checked one by one. */
+export function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null;
+}
+
 /** Write a JSON file, with its folder. */
 export function writeJson(path: string, data: unknown): void {
   writeJsonFile(path, data);

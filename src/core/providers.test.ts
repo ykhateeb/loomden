@@ -56,6 +56,21 @@ test("find models: an OpenAI-style /models list, with context and embeddings mar
   }
 });
 
+test("find models: a wrong body names the URL, and entries with a wrong shape are dropped", async () => {
+  let reply: unknown;
+  const server = createServer((_req, res) => res.end(JSON.stringify(reply)));
+  await new Promise<void>((r) => server.listen(0, r));
+  const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  try {
+    reply = { data: { id: "not-a-list" } };
+    await expect(findModels(url, "openai-completions")).rejects.toThrow(`${url}/models`);
+    reply = { models: [null, "x", { id: 3 }, { name: "llama3", context_window: "big" }] };
+    expect(await findModels(url, "openai-completions")).toEqual([{ id: "llama3", contextWindow: undefined, embeddings: false }]);
+  } finally {
+    server.close();
+  }
+});
+
 const provider = (over: Partial<CustomProvider> = {}): CustomProvider => ({
   name: "local", baseUrl: "http://127.0.0.1:1234/v1", api: "openai-completions", models: [{ id: "qwen" }], ...over,
 });

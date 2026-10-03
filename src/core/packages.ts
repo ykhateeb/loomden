@@ -2,6 +2,7 @@ import { existsSync, realpathSync, statSync } from "node:fs";
 import { basename, dirname, extname } from "node:path";
 import { DefaultPackageManager, getAgentDir, ProjectTrustStore, type ProgressEvent, SettingsManager } from "@earendil-works/pi-coding-agent";
 import type { GalleryItem, InstalledPackage, Project } from "#protocol";
+import { isRecord } from "./settings";
 
 /** The npm search of the gallery: a slow registry is an error, not a wait with no end. */
 const GALLERY_TIMEOUT_MS = 8000;
@@ -88,13 +89,22 @@ export async function changePackage(action: "install" | "remove" | "update", sou
 /** Board 4, right: packages on npm with the pi-package keyword. */
 export async function searchGallery(query: string): Promise<GalleryItem[]> {
   const text = encodeURIComponent(`keywords:pi-package ${query}`.trim());
-  const res = await fetch(`https://registry.npmjs.org/-/v1/search?text=${text}&size=20`, { signal: AbortSignal.timeout(GALLERY_TIMEOUT_MS) });
+  const url = `https://registry.npmjs.org/-/v1/search?text=${text}&size=20`;
+  const res = await fetch(url, { signal: AbortSignal.timeout(GALLERY_TIMEOUT_MS) });
   if (!res.ok) throw new Error(`npm search failed (${res.status})`);
-  const body = (await res.json()) as { objects: { package: { name: string; version: string; description?: string; keywords?: string[] } }[] };
-  return body.objects.map(({ package: p }) => {
-    const k = (p.keywords ?? []).join(" ").toLowerCase();
+  return galleryItems(await res.json(), url);
+}
+
+/** The npm search answer comes from outside: drop each entry with a wrong shape. */
+export function galleryItems(body: unknown, url: string) {
+  const objects = isRecord(body) ? body.objects : undefined;
+  if (!Array.isArray(objects)) throw new Error(`${url} did not answer with a list of packages`);
+  return objects.flatMap((o): GalleryItem[] => {
+    const p: unknown = isRecord(o) ? o.package : undefined;
+    if (!isRecord(p) || typeof p.name !== "string" || typeof p.version !== "string") return [];
+    const k = (Array.isArray(p.keywords) ? p.keywords.filter((w) => typeof w === "string") : []).join(" ").toLowerCase();
     const kind = /\bthemes?\b/.test(k) ? "theme" : /\bskills?\b/.test(k) ? "skills" : /\bprompts?\b/.test(k) ? "prompts" : "extension";
-    return { name: p.name, version: p.version, description: p.description ?? "", kind };
+    return [{ name: p.name, version: p.version, description: typeof p.description === "string" ? p.description : "", kind }];
   });
 }
 
