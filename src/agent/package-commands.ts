@@ -1,6 +1,6 @@
 import type { ProgressEvent } from "@earendil-works/pi-coding-agent";
-import { packageGrant } from "#core/grants";
-import { codeItems, runImport, scanImport } from "#core/import";
+import { importCodeItems, importGrant, packageGrant } from "#core/grants";
+import { runImport, scanImport } from "#core/import";
 import { changePackage, listPackages, searchGallery, trustList } from "#core/packages";
 import { assertProject, listSessions } from "#core/projects";
 import type { ImportItem, Project } from "#protocol";
@@ -18,8 +18,7 @@ export function packageCommands({ send, grants, modelRuntime, sessions }: Deps) 
     "import.run": async (cmd) => {
       const items = cmd.items.filter((i): i is ImportItem => ["settings", "providers", "trust", "files", "packages"].includes(i));
       // Copying extensions or installing packages brings code into Tenon: only after main's own confirmation.
-      const code = codeItems.filter((i) => items.includes(i));
-      if (code.length) await grants.consumePackageGrant(packageGrant("import", code.join(",")));
+      if (importCodeItems(items).length) await grants.consumePackageGrant(importGrant(items));
       await runImport(items, { onPackage: sendPackageProgress, onResult: (result) => send({ type: "import.result", result }) });
       await modelRuntime.refresh(); // imported providers and keys show at once
     },
