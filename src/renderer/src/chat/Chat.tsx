@@ -9,7 +9,7 @@ import { Avatar, Button, cx, Kbd, Spinner } from "#renderer/ui/base";
 import { Icon } from "#renderer/ui/Icon";
 import { Menu, type MenuItem } from "#renderer/ui/Menu";
 import { Composer } from "./Composer";
-import { dayLabel, folderName, time } from "./format";
+import { dayLabel, folderName, plural, time } from "./format";
 import { ToolCard, type ToolResult } from "./ToolCard";
 
 const EMPTY: AgentMessage[] = [];
@@ -231,7 +231,7 @@ export function Chat({ sessionKey, state }: { sessionKey: string; state: LiveSta
             </button>
             {state.branch && <span className="flex items-center gap-1"><Icon name="branch" size={13} />{state.branch}</span>}
             <span className="whitespace-nowrap">{count} messages</span>
-            <span className="whitespace-nowrap">{canvasCount ? `${canvasCount} canvas${canvasCount === 1 ? "" : "es"}` : "no canvas yet"}</span>
+            <span className="whitespace-nowrap">{canvasCount ? `${canvasCount} ${plural(canvasCount, "canvas", "canvases")}` : "no canvas yet"}</span>
           </div>
         </div>
         <Button small variant={canvasOpen ? "primary" : "default"} aria-pressed={canvasOpen} title="Design canvas (⇧C)" onClick={() => actions.canvas(sessionKey)}>

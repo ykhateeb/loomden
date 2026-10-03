@@ -4,7 +4,7 @@ import { actions } from "#renderer/actions";
 import { Button, Kbd } from "#renderer/ui/base";
 import { Icon } from "#renderer/ui/Icon";
 import { Modal, ModalIcon } from "#renderer/ui/Modal";
-import { ago } from "./time";
+import { agoText } from "./time";
 
 /** Board 2e: the session file goes to the Trash. */
 export function DeleteDialog({ session, onClose }: { session: SessionRow; onClose: () => void }) {
@@ -33,7 +33,7 @@ export function DeleteDialog({ session, onClose }: { session: SessionRow; onClos
         <b className="font-semibold text-fg">{session.title}</b>
         <span className="flex items-center gap-2 text-xs text-muted">
           <span className="flex items-center gap-1"><Icon name="folder" size={12} />{folderName(session.cwd)}</span>
-          {session.messageCount} messages · last used {ago(session.modified) === "now" ? "just now" : `${ago(session.modified)} ago`}
+          {session.messageCount} messages · last used {agoText(session.modified)}
         </span>
       </div>
       <span>The session file goes to the Trash. You can get it back from there.</span>
