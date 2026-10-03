@@ -7,6 +7,7 @@ import { report, useStore } from "#renderer/store";
 import { Button } from "#renderer/ui/base";
 import { Icon } from "#renderer/ui/Icon";
 import { Segmented } from "#renderer/ui/controls";
+import type { CanvasTab } from "./actions";
 
 const STATUS = {
   draft: { label: "draft", cls: "bg-raised text-sub" },
@@ -21,7 +22,7 @@ function Chip({ status }: { status: DesignCanvas["status"] }) {
 }
 
 /** The address of a canvas page, for an iframe. The session in this project (if any) gets the notes. */
-function useCanvasUrl(cwd: string, canvas: string | undefined, tab?: "ds") {
+function useCanvasUrl(cwd: string, canvas: string | undefined, tab?: CanvasTab) {
   const key = useStore((s) => Object.values(s.live).find((l) => l.cwd === cwd)?.key);
   const [url, setUrl] = useState<string>();
   useEffect(() => {

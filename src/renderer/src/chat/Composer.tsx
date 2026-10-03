@@ -5,6 +5,7 @@ import { useStore } from "#renderer/store";
 import { Button, cx, IconButton, Kbd, pill, Pill } from "#renderer/ui/base";
 import { Icon } from "#renderer/ui/Icon";
 import { Menu, type MenuItem } from "#renderer/ui/Menu";
+import type { Behavior } from "./actions";
 import { CommandMenu, type Row } from "./CommandMenu";
 import { applyPick, findTrigger } from "./format";
 
@@ -75,7 +76,7 @@ export function Composer({ sessionKey, state }: { sessionKey: string; state: Liv
 
   // While pi works: Enter steers the current run (as in terminal pi), ⌥Enter waits for the run to end.
   // The text and images stay until pi accepts them, so a failed send (a moved image) loses nothing.
-  const send = async (behavior: "steer" | "followUp") => {
+  const send = async (behavior: NonNullable<Behavior>) => {
     if ((!text.trim() && images.length === 0) || sending) return;
     setSending(true);
     const [sentText, sentImages] = [text, images];

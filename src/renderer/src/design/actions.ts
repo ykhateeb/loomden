@@ -1,5 +1,8 @@
+import type { Command } from "#protocol";
 import { call } from "#renderer/port";
 import { getState, report, set } from "#renderer/store";
+
+export type CanvasTab = Extract<Command, { type: "design.url" }>["tab"];
 
 export const designActions = {
   /** Board C1: read the canvases of a project folder. */
@@ -14,7 +17,7 @@ export const designActions = {
   /** Start the design server of a project for the Design page. Notes go to the session `key`. */
   startDesign: (cwd: string, key?: string) => call({ type: "design.open", cwd, key }),
   /** The address of a canvas for the Design page. startDesign() first. */
-  designUrl: (cwd: string, canvas: string, tab?: "ds") => call({ type: "design.url", cwd, canvas, tab }),
+  designUrl: (cwd: string, canvas: string, tab?: CanvasTab) => call({ type: "design.url", cwd, canvas, tab }),
   /** Canvas ⇧C: show or hide the panel. The first time, the extension starts its server and reports the address. */
   canvas: (key: string) => {
     const { canvas, live } = getState();

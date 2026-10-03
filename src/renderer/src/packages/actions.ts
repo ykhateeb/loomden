@@ -1,3 +1,4 @@
+import type { Command } from "#protocol";
 import { call } from "#renderer/port";
 import { getState, notice, report, set } from "#renderer/store";
 
@@ -10,7 +11,7 @@ export const packageActions = {
    * Install asks main's own dialog first (installing runs code); the agent refuses an install main did not confirm.
    * `onDone` runs when the change worked.
    */
-  changePackage: async ({ action, source, cwd, onDone }: { action: "install" | "remove" | "update"; source: string; cwd?: string; onDone?: () => void }) => {
+  changePackage: async ({ action, source, cwd, onDone }: { action: Extract<Command, { type: "packages.change" }>["action"]; source: string; cwd?: string; onDone?: () => void }) => {
     try {
       if (action !== "remove") await window.tenon.confirmInstall(action, source, cwd);
     } catch (e) {
