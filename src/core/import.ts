@@ -195,7 +195,7 @@ function importFiles(tenonAgentDir: string): Outcome {
       errors.push(`${f}: ${(e as NodeJS.ErrnoException).code === "EACCES" ? "permission denied" : (e as Error).message}`);
     }
   }
-  return { status: errors.length ? "partial" : "done", detail: `${copied} of ${files.length} copied`, errors, notes };
+  return { status: statusOf(errors, copied), detail: `${copied} of ${files.length} copied`, errors, notes };
 }
 
 async function importPackages(tenonAgentDir: string, onPackage: (e: ProgressEvent) => void): Promise<Outcome> {

@@ -36,6 +36,22 @@ test("import from pi: scan, then copy settings, providers, trust and files; one 
   chmodSync(join(pi, "prompts", "review.md"), 0o644);
 });
 
+test("import from pi: files is failed when no file is copied", async () => {
+  const root = mkdtempSync(join(tmpdir(), "tenon-import-fail-"));
+  const pi = join(root, "pi");
+  process.env.TENON_PI_DIR = pi;
+  process.env.PI_CODING_AGENT_DIR = join(root, "tenon");
+  mkdirSync(join(pi, "prompts"), { recursive: true });
+  writeFileSync(join(pi, "prompts", "review.md"), "review");
+  chmodSync(join(pi, "prompts", "review.md"), 0o000);
+
+  vi.resetModules();
+  const { runImport } = await import("./import");
+  const [files] = await collect(runImport, ["files"]);
+  expect([files.status, files.errors]).toEqual(["failed", ["prompts/review.md: permission denied"]]);
+  chmodSync(join(pi, "prompts", "review.md"), 0o644);
+});
+
 test("import from pi: symlinks followed, node_modules noted, Tenon's trust wins, bad package entries skipped", async () => {
   const root = mkdtempSync(join(tmpdir(), "tenon-import2-"));
   const pi = join(root, "pi");
