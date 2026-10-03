@@ -5,6 +5,7 @@ import { useStore } from "#renderer/store";
 import { Dot, IconButton, Kbd, Label, Spinner } from "#renderer/ui/base";
 import { Icon } from "#renderer/ui/Icon";
 import { ListItem } from "#renderer/ui/surfaces";
+import { PI_VERSION, TENON_VERSION } from "#renderer/version";
 import { useSessionMenus } from "./menus";
 import { ago } from "./time";
 
@@ -127,7 +128,7 @@ export function Sidebar() {
 
       <div className="flex items-center gap-2 border-t border-line px-2 pt-2.5 text-xs text-muted">
         <Icon name="box" size={14} />
-        <span>Tenon 0.1 · pi 0.87</span>
+        <span>{TENON_VERSION} · {PI_VERSION}</span>
         <span className="flex-1" />
         <span className="text-dim">unofficial</span>
       </div>

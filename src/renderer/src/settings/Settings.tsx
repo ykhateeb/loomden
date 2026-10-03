@@ -3,6 +3,7 @@ import { useStore } from "#renderer/store";
 import { Label } from "#renderer/ui/base";
 import { Icon, type IconName } from "#renderer/ui/Icon";
 import { ListItem } from "#renderer/ui/surfaces";
+import { TENON_VERSION } from "#renderer/version";
 import { ModelsPage } from "./ModelsPage";
 import { TrustPage } from "./TrustPage";
 
@@ -38,7 +39,7 @@ export function Settings() {
         <div className="mt-auto flex items-center gap-2.5 border-t border-line px-2 pt-3">
           <span className="text-muted"><Icon name="box" size={16} /></span>
           <div className="flex flex-col">
-            <b className="text-sm font-semibold">Tenon 0.1</b>
+            <b className="text-sm font-semibold">{TENON_VERSION}</b>
             <span className="text-xs text-muted">Unofficial app for pi</span>
           </div>
         </div>
