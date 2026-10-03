@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { homePath } from "#renderer/chat/format";
 import { actions } from "#renderer/actions";
+import { TRUST, trustChoice } from "#renderer/packages/trust";
 import { useStore } from "#renderer/store";
 import { Segmented } from "#renderer/ui/controls";
 import { Icon } from "#renderer/ui/Icon";
@@ -29,9 +30,9 @@ export function TrustPage() {
                   {t.from && <span className="mr-3 text-xs text-muted" title={t.from}>from {homePath(t.from)}</span>}
                   <Segmented
                     label={`Trust for ${t.name}`}
-                    value={t.trusted === true ? "yes" : t.trusted === false ? "no" : "ask"}
+                    value={trustChoice(t.trusted)}
                     // "Ask" removes only this project's own decision: a parent folder's decision still applies.
-                    onChange={(v) => actions.setTrust(t.cwd, v === "yes" ? true : v === "no" ? false : null)}
+                    onChange={(v) => actions.setTrust(t.cwd, TRUST[v].trusted)}
                     options={[{ value: "yes", label: "Trusted" }, { value: "no", label: "Not trusted" }, { value: "ask", label: "Ask" }]}
                   />
                 </Td>
