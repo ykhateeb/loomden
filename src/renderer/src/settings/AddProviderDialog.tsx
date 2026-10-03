@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { FoundModel } from "#protocol";
+import { formatTokens } from "#renderer/chat/format";
 import { actions } from "#renderer/actions";
 import { Button, Kbd, Spinner } from "#renderer/ui/base";
 import { Checkbox, Segmented } from "#renderer/ui/controls";
@@ -8,7 +9,6 @@ import { Icon } from "#renderer/ui/Icon";
 import { Modal, ModalIcon } from "#renderer/ui/Modal";
 
 const APIS = ["openai-completions", "openai-responses", "anthropic-messages"];
-const k = (n: number) => (n >= 1000 ? `${Math.round(n / 1000)}k` : String(n));
 
 /** Board 5a: a server pi calls with one of these APIs, saved in Tenon's models.json. */
 export function AddProviderDialog() {
@@ -91,7 +91,7 @@ export function AddProviderDialog() {
               <label key={m.id} className="flex cursor-pointer items-center gap-2.5 rounded-sm px-1.5 py-1 hover:bg-hover">
                 <Checkbox label={m.id} on={picked.has(m.id)} onChange={(on) => setPicked((p) => { const n = new Set(p); on ? n.add(m.id) : n.delete(m.id); return n; })} />
                 <span className="font-mono text-sm text-fg">{m.id}</span>
-                <span className="ml-auto text-xs text-muted">{m.embeddings ? "embeddings · not for chat" : m.contextWindow ? `context ${k(m.contextWindow)}` : ""}</span>
+                <span className="ml-auto text-xs text-muted">{m.embeddings ? "embeddings · not for chat" : m.contextWindow ? `context ${formatTokens(m.contextWindow)}` : ""}</span>
               </label>
             ))}
           </div>

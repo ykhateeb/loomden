@@ -11,6 +11,11 @@ export function homePath(path: string) {
   return path.replace(/^\/Users\/[^/]+/, "~");
 }
 
+/** "12.3k" from 12345: how the UI shows a token count. */
+export function formatTokens(n: number) {
+  return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
+}
+
 export const time = (ts: number) => new Date(ts).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 
 /** "Today · 03:12", "Yesterday · 18:40", "Mon, Sep 21 · 09:05". */
