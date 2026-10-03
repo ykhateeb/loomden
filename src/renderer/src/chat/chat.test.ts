@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { dayLabel, diffCounts } from "./format";
+import { dayLabel, diffCounts, homePath } from "./format";
 
 test("diff counts from pi's display diff", () => {
   expect(diffCounts("+19 let a;\n 20 keep\n-21 old\n+22 new")).toEqual({ added: 2, removed: 1 });
@@ -10,6 +10,13 @@ test("day labels", () => {
   expect(dayLabel(now - 3600_000, now)).toMatch(/^Today · /);
   expect(dayLabel(now - 86400_000, now)).toMatch(/^Yesterday · /);
   expect(dayLabel(now - 5 * 86400_000, now)).not.toMatch(/^(Today|Yesterday)/);
+});
+
+test("home path shortens only a macOS home folder", () => {
+  expect(homePath("/Users/me/code/app")).toBe("~/code/app");
+  expect(homePath("/Users/me")).toBe("~");
+  expect(homePath("/home/me/app")).toBe("/home/me/app");
+  expect(homePath("/opt/Users/me")).toBe("/opt/Users/me");
 });
 
 import { applyPick, findTrigger } from "./format";

@@ -9,7 +9,7 @@ import { Avatar, Button, cx, Kbd, Spinner } from "#renderer/ui/base";
 import { Icon } from "#renderer/ui/Icon";
 import { Menu, type MenuItem } from "#renderer/ui/Menu";
 import { Composer } from "./Composer";
-import { dayLabel, folderName, plural, time } from "./format";
+import { dayLabel, folderName, homePath, plural, time } from "./format";
 import { ToolCard, type ToolResult } from "./ToolCard";
 
 const EMPTY: AgentMessage[] = [];
@@ -143,7 +143,7 @@ export function Chat({ sessionKey, state }: { sessionKey: string; state: LiveSta
       .filter((p) => p.cwd !== state.cwd)
       .map((p): MenuItem => ({
         id: p.cwd,
-        label: <span className="flex min-w-0 flex-col"><span>{p.name}</span><span className="truncate font-mono text-label opacity-75">{p.cwd.replace(/^\/Users\/[^/]+/, "~")}</span></span>,
+        label: <span className="flex min-w-0 flex-col"><span>{p.name}</span><span className="truncate font-mono text-label opacity-75">{homePath(p.cwd)}</span></span>,
         icon: <Icon name="folder" />,
         onSelect: () => actions.move(sessionKey, p.cwd),
       })),

@@ -1,4 +1,5 @@
 import type { TrustAnswer, UIRequest } from "#protocol";
+import { homePath } from "#renderer/chat/format";
 import { actions } from "#renderer/actions";
 import { Button, Kbd } from "#renderer/ui/base";
 import { Icon } from "#renderer/ui/Icon";
@@ -12,7 +13,7 @@ export function TrustDialog({ request }: { request: Extract<UIRequest, { method:
   return (
     <Modal
       title="Trust this project?"
-      subtitle={<span className="font-mono">{request.cwd.replace(/^\/Users\/[^/]+/, "~")}</span>}
+      subtitle={<span className="font-mono">{homePath(request.cwd)}</span>}
       icon={<ModalIcon tone="warn"><Icon name="shield" size={18} /></ModalIcon>}
       width={560}
       onClose={() => reply(undefined)}

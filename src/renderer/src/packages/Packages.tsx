@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { GalleryItem, InstalledPackage } from "#protocol";
-import { folderName } from "#renderer/chat/format";
+import { folderName, homePath } from "#renderer/chat/format";
 import { ago } from "#renderer/sessions/time";
 import { actions } from "#renderer/actions";
 import { useStore } from "#renderer/store";
@@ -184,7 +184,7 @@ export function Packages() {
                 <dt className="text-muted">Source</dt>
                 <dd className="truncate text-sub">{current.where}</dd>
                 <dt className="text-muted">Saved in</dt>
-                <dd className="truncate font-mono text-xs text-sub">{current.scope === "global" ? "~/.tenon/agent/settings.json" : `${current.cwd?.replace(/^\/Users\/[^/]+/, "~")}/.pi/settings.json`}</dd>
+                <dd className="truncate font-mono text-xs text-sub">{current.scope === "global" ? "~/.tenon/agent/settings.json" : `${current.cwd && homePath(current.cwd)}/.pi/settings.json`}</dd>
               </dl>
               <div className="grid grid-cols-2 gap-x-6 gap-y-4 xl:grid-cols-4">
                 {(

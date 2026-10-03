@@ -6,6 +6,11 @@ export function plural(n: number, word: string, many = `${word}s`) {
   return n === 1 ? word : many;
 }
 
+/** "~/code/app" from "/Users/me/code/app": a macOS home folder becomes "~". */
+export function homePath(path: string) {
+  return path.replace(/^\/Users\/[^/]+/, "~");
+}
+
 export const time = (ts: number) => new Date(ts).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 
 /** "Today · 03:12", "Yesterday · 18:40", "Mon, Sep 21 · 09:05". */
