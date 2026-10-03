@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { getAgentDir, type ModelRuntime } from "@earendil-works/pi-coding-agent";
 import type { CustomProvider, FoundModel, ModelChoice, ProviderRow, Send } from "#protocol";
 import type { Dialogs } from "./sessions/extension-ui";
-import { writePrivateJson } from "./settings";
+import { isRecord, writePrivateJson } from "./settings";
 
 /** A model list from a server that does not answer is an error, not a wait with no end. */
 const FIND_MODELS_TIMEOUT_MS = 8000;
@@ -125,8 +125,15 @@ export async function findModels(baseUrl: string, api: string, apiKey?: string):
   const url = `${baseUrl.replace(/\/+$/, "")}/models`;
   const res = await fetch(url, { headers: authHeaders(api, apiKey), signal: AbortSignal.timeout(FIND_MODELS_TIMEOUT_MS) });
   if (!res.ok) throw new Error(`${url} answered ${res.status}`);
-  const body = (await res.json()) as { data?: Record<string, unknown>[]; models?: Record<string, unknown>[] };
-  return (body.data ?? body.models ?? []).flatMap((m) => {
+  return foundModels(await res.json(), url);
+}
+
+/** The /models answer comes from outside: drop each entry with a wrong shape. */
+function foundModels(body: unknown, url: string) {
+  const list = isRecord(body) ? (body.data ?? body.models ?? []) : undefined;
+  if (!Array.isArray(list)) throw new Error(`${url} did not answer with a list of models`);
+  return list.flatMap((m) => {
+    if (!isRecord(m)) return [];
     const id = typeof m.id === "string" ? m.id : typeof m.name === "string" ? m.name : undefined;
     if (!id) return [];
     const contextWindow = [m.context_length, m.context_window, m.max_model_len, m.max_context_length].find((v): v is number => typeof v === "number");

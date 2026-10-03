@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { isRemoteSource, packageSource, parseSource } from "./packages";
+import { galleryItems, isRemoteSource, packageSource, parseSource } from "./packages";
 
 test("package sources as the board shows them", () => {
   expect(parseSource("npm:pi-prompts-review@1.4.2")).toMatchObject({ name: "pi-prompts-review", version: "1.4.2", kind: "npm" });
@@ -17,4 +17,19 @@ test("isRemoteSource: npm, git, and URLs are remote; a path is local", () => {
 test("packageSource: a string entry or an object entry with filters", () => {
   expect(packageSource("npm:pi-x")).toBe("npm:pi-x");
   expect(packageSource({ source: "./pi-x" })).toBe("./pi-x");
+});
+
+test("an npm search answer: entries with a wrong shape are dropped, a wrong body names the URL", () => {
+  const body = { objects: [
+    { package: { name: "pi-theme-dusk", version: "1.0.0", keywords: ["pi-package", "theme"] } },
+    { package: { name: "pi-x", version: "2.0.0", description: 7, keywords: "skills" } },
+    { package: { name: 42, version: "1.0.0" } },
+    { package: null },
+    "junk",
+  ] };
+  expect(galleryItems(body, "https://npm.test/search")).toEqual([
+    { name: "pi-theme-dusk", version: "1.0.0", description: "", kind: "theme" },
+    { name: "pi-x", version: "2.0.0", description: "", kind: "extension" },
+  ]);
+  expect(() => galleryItems({ error: "down" }, "https://npm.test/search")).toThrow("https://npm.test/search");
 });
