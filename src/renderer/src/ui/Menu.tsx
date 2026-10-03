@@ -14,7 +14,7 @@ const isAction = (i: MenuItem): i is Action => typeof i === "object" && "onSelec
  * A popup menu at a point (right-click, or under a button).
  * ↑ ↓ move, ↵ picks, Esc or a click outside closes. A one-letter shortcut picks its item.
  */
-export function Menu({ at, items, onClose, label = "Menu", width }: { at: { x: number; y: number }; items: MenuItem[]; onClose: () => void; label?: string; width?: number }) {
+export function Menu({ at, items, onClose, label = "Menu", width, maxHeight }: { at: { x: number; y: number }; items: MenuItem[]; onClose: () => void; label?: string; width?: number; maxHeight?: number }) {
   const box = useRef<HTMLDivElement>(null);
   const idBase = useId();
   const [pos, setPos] = useState(at);
@@ -77,9 +77,9 @@ export function Menu({ at, items, onClose, label = "Menu", width }: { at: { x: n
       aria-label={label}
       tabIndex={-1}
       aria-activedescendant={active >= 0 ? `${idBase}-${active}` : undefined}
-      style={{ left: pos.x, top: pos.y, width }}
+      style={{ left: pos.x, top: pos.y, width, maxHeight }}
       onKeyDown={onKeyDown}
-      className="fixed z-30 flex min-w-[200px] flex-col gap-px rounded-xl border border-line2 bg-raised p-1.5 shadow-menu outline-none"
+      className="fixed z-30 flex min-w-[200px] flex-col gap-px overflow-y-auto rounded-xl border border-line2 bg-raised p-1.5 shadow-menu outline-none"
     >
       {items.map((item, i) =>
         item === "sep" ? (
