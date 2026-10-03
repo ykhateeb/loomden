@@ -5,7 +5,7 @@ import { SHARED_AUTH_PATH } from "#core/paths";
 import { createDialogs } from "#core/sessions/extension-ui";
 import { createRegistry } from "#core/sessions/registry";
 import type { AgentOut, Command, Request } from "#protocol";
-import { createHandle } from "./handlers";
+import { createHandle, errorReply } from "./handlers";
 import { packageCommands } from "./package-commands";
 import { projectCommands } from "./project-commands";
 import { providerCommands } from "./provider-commands";
@@ -40,7 +40,7 @@ process.parentPort.on("message", ({ data, ports: [port] }) => {
       const result = await handle(cmd as Command);
       port.postMessage({ type: "reply", rid, ok: true, data: result } satisfies AgentOut);
     } catch (e) {
-      port.postMessage({ type: "reply", rid, ok: false, error: (e as Error).message } satisfies AgentOut);
+      port.postMessage(errorReply(rid, e));
     }
   });
   port.start();
