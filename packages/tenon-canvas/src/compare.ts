@@ -2,7 +2,7 @@
 import { copyFile, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { extname, join } from "node:path";
-import { boardKey, boardOf, canvasDir, locked, nameOf, readCanvas, readJson } from "./store.js";
+import { boardKey, boardOf, canvasDir, locked, nameOf, parseStyle, readCanvas, readJson } from "./store.js";
 import { dsItems, readTokens } from "./tokens.js";
 
 /** The pack a build session starts from: approved revs, done notes, and the tokens the boards use. */
@@ -54,12 +54,9 @@ export function boardFacts(html: string, vars: Map<string, string>): Fact[] {
     const text = m[3].replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
     if (!text) continue;
     const style: Fact["style"] = {};
-    for (const d of (m[2].match(/\sstyle="([^"]*)"/)?.[1] ?? "").split(";")) {
-      const i = d.indexOf(":");
-      if (i < 1) continue;
-      const v = d.slice(i + 1).trim();
+    for (const [k, v] of parseStyle(m[2].match(/\sstyle="([^"]*)"/)?.[1] ?? "")) {
       const t = v.match(/^var\(--([\w-]+)\)$/)?.[1];
-      style[d.slice(0, i).trim()] = t ? { token: t, value: vars.get(t) ?? v } : { value: v };
+      style[k] = t ? { token: t, value: vars.get(t) ?? v } : { value: v };
     }
     out.push({ text, style });
   }

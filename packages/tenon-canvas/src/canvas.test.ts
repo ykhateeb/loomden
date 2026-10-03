@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { fileEvent, startServer } from "./server.js";
-import { RAW_BOARD, RAW_STATE, freeRoot, addNote, approve, flow, restoreRev, patchBoard, readHistory, undoBoard, createBoard, editBoard, readBoard, readCanvas, stamp, patchHtml } from "./store.js";
+import { RAW_BOARD, RAW_STATE, freeRoot, addNote, approve, flow, restoreRev, patchBoard, readHistory, undoBoard, createBoard, editBoard, readBoard, readCanvas, stamp, patchHtml, parseStyle } from "./store.js";
 import { RAW_TOKENS, acceptProposal, dsItems, dsReport, proposeTokens, tokensCss, writeTokensCss } from "./tokens.js";
 import { compareBoard, designPack, readCompares, setDifferenceState, diffFacts, keepDecisions, boardFacts } from "./compare.js";
 import { canvasMoves, gitignoreMissing, moveCanvases, moveDesignSystem, ensureGitignore } from "./project.js";
@@ -411,6 +411,12 @@ describe("server: body checks", () => {
 });
 
 describe("pure helpers (no disk)", () => {
+  it("parseStyle trims each declaration, skips one with no property, and a later one wins", () => {
+    expect([...parseStyle(" color : var(--ink) ;;:x; padding: 4px; color: red ")]).toEqual([["color", "red"], ["padding", "4px"]]);
+    expect([...parseStyle("background: url(a:b)")]).toEqual([["background", "url(a:b)"]]);
+    expect(parseStyle("").size).toBe(0);
+  });
+
   it("patchHtml changes the own text or merges the style of one element", () => {
     const html = `<h1 data-tid="1" style="color: red">Total</h1><p data-tid="2">Pay <b data-tid="3">now</b></p>`;
     expect(patchHtml(html, { tid: "1", text: "Sum" })).toEqual({ html: `<h1 data-tid="1" style="color: red">Sum</h1><p data-tid="2">Pay <b data-tid="3">now</b></p>`, why: "text “Total” → “Sum”" });

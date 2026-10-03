@@ -7,7 +7,7 @@ import { randomBytes } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { watch, mkdirSync } from "node:fs";
 import { dirname, extname, join, sep } from "node:path";
-import { addNote, approve, flow, restoreRev, boardKey, canvasDir, canvasTabs, designSystemDir, patchBoard, readCanvas, readHistory, undoBoard, setNoteState, slug, type NoteState, type Target } from "./store.js";
+import { addNote, approve, flow, restoreRev, boardKey, boardTitle, canvasDir, canvasTabs, designSystemDir, patchBoard, readCanvas, readHistory, undoBoard, setNoteState, slug, type NoteState, type Target } from "./store.js";
 import { acceptProposal, discardProposal, dsReport, tokensCss, writeTokensCss } from "./tokens.js";
 import { designPack, readCompares, setDifferenceState } from "./compare.js";
 import { POINT_SCRIPT, VIEWER } from "./web.js";
@@ -66,7 +66,7 @@ export async function startServer({ root, onSend, onBuild }: ServerOptions): Pro
   // Compare (board C12): a person picks Fix the code or Board is wrong, and pi gets it once.
   const sendDecision = async (payload: { canvas: string; board: string; id: string; action: "fix" | "wrong" }) => {
     const state = payload.action;
-    const title = (await readCanvas(root, payload.canvas)).boards[boardKey(payload.board)]?.title ?? payload.board;
+    const title = boardTitle(await readCanvas(root, payload.canvas), payload.board);
     const compare = (await readCompares(root, payload.canvas))[boardKey(payload.board)];
     const d = compare?.differences.find((x) => x.id === payload.id);
     if (!d) throw new Error("Difference not found");
@@ -169,7 +169,7 @@ export async function startServer({ root, onSend, onBuild }: ServerOptions): Pro
       }
       case "custom": {
         const board = f.get("board", isString);
-        const title = (await readCanvas(root, canvas)).boards[boardKey(board)]?.title ?? board;
+        const title = boardTitle(await readCanvas(root, canvas), board);
         await onSend(`On board ${title}, element “${f.get("text", isString).slice(0, 60)}” (tid ${Number(f.get("tid", isString))}): I need a custom value for ${f.get("prop", isString).slice(0, 40)}. Add it to the design system as a token, then use it.`);
         break;
       }

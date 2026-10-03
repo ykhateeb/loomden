@@ -65,6 +65,9 @@ export function boardOf(c: Canvas, board: string) {
   return { key, meta };
 }
 
+/** The title of a board, or the name given when the canvas has no such board. */
+export const boardTitle = (c: Canvas, board: string) => c.boards[boardKey(board)]?.title ?? board;
+
 export async function readCanvas(root: string, canvas: string): Promise<Canvas> {
   try {
     return JSON.parse(await readFile(canvasFile(canvasDir(root, canvas)), "utf8"));
@@ -196,16 +199,22 @@ function withOwnText(tag: string, rest: string, text: string) {
 
 /** Merge `style` into the tag's style attribute. */
 function withStyle(tag: string, rest: string, style: Record<string, string>) {
-  const decls = new Map<string, string>();
   const m = tag.match(/\sstyle="([^"]*)"/);
-  for (const d of (m?.[1] ?? "").split(";")) {
-    const i = d.indexOf(":");
-    if (i > 0) decls.set(d.slice(0, i).trim(), d.slice(i + 1).trim());
-  }
+  const decls = parseStyle(m?.[1] ?? "");
   for (const [k, v] of Object.entries(style)) decls.set(k, v);
   const attr = ` style="${[...decls].map(([k, v]) => `${k}: ${v}`).join("; ")}"`;
   const styled = m ? tag.replace(m[0], attr) : tag.replace(/\s*(\/?)>$/, `${attr}$1>`);
   return { tag: styled, rest, why: Object.keys(style).join(", ") };
+}
+
+/** The declarations of a style attribute, by property. A later one wins. */
+export function parseStyle(attr: string) {
+  const decls = new Map<string, string>();
+  for (const d of attr.split(";")) {
+    const i = d.indexOf(":");
+    if (i > 0) decls.set(d.slice(0, i).trim(), d.slice(i + 1).trim());
+  }
+  return decls;
 }
 
 /** Undo your edit `edit` (its id from patchBoard): the content before it comes back as a new rev. Only while nothing else changed the board. */
