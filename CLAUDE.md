@@ -80,27 +80,16 @@ The window shows model output, so the agent and main treat each value from the w
 
 ### Principles
 
-From Clean Code, Clean Architecture, and common practice. The sections below apply them to this repo.
+Follow Clean Code, Clean Architecture, and Effective TypeScript. The rules below apply them to this repo.
 
-- **KISS (Keep It Simple):** write the simple solution that a reviewer understands in one read. Prefer boring code to clever code.
-- **YAGNI (You Aren't Gonna Need It):** write only the code that the current task needs. Add an abstraction (an interface, a factory, an option) when its second use arrives. Delete dead code.
-- **DRY (Don't Repeat Yourself):** before you add code, look for a helper in this repo (see "Modules"), then in the Node stdlib, then in an installed dependency.
-- **SRP (Single Responsibility):** one module or function has one job. If a module gets a second job, split it by job, as in `src/core/sessions/`.
-- **Small functions:** a function does one thing at one level of abstraction. If a part has a name that is not a restatement of the function, extract it to a named helper.
-- **Meaningful names:** a name tells why the value exists. If a name needs a comment, change the name. Give each magic number or string a named `const`.
-- **Explanatory variables:** put each middle result of a long expression in a `const` with a name.
-- **Encapsulate conditionals:** give a complex condition a name, for example `if (shouldSkip(p))` instead of `if (p.a && !p.b || p.c)`.
-- **Positive conditionals:** write a condition in the positive form, for example `if (installed)`, not `if (!notInstalled)`.
-- **Avoid deep nesting:** return early for each guard case, so the main path has the lowest indent.
-- **No flag arguments:** write two functions instead of one function with a boolean that selects between two behaviors.
-- **No side effects:** a function does only what its name says. If it must change other state, put that change in its name.
-- **Command-query separation:** a function changes state or returns an answer, not both.
-- **Dependency Rule:** dependencies point inward, to the logic. `src/core/` imports no `electron`, `#renderer/*`, or `#preload` code. The renderer talks to the agent only through `#protocol`.
+- **Dependency Rule:** `src/core/` imports no `electron`, `#renderer/*`, or `#preload` code. The renderer talks to the agent only through `#protocol`.
 - **Humble Object:** keep disk, network, and pi calls in a thin shell. Put the decisions in a pure function, so a unit test can call it with no disk.
+- **DRY:** before you add code, look for a helper in this repo (see "Modules"), then in the Node stdlib, then in an installed dependency.
 
 ### Modules
 
 - Keep state in a `create…()` factory (`createRegistry`, `createRuntimes`, `createGrants`, `createDialogs`), not at module level. `src/agent/index.ts` makes each one once and passes it on. Old exceptions, marked `ponytail:`: `projects.ts`, `attachments.ts`, `design.ts`, `providers.ts`.
+- If a module gets a second job, split it by job, as in `src/core/sessions/`.
 - Use the shared helpers. Do not copy them:
   - `readJson()`, `writeJson()`, `writePrivateJson()` (a file that can hold a key), `MODEL_SETTING_KEYS`: `src/core/settings.ts`
   - `manager()`, `resourceName()`: `src/core/packages.ts`
@@ -111,24 +100,21 @@ From Clean Code, Clean Architecture, and common practice. The sections below app
 
 ### Functions
 
-- Use the stepdown rule: put the exported functions at the top of the file and their helpers below, in call order.
-  - Write module-level helpers as `function` declarations. They are hoisted, so a call can come before the definition.
-  - A helper that shares state with its caller (as `fork` and `connect` in `src/main/agent-host.ts`) stays a closure inside the caller.
-- A new function with 3 or more parameters takes an object (for example, `createRegistry({ send, modelRuntime, grants, dialogs })`). Older functions with positional parameters remain. Change one when you change its signature for another reason.
+- Write module-level helpers as `function` declarations. They are hoisted, so the exported functions can come first.
+- A helper that shares state with its caller (as `fork` and `connect` in `src/main/agent-host.ts`) stays a closure inside the caller.
+- Older functions with 3 or more positional parameters remain. Change one to an object parameter when you change its signature for another reason.
 
 ### Types
 
-- `tsconfig.json` has `strict: true`. Write new code without `any`. Old uses remain in `packages/tenon-canvas/`.
-- Give data from outside the process (window commands, files, JSON) the type `unknown`, and narrow it before use.
-- Derive types from their source: use `Command` and `AgentOut` from `#protocol`, and `Extract<…>`, `Pick<…>`, or `ReturnType<…>`, instead of a second copy of the shape.
-- Use a union of string literals for a fixed set of values, not an `enum`.
-- Give each exported function an explicit parameter type. Let `tsc` infer local variables.
+- Old uses of `any` remain in `packages/tenon-canvas/`. Write new code without `any`.
+- Derive the window-to-agent types from `Command` and `AgentOut` in `#protocol`. Do not write a second copy of the shape.
+- Give each exported function an explicit parameter type. An explicit return type is not necessary.
 
 ### Imports
 
 - Use `./x` in the same folder. For any other folder, use a `#` alias from the `"imports"` field of `package.json` (`#protocol`, `#preload`, `#core/*`, `#renderer/*`, `#canvas/*`). Do not use `../`.
 - `tsconfig.json` `paths` repeats the wildcard aliases, because `tsc` does not add `.ts`/`.tsx` to them. If you add an alias, change both files.
-- Import each file directly. The folders have no `index.ts` barrel files.
+- The folders have no `index.ts` barrel files.
 - Code in `packages/tenon-canvas/` does not use the aliases. Terminal pi loads it without this app.
 
 ### Tests
