@@ -1,6 +1,6 @@
 import { basename } from "node:path";
 import type { AgentSessionRuntime } from "@earendil-works/pi-coding-agent";
-import type { AgentMessage, LiveState } from "#protocol";
+import type { AgentMessage, LiveState, ThinkingLevel } from "#protocol";
 import { resourceName } from "#core/packages";
 
 export type Session = AgentSessionRuntime["session"];
@@ -25,6 +25,11 @@ const TITLE_MAX_LENGTH = 80;
  */
 export function trimQueued(queued: OpenSession["queued"], stillQueued: number) {
   return queued.slice(Math.max(0, queued.length - stillQueued));
+}
+
+/** The level comes from the window: accept only one the model of the session has. */
+export function assertThinkingLevel(level: ThinkingLevel, available: readonly ThinkingLevel[]) {
+  if (!available.includes(level)) throw new Error(`Thinking level "${level}" is not available for this model`);
 }
 
 /** Everything the window shows about an open session, except its messages. */

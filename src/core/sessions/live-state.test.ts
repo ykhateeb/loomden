@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { trimQueued } from "./live-state";
+import { assertThinkingLevel, trimQueued } from "./live-state";
 
 const q = (...texts: string[]) => texts.map((text) => ({ text, images: [] }));
 
@@ -11,4 +11,9 @@ test("a new message that pi reports before we add it keeps all of ours", () => {
 test("messages pi took into the run go from the front", () => {
   expect(trimQueued(q("a", "b", "c"), 1)).toEqual(q("c"));
   expect(trimQueued(q("a", "b"), 0)).toEqual([]);
+});
+
+test("a thinking level that the model does not have is rejected", () => {
+  expect(() => assertThinkingLevel("high", ["off", "low"])).toThrow('"high"');
+  expect(() => assertThinkingLevel("low", ["off", "low"])).not.toThrow();
 });

@@ -3,12 +3,12 @@ import { existsSync, rmSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { promisify } from "node:util";
 import { type ModelRuntime, SessionManager } from "@earendil-works/pi-coding-agent";
-import type { AgentMessage, ModelChoice, Send, SlashCommand } from "#protocol";
+import type { AgentMessage, ModelChoice, Send, SlashCommand, ThinkingLevel } from "#protocol";
 import { readImage } from "#core/attachments";
 import type { Grants } from "#core/grants";
 import { forwardEvents } from "./events";
 import { assertNewKey } from "./keys";
-import { liveState, type OpenSession, type Session, trimQueued } from "./live-state";
+import { assertThinkingLevel, liveState, type OpenSession, type Session, trimQueued } from "./live-state";
 import { copyToFolder, folderCopyPath, moveFreeCanvases } from "./move";
 import type { Dialogs } from "./extension-ui";
 import { createRuntimes } from "./runtime";
@@ -16,8 +16,6 @@ import type { Entry as FileEntry } from "./summary";
 import { buildTree } from "./tree";
 import { availableModels } from "#core/providers";
 import { exportFile, NO_PROJECT_DIR } from "#core/paths";
-
-type ThinkingLevel = Session["thinkingLevel"];
 
 const GIT_TIMEOUT_MS = 3000;
 
@@ -322,8 +320,10 @@ export function createRegistry({ send, modelRuntime, grants, dialogs }: { send: 
       await drop(key);
     },
 
-    setThinking(key: string, level: string) {
-      get(key).rt.session.setThinkingLevel(level as ThinkingLevel);
+    setThinking(key: string, level: ThinkingLevel) {
+      const { session } = get(key).rt;
+      assertThinkingLevel(level, session.getAvailableThinkingLevels());
+      session.setThinkingLevel(level);
       sendState(key);
     },
 

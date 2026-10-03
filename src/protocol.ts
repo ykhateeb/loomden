@@ -1,7 +1,8 @@
 // The messages between the renderer and the agent process. Type-only pi imports: nothing loads in the renderer.
-import type { AgentSessionEvent } from "@earendil-works/pi-coding-agent";
+import type { AgentSession, AgentSessionEvent } from "@earendil-works/pi-coding-agent";
 
 export type AgentMessage = Extract<AgentSessionEvent, { type: "message_end" }>["message"];
+export type ThinkingLevel = AgentSession["thinkingLevel"];
 
 /** Main's dialogs throw this when the user cancels them. The window does not show it as an error. */
 export const DIALOG_CANCELLED = "Cancelled in the dialog";
@@ -204,7 +205,7 @@ export interface LiveState {
   model?: string;
   provider?: string;
   thinking: string;
-  thinkingLevels: string[];
+  thinkingLevels: ThinkingLevel[];
   cost: number;
   tokensIn: number;
   tokensOut: number;
@@ -273,7 +274,7 @@ export type Command =
   | { type: "session.tools"; key: string; names: string[] }
   | { type: "files.search"; cwd: string; query: string }
   | { type: "session.abort"; key: string }
-  | { type: "session.thinking"; key: string; level: string }
+  | { type: "session.thinking"; key: string; level: ThinkingLevel }
   | { type: "session.rename"; path: string; name: string }
   | { type: "session.clone"; key: string; cwd: string; path: string }
   /** `id` is a new id from the window; main moves the file of that id (see exportFile()). */
