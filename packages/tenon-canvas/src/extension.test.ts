@@ -31,6 +31,9 @@ describe("extension", () => {
     const blocked = await on.tool_call({ toolName: "write", input: { path: ".tenon/canvases/c1/boards/cart.html" } }, ctx);
     expect(blocked.block).toBe(true);
     expect((await on.tool_call({ toolName: "write", input: { path: ".tenon/canvases/c1/canvas.json" } }, ctx)).block).toBe(true); // approvals live there
+    for (const path of [".TENON/canvases/c1/Canvas.json", ".tenon/canvases/c1/boards/cart.HTML", ".tenon/Design-System/tokens.json"]) {
+      expect((await on.tool_call({ toolName: "edit", input: { path } }, ctx)).block).toBe(true); // APFS ignores case
+    }
     expect(await on.tool_call({ toolName: "write", input: { path: "src/a.ts" } }, ctx)).toBeUndefined();
 
     expect((await on.tool_call({ toolName: "write", input: { path: ".tenon/design-system/tokens.json" } }, ctx)).block).toBe(true);

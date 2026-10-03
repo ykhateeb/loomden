@@ -191,6 +191,7 @@ export default function (pi: ExtensionAPI) {
   };
 
   // Write guard: board files change only through the tools.
+  // ponytail: covers write and edit only. A bash command can still write these files.
   pi.on("tool_call", async (event, ctx) => {
     if (event.toolName === "canvas_create" || event.toolName === "canvas_edit") {
       await markBusy(event.toolCallId, rootOf(ctx), event.input as { canvas?: string; board?: string });
@@ -198,7 +199,7 @@ export default function (pi: ExtensionAPI) {
     }
     if (event.toolName !== "write" && event.toolName !== "edit") return undefined;
     const p = resolve(ctx.cwd, String((event.input as any).path ?? ""));
-    const posix = p.split("\\").join("/");
+    const posix = p.split("\\").join("/").toLowerCase(); // macOS and Windows file systems ignore case
     if (RAW_TOKENS.test(posix)) return { block: true, reason: "tokens.json changes only when a person accepts a proposal: use design_system_propose" };
     if (RAW_STATE.test(posix)) return { block: true, reason: "canvas.json, approved/ and history/ change only through the canvas tools. Only a person approves." };
     if (RAW_BOARD.test(posix)) return { block: true, reason: "Board files change only through the tools: use canvas_edit" };
