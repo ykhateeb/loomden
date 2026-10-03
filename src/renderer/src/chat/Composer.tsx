@@ -84,12 +84,7 @@ export function Composer({ sessionKey, state }: { sessionKey: string; state: Liv
     box.current?.focus();
   };
 
-  // Main's file dialog grants the picks, and keeps them under our id.
-  const pickFiles = async () => {
-    const id = crypto.randomUUID();
-    await window.tenon.pickFiles(id);
-    attach(await window.tenon.picked(id));
-  };
+  const pickFiles = async () => attach(await actions.pickFiles());
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.nativeEvent.isComposing) return; // Enter confirms an input-method word, it does not send

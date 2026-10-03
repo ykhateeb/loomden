@@ -24,4 +24,15 @@ export const chatActions = {
       .catch(report),
   setTools: (key: string, names: string[]) => call({ type: "session.tools", key, names }).catch(report),
   searchFiles: (cwd: string, query: string) => call({ type: "files.search", cwd, query }).catch(() => [] as string[]),
+  /** Main's file dialog grants the picks. Returns the picked paths, or [] on a cancel or an error. */
+  pickFiles: async () => {
+    const id = crypto.randomUUID();
+    try {
+      await window.tenon.pickFiles(id);
+      return await window.tenon.picked(id);
+    } catch (e) {
+      report(e as Error);
+      return [];
+    }
+  },
 };
