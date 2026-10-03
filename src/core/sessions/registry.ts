@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { existsSync, rmSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { promisify } from "node:util";
 import { type ModelRuntime, SessionManager } from "@earendil-works/pi-coding-agent";
@@ -9,13 +9,14 @@ import type { Grants } from "#core/grants";
 import { forwardEvents } from "./events";
 import { assertNewKey } from "./keys";
 import { assertThinkingLevel, liveState, type OpenSession, type Session, trimQueued } from "./live-state";
-import { copyToFolder, folderCopyPath, moveFreeCanvases } from "./move";
+import { exportSessionHtml } from "./export";
+import { moveSessionFile } from "./move";
 import type { Dialogs } from "./extension-ui";
 import { createRuntimes } from "./runtime";
 import type { Entry as FileEntry } from "./summary";
 import { buildTree } from "./tree";
 import { availableModels } from "#core/providers";
-import { exportFile, NO_PROJECT_DIR } from "#core/paths";
+import { exportFile } from "#core/paths";
 
 const GIT_TIMEOUT_MS = 3000;
 
@@ -269,17 +270,7 @@ export function createRegistry({ send, modelRuntime, grants, dialogs }: { send: 
         await drop(key);
         return openNow({ key, cwd });
       }
-      const to = folderCopyPath(from, SessionManager.create(cwd).getSessionDir());
-      copyToFolder({ from, to, cwd });
-      const freeId = rt.cwd === NO_PROJECT_DIR ? rt.session.sessionManager.getSessionId() : undefined;
-      const r = await rt.switchSession(to);
-      if (r.cancelled) {
-        rmSync(to);
-        throw new Error("An extension stopped the move.");
-      }
-      rmSync(from);
-      if (wanted.delete(from)) wanted.add(to);
-      if (freeId) await moveFreeCanvases(freeId, cwd, (level, message) => notify(level, message, key));
+      await moveSessionFile({ rt, from, cwd, wanted, notify: (level, message) => notify(level, message, key) });
     },
 
     /** A copy of the whole session, opened under `key`. */
@@ -297,19 +288,19 @@ export function createRegistry({ send, modelRuntime, grants, dialogs }: { send: 
     },
 
     /** Export to the temporary file of export `id`. The main process moves it to the path the user picks. */
-    async exportHtml({ id, cwd, path }: { id: string; cwd: string; path: string }) {
-      const file = exportFile(id);
-      const wasOpen = keyOf(path);
-      // Not open() here: an export alone does not make the file one the user opened.
-      if (!wasOpen) await openOnce({ key: randomUUID(), cwd, path });
-      const key = keyOf(path);
-      if (!key) throw new Error("Export cancelled");
-      try {
-        await get(key).rt.session.exportToHtml(file);
-      } finally {
-        // Opened only for this export, and the user did not open it meanwhile: close it again.
-        if (!wasOpen && !wanted.has(path)) await this.close(path);
-      }
+    exportHtml({ id, cwd, path }: { id: string; cwd: string; path: string }) {
+      return exportSessionHtml({
+        path,
+        file: exportFile(id),
+        wanted,
+        find: (p) => {
+          const key = keyOf(p);
+          return key ? get(key).rt.session : undefined;
+        },
+        // Not open() here: an export alone does not make the file one the user opened.
+        open: (p) => openOnce({ key: randomUUID(), cwd, path: p }),
+        close: (p) => this.close(p),
+      });
     },
 
     /** Stop and forget an open session (before its file goes to the Trash). */

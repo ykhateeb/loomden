@@ -1,10 +1,35 @@
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
-import { FREE_CANVAS_DIR } from "#core/paths";
+import { type AgentSessionRuntime, SessionManager } from "@earendil-works/pi-coding-agent";
+import { FREE_CANVAS_DIR, NO_PROJECT_DIR } from "#core/paths";
 import { designSystemDir, freeRoot, projectRoot } from "#canvas/store";
 import { canvasMoves, ensureGitignore, moveCanvases, moveDesignSystem } from "#canvas/project";
 
 type Notify = (level: "info" | "error", message: string) => void;
+
+/**
+ * Board 1.2: move the session file `from` to the sessions of `cwd`, and switch pi to it. `wanted` follows the file.
+ * The canvases of a session with no project move too. Throws if an extension stops the switch.
+ */
+export async function moveSessionFile({ rt, from, cwd, wanted, notify }: {
+  rt: AgentSessionRuntime;
+  from: string;
+  cwd: string;
+  wanted: Set<string>;
+  notify: Notify;
+}) {
+  const to = folderCopyPath(from, SessionManager.create(cwd).getSessionDir());
+  copyToFolder({ from, to, cwd });
+  const freeId = rt.cwd === NO_PROJECT_DIR ? rt.session.sessionManager.getSessionId() : undefined;
+  const r = await rt.switchSession(to);
+  if (r.cancelled) {
+    rmSync(to);
+    throw new Error("An extension stopped the move.");
+  }
+  rmSync(from);
+  if (wanted.delete(from)) wanted.add(to);
+  if (freeId) await moveFreeCanvases(freeId, cwd, notify);
+}
 
 /** Where copyToFolder() puts a session file in `dir`: the same file name. */
 export function folderCopyPath(from: string, dir: string) {
