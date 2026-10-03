@@ -8,12 +8,19 @@ export const MODEL_SETTING_KEYS = ["defaultProvider", "defaultModel", "defaultTh
 /** Global: Tenon's pi folder. Project: the project's own .pi folder (project settings win over global ones). */
 export const settingsFile = (cwd?: string) => (cwd ? join(cwd, ".pi", "settings.json") : join(getAgentDir(), "settings.json"));
 
-/** A JSON object file; a missing or broken file reads as {}. */
+/** A JSON object file; a missing or broken file, or one that holds no object, reads as {}. */
 export function readJson(path: string): Record<string, unknown> {
+  const data = readJsonValue(path);
+  // JSON.parse makes only plain objects, so a non-null, non-array object has string keys.
+  return typeof data === "object" && data !== null && !Array.isArray(data) ? (data as Record<string, unknown>) : {};
+}
+
+/** Any JSON file; a missing or broken file reads as undefined. The caller checks the shape. */
+export function readJsonValue(path: string): unknown {
   try {
     return JSON.parse(readFileSync(path, "utf8"));
   } catch {
-    return {};
+    return undefined;
   }
 }
 

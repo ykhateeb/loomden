@@ -1,20 +1,17 @@
-import { readFileSync, statSync } from "node:fs";
+import { statSync } from "node:fs";
 import { basename, join } from "node:path";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import type { Project, SessionRow } from "#protocol";
 import type { Grants } from "./grants";
 import { readEntries, summarize } from "./sessions/summary";
 import { NO_PROJECT_DIR, TENON_DIR } from "./paths";
-import { writeJson } from "./settings";
+import { readJsonValue, writeJson } from "./settings";
 
 const PROJECTS_FILE = join(TENON_DIR, "projects.json");
 
 function readAdded(): string[] {
-  try {
-    return JSON.parse(readFileSync(PROJECTS_FILE, "utf8"));
-  } catch {
-    return [];
-  }
+  const added = readJsonValue(PROJECTS_FILE);
+  return Array.isArray(added) ? added.filter((cwd): cwd is string => typeof cwd === "string") : [];
 }
 
 /** Only a folder the user picked in the main process's folder dialog. */
