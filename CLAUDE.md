@@ -65,6 +65,7 @@ The window shows model output, so the agent and main treat each value from the w
 - Tenon keeps its own pi agent folder at `~/.tenon/agent`. Main sets `PI_CODING_AGENT_DIR` to it.
 - Tenon shares only `auth.json` with terminal pi. The import feature copies other items from `~/.pi/agent`.
 - `src/core/paths.ts` reads `TENON_DIR` and `TENON_PI_DIR` when a module imports it. A test that touches these folders sets `process.env` first and then uses `await import(…)`. A static import uses the real `~/.tenon`.
+- In the agent, `paths.ts` is the only module that reads the environment, and `settings.ts` holds the helpers that read and write the settings files. These two are the config modules.
 
 ### Build
 
@@ -82,7 +83,7 @@ The window shows model output, so the agent and main treat each value from the w
 
 Follow Clean Code, Clean Architecture, and Effective TypeScript. The rules below apply them to this repo.
 
-- **Dependency Rule:** `src/core/` imports no `electron`, `#renderer/*`, or `#preload` code. The renderer talks to the agent only through `#protocol`.
+- **Dependency Rule:** `src/core/` imports no `electron`, `#renderer/*`, or `#preload` code. The renderer talks to the agent only through `#protocol`. pi is the platform of Tenon, not a detail: `src/core/` and `src/agent/` import pi directly, with no port.
 - **Humble Object:** keep disk, network, and pi calls in a thin shell. Put the decisions in a pure function, so a unit test can call it with no disk.
 - **DRY:** before you add code, look for a helper in this repo (see "Modules"), then in the Node stdlib, then in an installed dependency.
 
@@ -108,13 +109,15 @@ Follow Clean Code, Clean Architecture, and Effective TypeScript. The rules below
 
 - Old uses of `any` remain in `packages/tenon-canvas/`. Write new code without `any`.
 - Derive the window-to-agent types from `Command` and `AgentOut` in `#protocol`. Do not write a second copy of the shape.
-- Give each exported function an explicit parameter type. An explicit return type is not necessary.
+- `src/protocol.ts` derives `AgentMessage` from the pi type `AgentSessionEvent`, so the window gets pi messages unchanged. The import is type-only, so no pi code loads in the renderer.
+- Give each exported function an explicit parameter type. Let `tsc` infer its return type.
 
 ### Imports
 
 - Use `./x` in the same folder. For any other folder, use a `#` alias from the `"imports"` field of `package.json` (`#protocol`, `#preload`, `#core/*`, `#renderer/*`, `#canvas/*`). Do not use `../`.
 - `tsconfig.json` `paths` repeats the wildcard aliases, because `tsc` does not add `.ts`/`.tsx` to them. If you add an alias, change both files.
-- The folders have no `index.ts` barrel files.
+- The folders have no `index.ts` barrel files. A barrel would load `src/core/paths.ts` before a test sets `process.env` (see "Data locations"). It would also put agent-only code (`import.meta.dirname`) in the main build (see "Build").
+- No tool enforces the layer boundaries. A reviewer checks each import against the Dependency Rule (see "Principles").
 - Code in `packages/tenon-canvas/` does not use the aliases. Terminal pi loads it without this app.
 
 ### Tests
