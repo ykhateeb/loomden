@@ -66,7 +66,9 @@ export function boardOf(c: Canvas, board: string) {
 }
 
 /** The title of a board, or the name given when the canvas has no such board. */
-export const boardTitle = (c: Canvas, board: string) => c.boards[boardKey(board)]?.title ?? board;
+export function boardTitle(c: Canvas, board: string) {
+  return c.boards[boardKey(board)]?.title ?? board;
+}
 
 export async function readCanvas(root: string, canvas: string): Promise<Canvas> {
   try {
