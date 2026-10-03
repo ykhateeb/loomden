@@ -7,7 +7,7 @@ import { randomBytes } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { watch, mkdirSync } from "node:fs";
 import { dirname, extname, join, sep } from "node:path";
-import { addNote, approve, flow, restoreRev, boardKey, canvasDir, canvasTabs, designSystemDir, patchBoard, readCanvas, readHistory, undoBoard, setNoteState, slug, type NoteState } from "./store.js";
+import { addNote, approve, flow, restoreRev, boardKey, canvasDir, canvasTabs, designSystemDir, patchBoard, readCanvas, readHistory, undoBoard, setNoteState, slug, type NoteState, type Target } from "./store.js";
 import { acceptProposal, discardProposal, dsReport, tokensCss, writeTokensCss } from "./tokens.js";
 import { designPack, readCompares, setDifferenceState } from "./compare.js";
 import { POINT_SCRIPT, VIEWER } from "./web.js";
@@ -30,6 +30,8 @@ type ServerOptions = {
 const EVENT_DEBOUNCE_MS = 60;
 /** The longest question that the page can send to pi. */
 const MAX_ASK = 500;
+/** The largest POST body that the page can send. */
+const MAX_BODY_BYTES = 1_000_000;
 
 export async function startServer({ root, onSend, onBuild }: ServerOptions): Promise<CanvasServer> {
   const token = randomBytes(16).toString("hex");
@@ -62,9 +64,8 @@ export async function startServer({ root, onSend, onBuild }: ServerOptions): Pro
   };
 
   // Compare (board C12): a person picks Fix the code or Board is wrong, and pi gets it once.
-  const sendDecision = async (payload: any) => {
-    const state = payload.action === "fix" ? "fix" : payload.action === "wrong" ? "wrong" : undefined;
-    if (!state) throw new Error("bad action");
+  const sendDecision = async (payload: { canvas: string; board: string; id: string; action: "fix" | "wrong" }) => {
+    const state = payload.action;
     const title = (await readCanvas(root, payload.canvas)).boards[boardKey(payload.board)]?.title ?? payload.board;
     const compare = (await readCompares(root, payload.canvas))[boardKey(payload.board)];
     const d = compare?.differences.find((x) => x.id === payload.id);
@@ -81,9 +82,13 @@ export async function startServer({ root, onSend, onBuild }: ServerOptions): Pro
     }
   };
 
-  const body = (req: IncomingMessage) => new Promise<any>((ok, no) => {
-    let s = "";
-    req.on("data", (d) => (s += d)).on("end", () => { try { ok(JSON.parse(s || "{}")); } catch (e) { no(e); } });
+  const body = (req: IncomingMessage) => new Promise<unknown>((ok, no) => {
+    const chunks: Buffer[] = [];
+    let size = 0;
+    req.on("data", (d: Buffer) => { size += d.length; if (size <= MAX_BODY_BYTES) chunks.push(d); }).on("end", () => {
+      if (size > MAX_BODY_BYTES) return no(new Error(`The body is larger than ${MAX_BODY_BYTES} bytes`));
+      try { ok(JSON.parse(Buffer.concat(chunks).toString() || "{}")); } catch (e) { no(e); }
+    });
   });
   const reply = (res: ServerResponse, code: number, type: string, data: string | Buffer, extra: Record<string, string> = {}) => {
     res.writeHead(code, { "content-type": type, "cache-control": "no-store", ...extra });
@@ -123,38 +128,49 @@ export async function startServer({ root, onSend, onBuild }: ServerOptions): Pro
   };
 
   /** A command from the page. It replies {} when it worked. A bad request throws, and the reply is 400. */
-  const apiRoute = async (action: string, payload: any, res: ServerResponse) => {
-    slug(payload.canvas);
+  const apiRoute = async (action: string, payload: unknown, res: ServerResponse) => {
+    const f = fields(action, payload);
+    const canvas = f.get("canvas", isString);
+    slug(canvas);
     switch (action) {
-      case "note":
-        await addNote(root, payload.canvas, payload.note);
-        if (payload.send) await sendNotesAndMarkSent(payload.canvas, [payload.note.id]);
-        break;
-      case "send": await sendNotesAndMarkSent(payload.canvas, payload.ids); break;
-      case "state":
-        if (!["open", "sent", "work", "done"].includes(payload.state)) return notFound(res);
-        await setNoteState(root, payload.canvas, payload.ids, payload.state as NoteState);
-        break;
-      case "build": {
-        const pack = await designPack(root, payload.canvas, ds);
-        await (onBuild ? onBuild(payload.canvas, pack) : onSend(pack.text));
+      case "note": {
+        const note = f.get("note", isNewNote);
+        await addNote(root, canvas, note);
+        if (f.opt("send", isBoolean)) await sendNotesAndMarkSent(canvas, [note.id]);
         break;
       }
-      case "ask":
-        if (typeof payload.text !== "string" || !payload.text.trim()) throw new Error("Nothing to ask");
-        await onSend(payload.text.slice(0, MAX_ASK));
+      case "send": await sendNotesAndMarkSent(canvas, f.get("ids", isStrings)); break;
+      case "state": await setNoteState(root, canvas, f.get("ids", isStrings), f.get("state", isNoteState)); break;
+      case "build": {
+        const pack = await designPack(root, canvas, ds);
+        await (onBuild ? onBuild(canvas, pack) : onSend(pack.text));
         break;
-      case "compare": await sendDecision(payload); break;
-      case "restore": await restoreRev(root, payload.canvas, payload.board, payload.rev); break;
-      case "approve": await approve(root, payload.canvas, payload.board); break;
-      case "edit": await patchBoard(root, payload); break;
-      case "undo": await undoBoard(root, payload.canvas, payload.board, payload.edit); break;
-      case "addboard":
-        await onSend(`Add a board “${String(payload.name).slice(0, 40)}” (${slug(String(payload.name))}.html) to canvas "${payload.canvas}": “${String(payload.from).slice(0, 40)}” links to it. Use canvas_create.`);
+      }
+      case "ask": {
+        const text = f.get("text", isString);
+        if (!text.trim()) throw new Error("Nothing to ask");
+        await onSend(text.slice(0, MAX_ASK));
         break;
+      }
+      case "compare": await sendDecision({ canvas, board: f.get("board", isString), id: f.get("id", isString), action: f.get("action", isDecision) }); break;
+      case "restore": await restoreRev(root, canvas, f.get("board", isString), f.get("rev", isNumber)); break;
+      case "approve": await approve(root, canvas, f.get("board", isString)); break;
+      case "edit":
+        await patchBoard(root, {
+          canvas, board: f.get("board", isString), id: f.get("id", isString), tid: f.get("tid", isString),
+          text: f.opt("text", isString), style: f.opt("style", isStringMap), tell: f.opt("tell", isBoolean),
+        });
+        break;
+      case "undo": await undoBoard(root, canvas, f.get("board", isString), f.get("edit", isString)); break;
+      case "addboard": {
+        const name = f.get("name", isString);
+        await onSend(`Add a board “${name.slice(0, 40)}” (${slug(name)}.html) to canvas "${canvas}": “${f.get("from", isString).slice(0, 40)}” links to it. Use canvas_create.`);
+        break;
+      }
       case "custom": {
-        const title = (await readCanvas(root, payload.canvas)).boards[boardKey(payload.board)]?.title ?? payload.board;
-        await onSend(`On board ${title}, element “${String(payload.text).slice(0, 60)}” (tid ${Number(payload.tid)}): I need a custom value for ${String(payload.prop).slice(0, 40)}. Add it to the design system as a token, then use it.`);
+        const board = f.get("board", isString);
+        const title = (await readCanvas(root, canvas)).boards[boardKey(board)]?.title ?? board;
+        await onSend(`On board ${title}, element “${f.get("text", isString).slice(0, 60)}” (tid ${Number(f.get("tid", isString))}): I need a custom value for ${f.get("prop", isString).slice(0, 40)}. Add it to the design system as a token, then use it.`);
         break;
       }
       case "ds/update":
@@ -205,6 +221,50 @@ export async function startServer({ root, onSend, onBuild }: ServerOptions): Pro
       server.closeAllConnections?.();
     },
   };
+}
+
+/** Typed reads of a POST body from the page. A field of the wrong type throws an Error that names the action. */
+function fields(action: string, payload: unknown) {
+  const bad = (what: string) => new Error(`Bad "${action}" request: ${what}`);
+  if (!isObject(payload)) throw bad("the body is not an object");
+  const get = <T>(key: string, is: (v: unknown) => v is T): T => {
+    const v = payload[key];
+    if (!is(v)) throw bad(`wrong ${key}`);
+    return v;
+  };
+  const opt = <T>(key: string, is: (v: unknown) => v is T): T | undefined => (payload[key] === undefined ? undefined : get(key, is));
+  return { get, opt };
+}
+
+function isObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+function isString(v: unknown): v is string {
+  return typeof v === "string";
+}
+function isNumber(v: unknown): v is number {
+  return typeof v === "number" && Number.isFinite(v);
+}
+function isBoolean(v: unknown): v is boolean {
+  return typeof v === "boolean";
+}
+function isStrings(v: unknown): v is string[] {
+  return Array.isArray(v) && v.every(isString);
+}
+function isStringMap(v: unknown): v is Record<string, string> {
+  return isObject(v) && Object.values(v).every(isString);
+}
+function isNoteState(v: unknown): v is NoteState {
+  return v === "open" || v === "sent" || v === "work" || v === "done";
+}
+function isDecision(v: unknown): v is "fix" | "wrong" {
+  return v === "fix" || v === "wrong";
+}
+function isTarget(v: unknown): v is Target {
+  return isObject(v) && isString(v.tid) && isString(v.text) && Array.isArray(v.box) && v.box.every(isNumber);
+}
+function isNewNote(v: unknown): v is { id: string; board: string; target: Target; text: string } {
+  return isObject(v) && isString(v.id) && isString(v.board) && isString(v.text) && isTarget(v.target);
 }
 
 export type FileEvent =
