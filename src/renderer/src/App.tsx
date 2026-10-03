@@ -7,6 +7,7 @@ import { useStore } from "./store";
 import { TitleBar } from "./TitleBar";
 import { LinkButton } from "./ui/base";
 import { Icon } from "./ui/Icon";
+import { isTypingTarget } from "./ui/keys";
 import { Toast } from "./ui/surfaces";
 import { Packages } from "./packages/Packages";
 import { AddProviderDialog } from "./settings/AddProviderDialog";
@@ -29,9 +30,8 @@ export function App() {
   // ⌘K opens the search (board 1a) and ⌘N a new session (board 1.1), from anywhere.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const t = e.target as HTMLElement;
       // ⇧C: the design canvas of the open session, when you are not typing.
-      if (e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey && e.key.toLowerCase() === "c" && !t.isContentEditable && !/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) {
+      if (e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey && e.key.toLowerCase() === "c" && !isTypingTarget(e.target)) {
         return void (active && (e.preventDefault(), actions.canvas(active)));
       }
       if (!(e.metaKey || e.ctrlKey)) return;

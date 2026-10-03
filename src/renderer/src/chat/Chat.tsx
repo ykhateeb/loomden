@@ -7,6 +7,7 @@ import { TreeView } from "#renderer/tree/TreeView";
 import { Segmented } from "#renderer/ui/controls";
 import { Avatar, Button, cx, Kbd, Spinner } from "#renderer/ui/base";
 import { Icon } from "#renderer/ui/Icon";
+import { isTypingTarget } from "#renderer/ui/keys";
 import { Menu, type MenuItem } from "#renderer/ui/Menu";
 import { Composer } from "./Composer";
 import { dayLabel, folderName, homePath, plural, time } from "./format";
@@ -127,8 +128,7 @@ export function Chat({ sessionKey, state }: { sessionKey: string; state: LiveSta
   // Board 2a: T opens the session tree (and goes back to the chat), when you are not typing.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const t = e.target as HTMLElement;
-      if (e.key.toLowerCase() !== "t" || e.metaKey || e.ctrlKey || e.altKey || t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
+      if (e.key.toLowerCase() !== "t" || e.metaKey || e.ctrlKey || e.altKey || isTypingTarget(e.target)) return;
       if (document.querySelector("[role=dialog],[role=menu]")) return;
       actions.setView(sessionKey, view === "tree" ? "chat" : "tree");
     };
