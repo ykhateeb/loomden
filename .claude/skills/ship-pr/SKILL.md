@@ -5,7 +5,7 @@ description: Commit the current work in the Tenon repo and open a pull request t
 
 # Ship a pull request
 
-Tenon reviews every change in a pull request. A reviewer must be able to review each commit and each pull request in about 5 minutes. Thus each pull request is one small, complete, working part. The steps below make sure of that before the code leaves this computer.
+Tenon reviews every change in a pull request. Each pull request is one small, complete, working part, with the size limits of "Change size" in CLAUDE.md. The steps below make sure of that before the code leaves this computer.
 
 The skill stops when the pull request is open. The user merges it.
 
@@ -14,7 +14,7 @@ The skill stops when the pull request is open. The user merges it.
 Run `git status` and `git diff` (and `git diff --staged`). Find out what changed and why.
 
 - If the work has more than one topic, make one pull request for each topic. Do the steps for the first topic, then for the next.
-- If a topic is too large for a 5-minute review, split it into smaller commits that each work alone. If the split is not clear, ask the user how to split it.
+- Count the changed lines with `git diff --shortstat`. If a topic is above the limits of "Change size" in CLAUDE.md, split it into pull requests that each work alone. If a split would harm correctness or reviewability, or the change is mechanical, keep it whole and write the exception in the description. If the split is not clear, ask the user how to split it.
 - Put a refactor and a behavior change in different commits.
 - Do not stage files that are not part of the topic: `out/`, `dist/`, `test-results/`, temporary files, or files with keys or tokens.
 
