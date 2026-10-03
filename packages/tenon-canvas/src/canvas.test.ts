@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { fileEvent, startServer } from "./server.js";
 import { RAW_BOARD, RAW_STATE, freeRoot, addNote, approve, flow, restoreRev, patchBoard, readHistory, undoBoard, createBoard, editBoard, readBoard, readCanvas, stamp, patchHtml } from "./store.js";
-import { RAW_TOKENS, acceptProposal, dsReport, proposeTokens, tokensCss, writeTokensCss } from "./tokens.js";
+import { RAW_TOKENS, acceptProposal, dsItems, dsReport, proposeTokens, tokensCss, writeTokensCss } from "./tokens.js";
 import { compareBoard, designPack, readCompares, setDifferenceState, diffFacts, keepDecisions, boardFacts } from "./compare.js";
 import { canvasMoves, gitignoreMissing, moveCanvases, moveDesignSystem, ensureGitignore } from "./project.js";
 
@@ -400,6 +400,13 @@ describe("pure helpers (no disk)", () => {
     expect(first.map((d) => [d.id, d.state])).toEqual([["d1", "open"], ["d2", "open"]]);
     const before = { board: "boards/x.html", rev: 1, at: "", differences: [{ ...first[0], state: "wrong" as const }] };
     expect(keepDecisions(found, before)[0].state).toBe("wrong");
+  });
+
+  it("compares a board that uses a numeric font size token", () => {
+    const tokens = { type: { styles: [{ name: "body", fontSize: 16, lineHeight: 24, fontWeight: 400 }] } };
+    const vars = new Map(dsItems(tokens).flatMap((i) => i.decls));
+    const facts = boardFacts(`<p style="font-size: var(--body-font-size)">Hi</p>`, vars);
+    expect(diffFacts(facts, [{ text: "Hi", styles: { fontSize: 14 } }]).map((d) => d.title)).toEqual(["Hi: font-size differs"]);
   });
 });
 
