@@ -54,6 +54,16 @@ export function applyPick(text: string, t: Trigger, pick: string) {
   return { text: text.slice(0, t.start) + insert + rest.replace(/^ /, ""), caret: t.start + insert.length };
 }
 
+const IMAGE = /\.(png|jpe?g|gif|webp)$/i;
+
+/** Attached files: images go in as pictures, other files as `@path` references, relative to `cwd` when inside it. */
+export function splitAttachments(paths: string[], cwd: string) {
+  return {
+    images: paths.filter((p) => IMAGE.test(p)),
+    refs: paths.filter((p) => !IMAGE.test(p)).map((p) => `@${p.startsWith(cwd + "/") ? p.slice(cwd.length + 1) : p}`),
+  };
+}
+
 export type DiffLine = { kind: "add" | "del" | "ctx" | "skip"; n?: number; text: string };
 
 /**
