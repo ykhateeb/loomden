@@ -48,15 +48,15 @@ export function Packages() {
   const q = filter.toLowerCase();
   const match = (p: InstalledPackage) => !q || p.name.toLowerCase().includes(q) || p.source.toLowerCase().includes(q);
   const installCwd = forProject === "project" ? (project ?? projects[0]?.cwd) : undefined;
-  const busy = (p?: InstalledPackage) => !!p && !!work[p.source];
+  const busy = (source: string) => !!work[source];
 
-  const install = async () => {
+  const install = () => {
     const s = source.trim().replace(/^pi install\s+/, "");
     if (s) actions.changePackage({ action: "install", source: s, cwd: installCwd, onDone: () => setSource("") });
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
-    if (isTypingTarget(e.target) || e.metaKey || e.ctrlKey || e.altKey || !current || busy(current)) return;
+    if (isTypingTarget(e.target) || e.metaKey || e.ctrlKey || e.altKey || !current || busy(current.source)) return;
     const k = e.key.toLowerCase();
     if (k === "d") actions.changePackage({ action: "remove", source: current.source, cwd: current.cwd });
     if (k === "r") actions.reloadPackages();
@@ -75,7 +75,7 @@ export function Packages() {
           <span className="ml-auto text-xs text-muted">{rows.length}</span>
         </div>
         {rows.map((p) => (
-          <ListItem key={keyOf(p)} active={p === current} onClick={() => setPicked(keyOf(p))} meta={busy(p) ? <Spinner size={10} /> : <span className="font-mono">{p.version ?? p.kind}</span>}>
+          <ListItem key={keyOf(p)} active={p === current} onClick={() => setPicked(keyOf(p))} meta={busy(p.source) ? <Spinner size={10} /> : <span className="font-mono">{p.version ?? p.kind}</span>}>
             <span className="text-muted"><Icon name="box" size={14} /></span>
             <span className="truncate">{p.name}</span>
             {!p.installed && <Pill tone="warn" className="h-[18px] text-[10.5px]">missing</Pill>}
@@ -117,8 +117,8 @@ export function Packages() {
                 <span className="text-muted">pi install</span>
                 <input aria-label="Package source" placeholder="npm:pi-lint-skills" value={source} onChange={(e) => setSource(e.target.value)} className="min-w-0 flex-1 bg-transparent text-fg outline-none" />
               </label>
-              <Button variant="primary" type="submit" disabled={!source.trim() || busy({ source: source.trim() } as InstalledPackage)}>
-                {busy({ source: source.trim() } as InstalledPackage) ? <Spinner size={12} /> : <Icon name="import" size={14} />}Install<Kbd onFill>↵</Kbd>
+              <Button variant="primary" type="submit" disabled={!source.trim() || busy(source.trim())}>
+                {busy(source.trim()) ? <Spinner size={12} /> : <Icon name="import" size={14} />}Install<Kbd onFill>↵</Kbd>
               </Button>
             </form>
             <div className="flex flex-wrap items-center gap-2">
@@ -163,14 +163,14 @@ export function Packages() {
                 <span className="text-xs text-muted">{current.scope === "global" ? "Global · every project" : `${current.cwd && folderName(current.cwd)} · this project`}</span>
               </div>
               <span className="flex-1" />
-              <Button variant="danger" disabled={busy(current)} onClick={() => actions.changePackage({ action: "remove", source: current.source, cwd: current.cwd })}><Icon name="trash" size={14} />Remove<Kbd>D</Kbd></Button>
+              <Button variant="danger" disabled={busy(current.source)} onClick={() => actions.changePackage({ action: "remove", source: current.source, cwd: current.cwd })}><Icon name="trash" size={14} />Remove<Kbd>D</Kbd></Button>
               <Button variant="ghost" onClick={actions.reloadPackages} title="Open sessions read their extensions, skills, prompts and themes again"><Icon name="refresh" size={14} />Reload<Kbd>R</Kbd></Button>
               {current.installed ? (
-                <Button variant="primary" disabled={busy(current) || current.kind === "local"} title={current.kind === "local" ? "A local folder has nothing to update" : undefined} onClick={() => actions.changePackage({ action: "update", source: current.source, cwd: current.cwd })}>
+                <Button variant="primary" disabled={busy(current.source) || current.kind === "local"} title={current.kind === "local" ? "A local folder has nothing to update" : undefined} onClick={() => actions.changePackage({ action: "update", source: current.source, cwd: current.cwd })}>
                   Update<Kbd onFill>U</Kbd>
                 </Button>
               ) : (
-                <Button variant="primary" disabled={busy(current)} title="It is in settings but not installed" onClick={() => actions.changePackage({ action: "install", source: current.source, cwd: current.cwd })}>
+                <Button variant="primary" disabled={busy(current.source)} title="It is in settings but not installed" onClick={() => actions.changePackage({ action: "install", source: current.source, cwd: current.cwd })}>
                   <Icon name="import" size={14} />Install
                 </Button>
               )}
