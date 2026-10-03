@@ -1,5 +1,5 @@
 // The window's port to the agent process: commands out, replies and agent messages in.
-import type { AgentOut, Command } from "#protocol";
+import type { AgentOut, Command, Replies } from "#protocol";
 
 /** An agent message that is not a reply to a command. */
 export type AgentMessageOut = Exclude<AgentOut, { type: "reply" }>;
@@ -9,11 +9,12 @@ let nextRid = 1;
 const waiting = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void }>();
 
 /** Send a command; the promise settles with the agent's reply. */
-export function call<T = unknown>(cmd: Command): Promise<T> {
+export function call<C extends Command>(cmd: C): Promise<Replies[C["type"]]> {
   if (!port) return Promise.reject(new Error("Not connected to the agent process"));
   const rid = nextRid++;
   port.postMessage({ ...cmd, rid });
-  return new Promise<T>((resolve, reject) => waiting.set(rid, { resolve: resolve as (v: unknown) => void, reject }));
+  // The agent's handlers return Replies (see Handlers in src/agent/handlers.ts).
+  return new Promise<Replies[C["type"]]>((resolve, reject) => waiting.set(rid, { resolve: resolve as (v: unknown) => void, reject }));
 }
 
 /** Main posts each new agent port to the page, and tells it when the agent stopped. */

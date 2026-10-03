@@ -4,9 +4,9 @@ import { join } from "node:path";
 import { startServer, type CanvasServer } from "#canvas/server";
 import { designSystemDir, listCanvases, projectRoot, readCanvas, readHistory } from "#canvas/store";
 import { readTokens } from "#canvas/tokens";
-import type { DesignCanvas } from "#protocol";
+import type { DesignCanvas, DesignList } from "#protocol";
 
-export async function designList(cwd: string): Promise<{ canvases: DesignCanvas[]; system?: string }> {
+export async function designList(cwd: string): Promise<DesignList> {
   const root = projectRoot(cwd);
   const canvases: DesignCanvas[] = [];
   for (const slug of await listCanvases(root)) {
