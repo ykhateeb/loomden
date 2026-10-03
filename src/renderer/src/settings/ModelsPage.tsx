@@ -9,8 +9,8 @@ import { Segmented } from "#renderer/ui/controls";
 import { Icon } from "#renderer/ui/Icon";
 import { Menu, type MenuItem } from "#renderer/ui/Menu";
 import { Bar, Card, CardBody, CardHeader, ListItem, Table, Td, Th, Tr } from "#renderer/ui/surfaces";
+import { effectiveSettings, splitProviders } from "./models";
 
-const MAIN = ["anthropic", "openai", "google", "openrouter"];
 const LEVELS = ["off", "low", "medium", "high"];
 
 function detail(p: ProviderRow) {
@@ -45,10 +45,8 @@ export function ModelsPage() {
     );
 
   const s = page.settings;
-  const effective = { ...page.global, ...Object.fromEntries(Object.entries(s).filter(([, v]) => v !== undefined)) };
-  const providers = page.providers;
-  const shown = providers.filter((p) => more || p.configured || MAIN.includes(p.id) || p.custom);
-  const rest = providers.filter((p) => !shown.includes(p));
+  const effective = effectiveSettings(page.global, s);
+  const { shown, rest } = splitProviders(page.providers, more);
   const ready = shown.filter((p) => p.configured).length;
   const favorites = s.enabledModels ?? [];
   const at = (e: React.MouseEvent) => {
