@@ -24,7 +24,7 @@ export function readEntries(path: string): Entry[] {
 }
 
 export type Node = Entry & { id: string };
-const tree = (entries: Entry[]) => entries.filter((e): e is Node => typeof e.id === "string" && e.type !== "session");
+const treeNodes = (entries: Entry[]) => entries.filter((e): e is Node => typeof e.id === "string" && e.type !== "session");
 
 /** Conversation: any message, a compaction, a branch summary, an extension message. Not: labels, names, model or thinking changes. */
 export const isContent = (e: Entry) => e.type === "message" || e.type === "compaction" || e.type === "branch_summary" || e.type === "custom_message";
@@ -43,7 +43,7 @@ function saysSomething(content: unknown) {
  * conversation follows it (a label or a model change alone does not). Shared by the list, the preview and the tree.
  */
 export function structure(entries: Entry[]) {
-  const nodes = tree(entries);
+  const nodes = treeNodes(entries);
   const byId = new Map(nodes.map((e) => [e.id, e]));
   const kids = new Map<string | null, Node[]>();
   for (const e of nodes) kids.set(e.parentId ?? null, [...(kids.get(e.parentId ?? null) ?? []), e]);
@@ -55,10 +55,7 @@ export function structure(entries: Entry[]) {
   };
   const branches = (id: string | null) => (kids.get(id) ?? []).filter(hasContent);
   /** The row a hidden entry belongs to: itself if it is a row, else the nearest row above it ("" = before the first row). */
-  const ownerOf = (id: string | null): string => {
-    for (let e = id ? byId.get(id) : undefined; e; e = e.parentId ? byId.get(e.parentId) : undefined) if (isRow(e)) return e.id;
-    return "";
-  };
+  const ownerOf = (id: string | null): string => pathTo(byId, id).findLast(isRow)?.id ?? "";
   /** Rows (by owner) where the conversation splits. */
   const points = new Set<string>();
   if (branches(null).length > 1) points.add("");
@@ -74,7 +71,19 @@ export function summarize(entries: Entry[]) {
     if (e.type === "model_change" && e.modelId) model = e.modelId;
     if (e.type === "message" && e.message?.role === "assistant" && e.message.model) model = e.message.model;
   }
-  return { model, branches: Math.max(1, nodes.filter((e) => isContent(e) && !branches(e.id).length).length) };
+  return { model, branches: branchCount(nodes, branches) };
+}
+
+/** How many branches a tree has: its conversation leaves, at least 1. */
+export function branchCount(nodes: readonly Node[], branches: (id: string) => readonly Node[]): number {
+  return Math.max(1, nodes.filter((e) => isContent(e) && !branches(e.id).length).length);
+}
+
+/** The entry `id` and its parents, from the root down. No `id`: an empty path. */
+export function pathTo(byId: ReadonlyMap<string, Node>, id: string | null | undefined): Node[] {
+  const path: Node[] = [];
+  for (let e = id ? byId.get(id) : undefined; e; e = e.parentId ? byId.get(e.parentId) : undefined) path.unshift(e);
+  return path;
 }
 
 const firstLine = (s: string) => s.split("\n").find((l) => l.trim())?.trim().slice(0, 140) ?? "";
@@ -97,11 +106,9 @@ function toolLine(content: unknown): { tool: string; text: string } | undefined 
 
 /** The current branch: from the root to the last entry. */
 export function currentBranch(entries: Entry[]): Entry[] {
-  const nodes = tree(entries);
+  const nodes = treeNodes(entries);
   const byId = new Map(nodes.map((e) => [e.id, e]));
-  const branch: Entry[] = [];
-  for (let e = nodes.at(-1); e; e = e.parentId ? byId.get(e.parentId) : undefined) branch.unshift(e);
-  return branch;
+  return pathTo(byId, nodes.at(-1)?.id);
 }
 
 /** What the chat shows: the current branch, and after a compaction only what it kept. */
@@ -121,7 +128,7 @@ export function previewRows(entries: Entry[]): PreviewRow[] {
 /** Labels by the entry they mark (the last label entry wins; an empty one removes it). */
 export function labelsOf(entries: Entry[]) {
   const labels = new Map<string, string>();
-  for (const e of tree(entries)) if (e.type === "label" && e.targetId) (e.label ? labels.set(e.targetId, e.label) : labels.delete(e.targetId));
+  for (const e of treeNodes(entries)) if (e.type === "label" && e.targetId) (e.label ? labels.set(e.targetId, e.label) : labels.delete(e.targetId));
   return labels;
 }
 

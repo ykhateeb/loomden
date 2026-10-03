@@ -1,7 +1,8 @@
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { expect, test } from "vitest";
-import { findModels, literalKey } from "./providers";
+import { findModels, literalKey, mergeProvider, validateCustomProvider } from "./providers";
+import type { CustomProvider } from "#protocol";
 
 test("a typed key stays a literal in models.json (no command, no environment variable)", () => {
   expect(literalKey("sk-abc")).toBe("sk-abc");
@@ -28,4 +29,29 @@ test("find models: an OpenAI-style /models list, with context and embeddings mar
   } finally {
     server.close();
   }
+});
+
+const provider = (over: Partial<CustomProvider> = {}): CustomProvider => ({
+  name: "local", baseUrl: "http://127.0.0.1:1234/v1", api: "openai-completions", models: [{ id: "qwen" }], ...over,
+});
+
+test("a custom provider from the window must pass each check", () => {
+  expect(() => validateCustomProvider(provider())).not.toThrow();
+  expect(() => validateCustomProvider(provider({ name: "../x" }))).toThrow("name");
+  expect(() => validateCustomProvider(provider({ baseUrl: "file:///etc" }))).toThrow("base URL");
+  expect(() => validateCustomProvider(provider({ api: "grpc" }))).toThrow("APIs");
+  expect(() => validateCustomProvider(provider({ models: [] }))).toThrow("at least one model");
+  expect(() => validateCustomProvider(provider({ models: [{ id: "x".repeat(201) }] }))).toThrow("at least one model");
+  expect(() => validateCustomProvider(provider({ models: [{ id: "q", contextWindow: 1.5 }] }))).toThrow("whole number");
+  expect(() => validateCustomProvider(provider({ apiKey: "k".repeat(4001) }))).toThrow("key");
+});
+
+test("a merged provider keeps its other fields, its other models, and its key when none is given", () => {
+  const old = { headers: { a: "1" }, apiKey: "old-key", models: [{ id: "qwen" }, { id: "llama" }] };
+  expect(mergeProvider(old, provider({ models: [{ id: "qwen", contextWindow: 8192 }] }))).toEqual({
+    headers: { a: "1" }, baseUrl: "http://127.0.0.1:1234/v1", api: "openai-completions", apiKey: "old-key",
+    models: [{ id: "llama" }, { id: "qwen", contextWindow: 8192 }],
+  });
+  expect(mergeProvider({}, provider()).apiKey).toBe("none"); // a keyless local server still needs some key
+  expect(mergeProvider(old, provider({ apiKey: " $NEW " })).apiKey).toBe("$$NEW"); // a typed key is a literal
 });

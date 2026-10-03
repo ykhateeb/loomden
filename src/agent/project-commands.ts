@@ -1,5 +1,5 @@
 import { searchFiles } from "#core/attachments";
-import { designList, designOpen } from "#core/design";
+import { designList, designOpen, designUrl } from "#core/design";
 import { setTrust, trustList } from "#core/packages";
 import { addProject, assertProject, listSessions, removeProject } from "#core/projects";
 import type { Deps, Handlers } from "./handlers";
@@ -25,10 +25,14 @@ export function projectCommands({ grants, sessions, send }: Deps) {
     },
     "design.open": async (cmd) => {
       await assertProject(cmd.cwd);
-      return designOpen(cmd, {
+      await designOpen(cmd, {
         prompt: (key, text) => sessions.prompt(key, text),
         build: (cwd, pack) => send({ type: "canvas.build", cwd, ...pack }),
       });
+    },
+    "design.url": async (cmd) => {
+      await assertProject(cmd.cwd);
+      return designUrl(cmd);
     },
   } satisfies Partial<Handlers>;
 }

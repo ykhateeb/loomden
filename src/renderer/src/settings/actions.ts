@@ -1,4 +1,4 @@
-import type { CustomProvider, FoundModel, ImportItem, ImportResult, ImportScan, ModelSettings } from "#protocol";
+import type { CustomProvider, FoundModel, ImportItem, ImportScan, ModelSettings } from "#protocol";
 import { call } from "#renderer/port";
 import { sessionActions } from "#renderer/sessions/actions";
 import { getState, type ModelsPage, notice, report, set } from "#renderer/store";
@@ -13,8 +13,12 @@ export const settingsActions = {
     const ask = ++modelsAsk;
     set({ modelsPage: undefined, modelsCwd: cwd, modelsError: undefined });
     return call<ModelsPage>({ type: "settings.models", cwd }).then(
-      (modelsPage) => ask === modelsAsk && set({ modelsPage }),
-      (e: Error) => ask === modelsAsk && set({ modelsError: e.message }), // an old request's error is not news
+      (modelsPage) => {
+        if (ask === modelsAsk) set({ modelsPage });
+      },
+      (e: Error) => {
+        if (ask === modelsAsk) set({ modelsError: e.message }); // an old request's error is not news
+      },
     );
   },
   setModels: (patch: Partial<Record<keyof ModelSettings, unknown>>, cwd?: string) =>
@@ -45,14 +49,14 @@ export const settingsActions = {
   addProvider: (provider: CustomProvider) =>
     call({ type: "providers.add", provider }).then(() => (notice(`Added ${provider.name}`, "info"), reloadModels())),
   setAddingProvider: (addingProvider: boolean) => set({ addingProvider }),
-  setImporting: (importing: boolean) => set({ importing }),
+  /** Open or close the import dialog. Each opening starts with no results. */
+  setImporting: (importing: boolean) => set({ importing, importResults: [] }),
   scanImport: () => call<ImportScan>({ type: "import.scan" }),
-  /** undefined = the user cancelled main's confirmation. */
+  /** The results arrive as agent events, in importResults. Throws DIALOG_CANCELLED if the user cancels main's confirmation. */
   runImport: async (items: ImportItem[]) => {
-    if (!(await window.tenon.confirmImport(items))) return undefined;
-    const results = await call<ImportResult[]>({ type: "import.run", items });
+    await window.tenon.confirmImport(items);
+    await call({ type: "import.run", items });
     sessionActions.refresh();
-    return results;
   },
 };
 

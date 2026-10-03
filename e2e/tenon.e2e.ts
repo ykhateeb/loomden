@@ -1,7 +1,8 @@
 import { readdirSync } from "node:fs";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { _electron as electron, expect, test } from "@playwright/test";
 import { approve, createBoard } from "#canvas/store";
 
@@ -152,3 +153,141 @@ test("+ Canvas starts a canvas from the session header", async () => {
     await app.close();
   }
 });
+
+test("a session opens from the list at its tree, forks, exports, clones, and moves to a new project", async () => {
+  const tenonDir = await mkdtemp(join(tmpdir(), "tenon-app-"));
+  const project = await mkdtemp(join(tmpdir(), "tenon-project-"));
+  const saved = join(tenonDir, "saved.html");
+  await writeSession(tenonDir, "Seed session");
+  const app = await electron.launch({
+    args: ["."],
+    env: { ...process.env, TENON_DIR: tenonDir, TENON_PI_DIR: join(tenonDir, "pi"), TENON_OPEN: "Seed", TENON_VIEW: "tree" },
+  });
+  try {
+    // "Open a folder…" picks `project`, and the save dialog picks `saved`, with no native dialog.
+    await app.evaluate(({ dialog }, { dir, file }) => {
+      dialog.showOpenDialog = (async () => ({ canceled: false, filePaths: [dir] })) as unknown as typeof dialog.showOpenDialog;
+      dialog.showSaveDialog = (async () => ({ canceled: false, filePath: file })) as unknown as typeof dialog.showSaveDialog;
+    }, { dir: project, file: saved });
+    const win = await app.firstWindow();
+
+    // The window finds the key of a session that it opened by its file.
+    await expect(win.getByRole("button", { name: /Switch to branch/ })).toBeVisible();
+
+    // Fork from the user message: pi gives the message back, and it comes to the message box.
+    await win.getByRole("main").getByText("Hello from the test").first().click();
+    await win.keyboard.press("f");
+    await expect(win.getByText("Forked into a new session")).toBeVisible();
+    await expect(win.getByLabel("Message to pi")).toHaveValue("Hello from the test");
+
+    const rows = win.getByRole("navigation", { name: "Sessions" }).getByText("Seed session");
+    await rows.first().click({ button: "right" });
+    await win.getByRole("menuitem", { name: /Export as HTML/ }).click();
+    await expect(win.getByText("Exported “Seed session”")).toBeVisible();
+    expect(await readFile(saved, "utf8")).toMatch(/^<!DOCTYPE html>/i); // main moved the export to the picked path
+
+    await rows.first().click({ button: "right" });
+    await win.getByRole("menuitem", { name: /Clone/ }).click();
+    await expect(rows).toHaveCount(2);
+
+    await win.getByRole("button", { name: "Add to project" }).click();
+    await win.getByRole("menuitem", { name: /Open a folder/ }).click();
+    await expect(win.getByText(/^Moved to tenon-project-/)).toBeVisible();
+  } finally {
+    await app.close();
+  }
+});
+
+test("Import from pi shows one result for each item", async () => {
+  const tenonDir = await mkdtemp(join(tmpdir(), "tenon-app-"));
+  const pi = join(tenonDir, "pi");
+  await mkdir(pi, { recursive: true });
+  await writeFile(join(pi, "settings.json"), JSON.stringify({ defaultThinkingLevel: "high" }));
+  await writeFile(join(pi, "trust.json"), JSON.stringify({ "/code/app": true }));
+  const app = await electron.launch({ args: ["."], env: { ...process.env, TENON_DIR: tenonDir, TENON_PI_DIR: pi, TENON_DIALOG: "import" } });
+  try {
+    const win = await app.firstWindow();
+    // Settings and trust are not code, so main asks nothing; each result comes as an agent event.
+    await win.getByRole("button", { name: /^Import/ }).click();
+    await expect(win.getByText("2 of 2 done")).toBeVisible();
+    await expect(win.getByText("copied · 1 setting")).toBeVisible();
+  } finally {
+    await app.close();
+  }
+});
+
+test("Attach files adds the files that the user picked in main's dialog", async () => {
+  const tenonDir = await mkdtemp(join(tmpdir(), "tenon-app-"));
+  const file = join(tenonDir, "notes.md");
+  await writeFile(file, "# Notes");
+  const app = await electron.launch({ args: ["."], env: { ...process.env, TENON_DIR: tenonDir, TENON_PI_DIR: join(tenonDir, "pi") } });
+  try {
+    await app.evaluate(({ dialog }, path) => {
+      dialog.showOpenDialog = (async () => ({ canceled: false, filePaths: [path] })) as unknown as typeof dialog.showOpenDialog;
+    }, file);
+    const win = await app.firstWindow();
+    await win.getByText("New session").first().click();
+    await win.getByRole("button", { name: "Attach files" }).click();
+    await expect(win.getByLabel("Message to pi")).toHaveValue(`@${file} `);
+  } finally {
+    await app.close();
+  }
+});
+
+test("a cancel in the trust dialog shows no error and does not move the session", async () => {
+  const tenonDir = await mkdtemp(join(tmpdir(), "tenon-app-"));
+  const project = await mkdtemp(join(tmpdir(), "tenon-project-"));
+  await mkdir(join(project, ".pi", "prompts"), { recursive: true });
+  await writeFile(join(project, ".pi", "prompts", "review.md"), "Review the code."); // a project file that needs trust
+  const app = await electron.launch({ args: ["."], env: { ...process.env, TENON_DIR: tenonDir, TENON_PI_DIR: join(tenonDir, "pi") } });
+  try {
+    await app.evaluate(({ dialog }, dir) => {
+      dialog.showOpenDialog = (async () => ({ canceled: false, filePaths: [dir] })) as unknown as typeof dialog.showOpenDialog;
+    }, project);
+    const win = await app.firstWindow();
+    await win.getByText("New session").first().click();
+    const addTo = win.getByRole("button", { name: "Add to project" });
+
+    await addTo.click();
+    await win.getByRole("menuitem", { name: /Open a folder/ }).click();
+    await win.getByRole("button", { name: /^Cancel/ }).click();
+    await expect(win.getByText("Trust this project?")).toBeHidden();
+    await expect(win.getByText("Cancelled in the dialog")).toBeHidden();
+    await expect(addTo).toBeVisible(); // not moved
+
+    await addTo.click();
+    await win.getByRole("menuitem", { name: /tenon-project-/ }).click();
+    await win.getByRole("button", { name: /^Trust/ }).click();
+    await expect(win.getByText(/^Moved to tenon-project-/)).toBeVisible();
+  } finally {
+    await app.close();
+  }
+});
+
+/** A saved session with no project: a user message, a reply, and a name. */
+async function writeSession(tenonDir: string, name: string) {
+  const agentDir = join(tenonDir, "agent");
+  const cwd = join(tenonDir, "no-project");
+  await mkdir(cwd, { recursive: true });
+  const before = process.env.PI_CODING_AGENT_DIR;
+  process.env.PI_CODING_AGENT_DIR = agentDir; // pi puts the file in the sessions folder of this agent folder
+  try {
+    const sm = SessionManager.create(cwd);
+    const timestamp = Date.now();
+    sm.appendMessage({ role: "user", content: "Hello from the test", timestamp });
+    sm.appendMessage({
+      role: "assistant",
+      content: [{ type: "text", text: "Hello" }],
+      api: "anthropic-messages",
+      provider: "anthropic",
+      model: "test",
+      usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } },
+      stopReason: "stop",
+      timestamp,
+    });
+    sm.appendSessionInfo(name);
+  } finally {
+    if (before === undefined) delete process.env.PI_CODING_AGENT_DIR;
+    else process.env.PI_CODING_AGENT_DIR = before;
+  }
+}

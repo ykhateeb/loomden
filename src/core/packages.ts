@@ -3,6 +3,9 @@ import { basename, dirname, extname } from "node:path";
 import { DefaultPackageManager, getAgentDir, ProjectTrustStore, type ProgressEvent, SettingsManager } from "@earendil-works/pi-coding-agent";
 import type { GalleryItem, InstalledPackage, Project } from "#protocol";
 
+/** The npm search of the gallery: a slow registry is an error, not a wait with no end. */
+const GALLERY_TIMEOUT_MS = 8000;
+
 /** pi's package manager for Tenon's agent folder, working in `cwd`. */
 export const manager = (cwd: string) => new DefaultPackageManager({ cwd, agentDir: getAgentDir(), settingsManager: SettingsManager.create(cwd, getAgentDir()) });
 
@@ -74,7 +77,7 @@ export async function changePackage(action: "install" | "remove" | "update", sou
 /** Board 4, right: packages on npm with the pi-package keyword. */
 export async function searchGallery(query: string): Promise<GalleryItem[]> {
   const text = encodeURIComponent(`keywords:pi-package ${query}`.trim());
-  const res = await fetch(`https://registry.npmjs.org/-/v1/search?text=${text}&size=20`, { signal: AbortSignal.timeout(8000) });
+  const res = await fetch(`https://registry.npmjs.org/-/v1/search?text=${text}&size=20`, { signal: AbortSignal.timeout(GALLERY_TIMEOUT_MS) });
   if (!res.ok) throw new Error(`npm search failed (${res.status})`);
   const body = (await res.json()) as { objects: { package: { name: string; version: string; description?: string; keywords?: string[] } }[] };
   return body.objects.map(({ package: p }) => {

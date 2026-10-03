@@ -1,9 +1,10 @@
 import type { BranchCard, SessionTree } from "#protocol";
-import { contentText, type Entry, isContent, isRow, labelsOf, type Node, rowsFor, structure } from "./summary";
+import { branchCount, contentText, type Entry, isRow, labelsOf, type Node, pathTo, rowsFor, structure } from "./summary";
 
-const short = (s: string, n: number) => {
-  const flat = s.replace(/\s+/g, " ").trim();
-  return flat.length > n ? `${flat.slice(0, n - 1)}…` : flat;
+/** `text` on one line, cut to `max` characters with "…". */
+const truncate = (text: string, max: number) => {
+  const flat = text.replace(/\s+/g, " ").trim();
+  return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat;
 };
 
 /**
@@ -16,8 +17,7 @@ export function buildTree(entries: Entry[], leafId: string | null): SessionTree 
   const { nodes, byId, branches, ownerOf } = structure(entries);
   const labels = labelsOf(entries);
 
-  const path: Node[] = [];
-  for (let e = leafId ? byId.get(leafId) : undefined; e; e = e.parentId ? byId.get(e.parentId) : undefined) path.unshift(e);
+  const path = pathTo(byId, leafId);
   const onPath = new Set(path.map((e) => e.id));
 
   // Where the conversation splits on the way to the current point. The current point also counts when
@@ -26,7 +26,7 @@ export function buildTree(entries: Entry[], leafId: string | null): SessionTree 
   const splits = (id: string | null) => branches(id).length > 1 || (id === leafId && branches(id).length > 0);
   if (splits(null)) points.push(null);
   for (const e of path) if (splits(e.id)) points.push(e.id);
-  const last = points.at(-1);
+  const lastSplit = points.at(-1);
 
   // The newest end of a branch: follow conversation only (a label added later is not where it ends).
   const newestEnd = (e: Node): Node => {
@@ -37,37 +37,11 @@ export function buildTree(entries: Entry[], leafId: string | null): SessionTree 
   const card = (start: Node): BranchCard => {
     const current = onPath.has(start.id);
     const end = current ? path[path.length - 1] : newestEnd(start);
-    const run: Node[] = [];
-    for (let e: Node | undefined = end; e; e = e.parentId ? byId.get(e.parentId) : undefined) {
-      run.unshift(e);
-      if (e.id === start.id) break;
-    }
+    const toEnd = pathTo(byId, end.id);
+    const run = toEnd.slice(Math.max(0, toEnd.findIndex((e) => e.id === start.id))); // from the start of the branch to its end
     const shown = run.filter(isRow);
     const firstUser = shown.find((e) => e.type === "message" && e.message?.role === "user");
     const label = [...run].reverse().map((e) => labels.get(e.id)).find(Boolean);
-    const results = new Map<string, { isError?: boolean; diff?: string }>();
-    for (const e of run) {
-      const m = e.message as { role?: string; toolCallId?: string; isError?: boolean; details?: { diff?: unknown } } | undefined;
-      if (m?.role === "toolResult" && m.toolCallId) results.set(m.toolCallId, { isError: m.isError, diff: typeof m.details?.diff === "string" ? m.details.diff : undefined });
-    }
-    const tools = new Map<string, { files: Set<string>; count: number; failed: number; added: number; removed: number }>();
-    for (const e of shown) {
-      if (e.message?.role !== "assistant" || !Array.isArray(e.message.content)) continue;
-      for (const c of e.message.content) {
-        if (c?.type !== "toolCall") continue;
-        const t = tools.get(c.name) ?? { files: new Set(), count: 0, failed: 0, added: 0, removed: 0 };
-        const file = c.arguments?.path ?? c.arguments?.file_path;
-        if (typeof file === "string") t.files.add(file.split("/").pop()!);
-        t.count++;
-        const r = results.get(c.id);
-        if (r?.isError) t.failed++;
-        for (const line of r?.diff?.split("\n") ?? []) {
-          if (line.startsWith("+")) t.added++;
-          if (line.startsWith("-")) t.removed++;
-        }
-        tools.set(c.name, t);
-      }
-    }
     const first = shown[0];
     return {
       id: start.id,
@@ -75,9 +49,9 @@ export function buildTree(entries: Entry[], leafId: string | null): SessionTree 
       forkId: firstUser?.id,
       current,
       label,
-      name: label ?? short(contentText(firstUser?.message?.content) || "branch", 28),
-      first: first ? `${first.message?.role === "user" ? "you" : "pi"}: ${short(contentText(first.message?.content) || (first.type === "compaction" ? "compacted" : "…"), 80)}` : "",
-      tools: [...tools].map(([tool, t]) => ({ tool, files: [...t.files], count: t.count, failed: t.failed, added: t.added, removed: t.removed })),
+      name: label ?? truncate(contentText(firstUser?.message?.content) || "branch", 28),
+      first: first ? `${first.message?.role === "user" ? "you" : "pi"}: ${truncate(contentText(first.message?.content) || (first.type === "compaction" ? "compacted" : "…"), 80)}` : "",
+      tools: toolStats(run, shown),
       at: Date.parse(end.timestamp ?? "") || 0,
     };
   };
@@ -86,17 +60,61 @@ export function buildTree(entries: Entry[], leafId: string | null): SessionTree 
   const branchesAt: Record<string, BranchCard[]> = {};
   for (const p of points) {
     const owner = ownerOf(p);
-    const cards = branches(p).filter((c) => p === last || !onPath.has(c.id)).map(card);
+    const cards = branches(p).filter((c) => p === lastSplit || !onPath.has(c.id)).map(card);
     branchesAt[owner] = [...(branchesAt[owner] ?? []), ...cards];
   }
 
-  const cut = last === undefined ? path.length : last === null ? 0 : path.findIndex((e) => e.id === last) + 1;
+  const cut = lastSplit === undefined ? path.length : lastSplit === null ? 0 : path.findIndex((e) => e.id === lastSplit) + 1;
   return {
     rows: rowsFor(path.slice(0, cut), entries),
     branchesAt,
-    last: last === undefined ? undefined : ownerOf(last),
+    last: lastSplit === undefined ? undefined : ownerOf(lastSplit),
     here: ownerOf(leafId),
-    count: Math.max(1, nodes.filter((e) => isContent(e) && branches(e.id).length === 0).length), // as summarize() counts
+    count: branchCount(nodes, branches),
     leafId,
   };
+}
+
+type ToolStats = BranchCard["tools"][number];
+type ToolResult = { isError?: boolean; diff?: string };
+
+/** What each tool did on a branch: the files it touched, how often it ran and failed, and the lines its diffs added and removed. */
+function toolStats(run: readonly Node[], shown: readonly Node[]): ToolStats[] {
+  const results = resultsByCall(run);
+  const tools = new Map<string, ToolStats>();
+  for (const e of shown) {
+    if (e.message?.role !== "assistant" || !Array.isArray(e.message.content)) continue;
+    for (const c of e.message.content.filter((part) => part?.type === "toolCall")) {
+      const t: ToolStats = tools.get(c.name) ?? { tool: c.name, files: [], count: 0, failed: 0, added: 0, removed: 0 };
+      const file = c.arguments?.path ?? c.arguments?.file_path;
+      const fileName = typeof file === "string" ? file.split("/").pop() : undefined;
+      const result = results.get(c.id);
+      const { added, removed } = countDiff(result?.diff);
+      tools.set(c.name, {
+        ...t,
+        files: fileName && !t.files.includes(fileName) ? [...t.files, fileName] : t.files,
+        count: t.count + 1,
+        failed: t.failed + (result?.isError ? 1 : 0),
+        added: t.added + added,
+        removed: t.removed + removed,
+      });
+    }
+  }
+  return [...tools.values()];
+}
+
+/** The tool results of a branch, by the id of their tool call. */
+function resultsByCall(run: readonly Node[]): Map<string, ToolResult> {
+  const results = new Map<string, ToolResult>();
+  for (const e of run) {
+    const m = e.message as { role?: string; toolCallId?: string; isError?: boolean; details?: { diff?: unknown } } | undefined; // a tool result has these fields
+    if (m?.role === "toolResult" && m.toolCallId) results.set(m.toolCallId, { isError: m.isError, diff: typeof m.details?.diff === "string" ? m.details.diff : undefined });
+  }
+  return results;
+}
+
+/** The lines a diff adds and removes. */
+function countDiff(diff = ""): { added: number; removed: number } {
+  const lines = diff.split("\n");
+  return { added: lines.filter((l) => l.startsWith("+")).length, removed: lines.filter((l) => l.startsWith("-")).length };
 }

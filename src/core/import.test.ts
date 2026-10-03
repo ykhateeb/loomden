@@ -2,6 +2,7 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSyn
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, vi } from "vitest";
+import type { ImportItem, ImportResult } from "#protocol";
 
 test("import from pi: scan, then copy settings, providers, trust and files; one unreadable file is reported", async () => {
   const root = mkdtempSync(join(tmpdir(), "tenon-import-"));
@@ -25,7 +26,7 @@ test("import from pi: scan, then copy settings, providers, trust and files; one 
   expect(scan.items.map((i) => [i.id, i.count])).toEqual([["keys", 1], ["settings", 2], ["providers", 1], ["trust", 3], ["files", 3], ["packages", 2]]);
   expect(JSON.stringify(scan)).not.toContain("secret"); // only names leave pi's auth.json
 
-  const results = await runImport(["settings", "providers", "trust", "files"], () => {});
+  const results = await collect(runImport, ["settings", "providers", "trust", "files"]);
   expect(results.map((r) => [r.id, r.status])).toEqual([["settings", "done"], ["providers", "done"], ["trust", "done"], ["files", "partial"]]);
   expect(results[3].errors).toEqual(["prompts/review.md: permission denied"]);
   expect(JSON.parse(readFileSync(join(tenon, "settings.json"), "utf8"))).toEqual({ defaultProvider: "anthropic", defaultModel: "claude-sonnet-5" });
@@ -54,7 +55,7 @@ test("import from pi: symlinks followed, node_modules noted, Tenon's trust wins,
   vi.resetModules();
   const { scanImport, runImport } = await import("./import");
   expect(scanImport().items.find((i) => i.id === "packages")?.count).toBe(2); // null and 42 skipped, no throw
-  const [trust, files] = await runImport(["trust", "files"], () => {});
+  const [trust, files] = await collect(runImport, ["trust", "files"]);
   expect(JSON.parse(readFileSync(join(tenon, "trust.json"), "utf8"))).toEqual({ "/code/app": false, "/code/new": true });
   expect(trust.status).toBe("done");
   expect(existsSync(join(tenon, "extensions", "linked", "index.ts"))).toBe(true);
@@ -76,9 +77,35 @@ test("import keeps the filters of every filtered package, local paths too", asyn
   writeFileSync(join(pi, "settings.json"), JSON.stringify({ packages: [{ source: "./a", extensions: [] }, { source: "./b", skills: [] }] }));
   vi.resetModules();
   const { runImport } = await import("./import");
-  const [packages] = await runImport(["packages"], () => {});
+  const [packages] = await collect(runImport, ["packages"]);
   expect(packages.status).toBe("done");
   const saved = JSON.parse(readFileSync(join(tenon, "settings.json"), "utf8")).packages;
   expect(saved).toHaveLength(2);
   expect(saved.map((p: { extensions?: unknown; skills?: unknown }) => [p.extensions, p.skills])).toEqual([[[], undefined], [undefined, []]]);
 });
+
+test("trust: only pi's decisions that Tenon has none for, and only true or false", async () => {
+  const { newTrust } = await import("./import");
+  expect(newTrust({ "/a": true, "/b": false, "/c": "yes", "/d": true }, { "/d": false })).toEqual([
+    { path: "/a", decision: true },
+    { path: "/b", decision: false },
+  ]);
+});
+
+test("filters: a saved source gets pi's filters back, also as a path relative to Tenon's folder", async () => {
+  const { restoreFilters } = await import("./import");
+  const saved = ["npm:a", "../pkgs/b", "npm:c"];
+  const withFilters = [{ source: "npm:a", extensions: [] }, { source: "/home/me/pkgs/b", skills: [] }];
+  expect(restoreFilters(saved, withFilters, "/home/me/tenon")).toEqual([
+    { source: "npm:a", extensions: [] },
+    { source: "../pkgs/b", skills: [] },
+    "npm:c",
+  ]);
+});
+
+/** The results of an import, in order. */
+async function collect(runImport: (typeof import("./import"))["runImport"], items: ImportItem[]) {
+  const results: ImportResult[] = [];
+  await runImport(items, { onPackage: () => {}, onResult: (r) => results.push(r) });
+  return results;
+}

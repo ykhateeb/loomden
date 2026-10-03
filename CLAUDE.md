@@ -58,7 +58,7 @@ The window shows model output, so the agent and main treat each value from the w
 - A `cwd`: `assertProject` (`src/core/projects.ts`). A folder becomes a project only through main's folder picker.
 - A session path: `sessionFile()` (`src/core/paths.ts`).
 - A file path: `assertGranted("file", …)` (`src/core/grants.ts`). Main grants a file that the user picked or dropped, on its own channel to the agent.
-- A package install or update: `assertGranted("package", packageGrant(…))`. The user confirms in main's own dialog, and the grant is for one use.
+- A package install or update: `consumePackageGrant(packageGrant(…))`. The user confirms in main's own dialog, and the grant is for one use.
 
 ### Data locations
 
@@ -102,7 +102,7 @@ From Clean Code, Clean Architecture, and common practice. The sections below app
 
 - Keep state in a `create…()` factory (`createRegistry`, `createRuntimes`, `createGrants`, `createDialogs`), not at module level. `src/agent/index.ts` makes each one once and passes it on. Old exceptions, marked `ponytail:`: `projects.ts`, `attachments.ts`, `design.ts`, `providers.ts`.
 - Use the shared helpers. Do not copy them:
-  - `readJson()`, `MODEL_SETTING_KEYS`: `src/core/settings.ts`
+  - `readJson()`, `writeJson()`, `writePrivateJson()` (a file that can hold a key), `MODEL_SETTING_KEYS`: `src/core/settings.ts`
   - `manager()`, `resourceName()`: `src/core/packages.ts`
   - `availableModels()`: `src/core/providers.ts`
   - `contentText()`: `src/core/sessions/summary.ts`

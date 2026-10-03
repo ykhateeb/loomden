@@ -30,12 +30,11 @@ export function Composer({ sessionKey, state }: { sessionKey: string; state: Liv
   // A user message pi gave back (after "Continue from here" or a fork) goes in the box to edit and send.
   const draft = useStore((s) => s.drafts[sessionKey]);
   useEffect(() => {
-    const d = draft !== undefined ? actions.takeDraft(sessionKey) : undefined;
-    if (d !== undefined) {
-      setText(d);
-      setCaret(d.length);
-      requestAnimationFrame(() => (box.current?.focus(), box.current?.setSelectionRange(d.length, d.length)));
-    }
+    if (draft === undefined) return;
+    actions.clearDraft(sessionKey);
+    setText(draft);
+    setCaret(draft.length);
+    requestAnimationFrame(() => (box.current?.focus(), box.current?.setSelectionRange(draft.length, draft.length)));
   }, [draft, sessionKey]);
 
   const trigger = closed ? undefined : findTrigger(text, caret);
@@ -80,21 +79,24 @@ export function Composer({ sessionKey, state }: { sessionKey: string; state: Liv
     if ((!text.trim() && images.length === 0) || sending) return;
     setSending(true);
     const [sentText, sentImages] = [text, images];
-    const ok = await actions.prompt(sessionKey, sentText, state.streaming ? behavior : undefined, sentImages);
-    setSending(false);
-    if (!ok) return;
     // Clear only what was sent: text typed while pi checked the message stays.
-    setImages((now) => now.filter((p) => !sentImages.includes(p)));
-    setText((now) => {
-      if (now !== sentText) return now;
-      requestAnimationFrame(() => box.current?.setSelectionRange(0, 0));
-      return "";
-    });
-    setCaret(0);
+    const clearSent = () => {
+      setImages((now) => now.filter((p) => !sentImages.includes(p)));
+      setText((now) => {
+        if (now !== sentText) return now;
+        requestAnimationFrame(() => box.current?.setSelectionRange(0, 0));
+        return "";
+      });
+      setCaret(0);
+    };
+    await actions.prompt({ key: sessionKey, text: sentText, behavior: state.streaming ? behavior : undefined, images: sentImages, onAccepted: clearSent });
+    setSending(false);
   };
 
-  const takeBack = async () => {
-    const back = await actions.dequeue(sessionKey);
+  const takeBack = () => {
+    // ponytail: the queue as the last state showed it; a message pi takes in the same moment also comes back to the box.
+    const back = queued;
+    actions.dequeue(sessionKey);
     setImages((old) => [...new Set([...back.flatMap((b) => b.images), ...old])]);
     edit([...back.map((b) => b.text), text].filter(Boolean).join("\n"));
   };
@@ -104,6 +106,13 @@ export function Composer({ sessionKey, state }: { sessionKey: string; state: Liv
     setImages((old) => [...old, ...paths.filter((p) => IMAGE.test(p) && !old.includes(p))]);
     if (refs.length) edit(`${text}${text && !text.endsWith(" ") ? " " : ""}${refs.join(" ")} `);
     box.current?.focus();
+  };
+
+  // Main's file dialog grants the picks, and keeps them under our id.
+  const pickFiles = async () => {
+    const id = crypto.randomUUID();
+    await window.tenon.pickFiles(id);
+    attach(await window.tenon.picked(id));
   };
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -116,7 +125,7 @@ export function Composer({ sessionKey, state }: { sessionKey: string; state: Liv
       if (e.key === "Enter" && !e.shiftKey && trigger?.kind === "@") return e.preventDefault(), pick(rows[current]);
       if (e.key === "Enter" && !e.shiftKey && trigger?.kind === "/" && rows[current].value !== trigger.query) {
         e.preventDefault();
-        actions.prompt(sessionKey, `/${rows[current].value}`, state.streaming ? "steer" : undefined);
+        actions.prompt({ key: sessionKey, text: `/${rows[current].value}`, behavior: state.streaming ? "steer" : undefined });
         return edit("");
       }
     }
@@ -168,7 +177,9 @@ export function Composer({ sessionKey, state }: { sessionKey: string; state: Liv
         onDrop={(e) => {
           e.preventDefault();
           setDragging(false);
-          attach([...e.dataTransfer.files].map((f) => window.tenon.pathForFile(f)).filter(Boolean));
+          const files = [...e.dataTransfer.files];
+          for (const f of files) window.tenon.grantDrop(f);
+          attach(files.map((f) => window.tenon.pathForFile(f)).filter(Boolean));
         }}
       >
         {listOpen && <CommandMenu id={listId} title={trigger.kind === "/" ? "Commands" : "Files"} rows={rows} active={current} onPick={pick} onHover={setActive} />}
@@ -235,7 +246,7 @@ export function Composer({ sessionKey, state }: { sessionKey: string; state: Liv
                 <Icon name="chevronDown" size={12} />
               </button>
             )}
-            <IconButton size={28} label="Attach files" onClick={async () => attach(await window.tenon.pickFiles())}>
+            <IconButton size={28} label="Attach files" onClick={pickFiles}>
               <Icon name="clip" />
             </IconButton>
             <span className="flex-1" />

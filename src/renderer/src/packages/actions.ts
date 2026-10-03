@@ -1,24 +1,31 @@
 import type { GalleryItem } from "#protocol";
 import { call } from "#renderer/port";
-import { notice, type Packages, report, set } from "#renderer/store";
+import { getState, notice, type Packages, report, set } from "#renderer/store";
 
 export const packageActions = {
   loadPackages: () =>
     call<Packages>({ type: "packages.list" })
       .then((packages) => set({ packages }))
       .catch(report),
-  /** Install asks main's own dialog first (installing runs code); the agent refuses an install main did not confirm. */
-  changePackage: async (action: "install" | "remove" | "update", source: string, cwd?: string) => {
-    if (action !== "remove" && !(await window.tenon.confirmInstall(action, source, cwd))) return false;
+  /**
+   * Install asks main's own dialog first (installing runs code); the agent refuses an install main did not confirm.
+   * `onDone` runs when the change worked.
+   */
+  changePackage: async ({ action, source, cwd, onDone }: { action: "install" | "remove" | "update"; source: string; cwd?: string; onDone?: () => void }) => {
+    try {
+      if (action !== "remove") await window.tenon.confirmInstall(action, source, cwd);
+    } catch (e) {
+      report(e as Error); // a cancel shows nothing
+      return;
+    }
     set((s) => ({ packageWork: { ...s.packageWork, [source]: { action } } }));
     try {
       await call({ type: "packages.change", action, source, cwd });
       await packageActions.loadPackages();
       notice(`${action === "install" ? "Installed" : action === "remove" ? "Removed" : "Updated"} ${source}. Changes load after Reload or a new session.`, "info");
-      return true;
+      onDone?.();
     } catch (e) {
       report(e as Error);
-      return false;
     } finally {
       set((s) => {
         const { [source]: _, ...rest } = s.packageWork;
@@ -27,10 +34,12 @@ export const packageActions = {
     }
   },
   gallery: (query: string) => call<GalleryItem[]>({ type: "packages.gallery", query }),
-  reloadPackages: () =>
-    call<number>({ type: "packages.reload" })
-      .then((n) => notice(n ? `Reloaded ${n} open ${n === 1 ? "session" : "sessions"}` : "No open session to reload", "info"))
-      .catch(report),
+  reloadPackages: () => {
+    const n = Object.keys(getState().live).length; // the agent reloads each open session
+    return call({ type: "packages.reload" })
+      .then(() => notice(n ? `Reloaded ${n} open ${n === 1 ? "session" : "sessions"}` : "No open session to reload", "info"))
+      .catch(report);
+  },
   setTrust: (cwd: string, trusted: boolean | null) =>
     call({ type: "trust.set", cwd, trusted })
       .then(() => call<Packages["trust"]>({ type: "trust.list" }))

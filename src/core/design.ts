@@ -1,9 +1,9 @@
 // The Design page (board C1): the canvases of a project, from any session.
 import { existsSync, readdirSync } from "node:fs";
-import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { startServer, type CanvasServer } from "#canvas/server";
 import { designSystemDir, listCanvases, projectRoot, readCanvas, readHistory } from "#canvas/store";
+import { readTokens } from "#canvas/tokens";
 import type { DesignCanvas } from "#protocol";
 
 export async function designList(cwd: string): Promise<{ canvases: DesignCanvas[]; system?: string }> {
@@ -29,12 +29,7 @@ export async function designList(cwd: string): Promise<{ canvases: DesignCanvas[
     }
   }
   canvases.sort((a, b) => b.updated - a.updated);
-  let system: string | undefined;
-  try {
-    system = JSON.parse(await readFile(join(designSystemDir(projectRoot(cwd)), "tokens.json"), "utf8")).name;
-  } catch {
-    // no design system yet
-  }
+  const system: string | undefined = (await readTokens(designSystemDir(root)))?.name; // undefined: no design system yet
   return { canvases, system };
 }
 
@@ -42,14 +37,14 @@ export async function designList(cwd: string): Promise<{ canvases: DesignCanvas[
 // ponytail: module state, one copy per agent process; a factory when tests need a clean copy.
 const servers = new Map<string, { server: CanvasServer; key?: string }>();
 
-type DesignTarget = { cwd: string; canvas: string; key?: string; tab?: "ds" };
+type DesignTarget = { cwd: string; canvas: string; tab?: "ds" };
 type DesignHost = {
   prompt: (key: string, text: string) => Promise<void>;
   build: (cwd: string, pack: { title: string; text: string }) => void;
 };
 
-/** The address of one canvas. The first open of a project starts its server. */
-export async function designOpen({ cwd, canvas, key, tab }: DesignTarget, { prompt, build }: DesignHost) {
+/** Start the server of a project, if it is not running. Notes go to the session `key`. */
+export async function designOpen({ cwd, key }: { cwd: string; key?: string }, { prompt, build }: DesignHost) {
   let s = servers.get(cwd);
   if (!s) {
     if (!servers.size) process.once("exit", stopDesign);
@@ -65,6 +60,12 @@ export async function designOpen({ cwd, canvas, key, tab }: DesignTarget, { prom
     servers.set(cwd, (s = entry));
   }
   s.key = key;
+}
+
+/** The address of one canvas. designOpen() starts the server first. */
+export function designUrl({ cwd, canvas, tab }: DesignTarget) {
+  const s = servers.get(cwd);
+  if (!s) throw new Error("The design server of this project is not running");
   return s.server.url(canvas) + (tab ? "?tab=ds" : "");
 }
 

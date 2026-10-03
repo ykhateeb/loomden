@@ -10,8 +10,8 @@ test("a path is usable only after main grants it, also if the grant comes a mome
 });
 
 test("a package confirmation is good for one install", async () => {
-  const { assertGranted, grant } = createGrants();
+  const { consumePackageGrant, grant } = createGrants();
   grant("package", "install||npm:foo");
-  await expect(assertGranted("package", "install||npm:foo")).resolves.toBe("install||npm:foo");
-  await expect(assertGranted("package", "install||npm:foo")).rejects.toThrow("Not confirmed");
+  await expect(consumePackageGrant("install||npm:foo")).resolves.toBeUndefined();
+  await expect(consumePackageGrant("install||npm:foo")).rejects.toThrow("Not confirmed");
 });

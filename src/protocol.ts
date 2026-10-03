@@ -3,6 +3,9 @@ import type { AgentSessionEvent } from "@earendil-works/pi-coding-agent";
 
 export type AgentMessage = Extract<AgentSessionEvent, { type: "message_end" }>["message"];
 
+/** Main's dialogs throw this when the user cancels them. The window does not show it as an error. */
+export const DIALOG_CANCELLED = "Cancelled in the dialog";
+
 export interface Project {
   cwd: string;
   name: string;
@@ -71,6 +74,7 @@ export interface SessionTree {
   rows: PreviewRow[];
   /** Cards by the row they follow ("" = before the first row). At the last split: every branch; earlier: the others. */
   branchesAt: Record<string, BranchCard[]>;
+  /** The row of the last split, where the rows end and every branch shows as a card. */
   last?: string;
   /** The row of pi's current point ("" = before the first row). */
   here: string;
@@ -226,7 +230,8 @@ export type TrustAnswer = "trust" | "once";
 export type Command =
   | { type: "sessions.list" }
   | { type: "project.add"; cwd: string }
-  | { type: "session.open"; cwd: string; path?: string }
+  /** `key` is a new id from the window. A file that is open already keeps its own key. */
+  | { type: "session.open"; key: string; cwd: string; path?: string }
   /** Board 1.2: move an open session to another project folder. The chat stays; pi then works in that folder. */
   | { type: "session.move"; key: string; cwd: string }
   | { type: "session.prompt"; key: string; text: string; behavior?: "steer" | "followUp"; images?: string[] }
@@ -235,7 +240,9 @@ export type Command =
   | { type: "session.canvas"; key: string; title?: string }
   /** Board C1: the canvases of a project, and the address of one canvas (notes go to session `key`). */
   | { type: "design.list"; cwd: string }
-  | { type: "design.open"; cwd: string; canvas: string; key?: string; tab?: "ds" }
+  /** Start the design server of a project. Notes go to the session `key`. */
+  | { type: "design.open"; cwd: string; key?: string }
+  | { type: "design.url"; cwd: string; canvas: string; tab?: "ds" }
   | { type: "session.models"; key: string }
   | { type: "session.model"; key: string; provider: string; id: string }
   | { type: "session.dequeue"; key: string }
@@ -266,8 +273,9 @@ export type Command =
   | { type: "session.abort"; key: string }
   | { type: "session.thinking"; key: string; level: string }
   | { type: "session.rename"; path: string; name: string }
-  | { type: "session.clone"; cwd: string; path: string }
-  | { type: "session.export"; cwd: string; path: string }
+  | { type: "session.clone"; key: string; cwd: string; path: string }
+  /** `id` is a new id from the window; main moves the file of that id (see exportFile()). */
+  | { type: "session.export"; id: string; cwd: string; path: string }
   | { type: "session.close"; path: string }
   | { type: "project.remove"; cwd: string }
   | { type: "ui.answer"; id: string; value: unknown };
@@ -280,6 +288,8 @@ export type AgentOut =
   | { type: "state"; state: LiveState }
   | { type: "messages"; key: string; messages: AgentMessage[] }
   | { type: "closed"; key: string }
+  /** A user message pi gave back after a switch or a fork, for the message box. */
+  | { type: "draft"; key: string; text: string }
   /** The extension started the canvas server: show it in the panel. */
   | { type: "canvas"; key: string; url: string }
   /** "Start build session" (board C12): open a new session and send it the design pack. */
@@ -289,6 +299,8 @@ export type AgentOut =
   | { type: "ui.done"; id: string }
   | { type: "notify"; key?: string; message: string; level: "info" | "warning" | "error" }
   | { type: "auth.event"; providerId: string; event: { type: "done" } | { type: "info"; message: string } | { type: "progress"; message: string } | { type: "auth_url"; url: string; instructions?: string } | { type: "device_code"; userCode: string; verificationUri: string; expiresInSeconds?: number } }
+  /** One item of an import is done (board 5d). */
+  | { type: "import.result"; result: ImportResult }
   | { type: "package.progress"; source: string; action: string; phase: "start" | "progress" | "complete" | "error"; message?: string };
 
 export type Send = (msg: AgentOut) => void;

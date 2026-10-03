@@ -2,8 +2,11 @@ import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promis
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { startServer } from "./server.js";
-import { RAW_BOARD, RAW_STATE, RAW_TOKENS, compareBoard, designPack, readCompares, setDifferenceState, freeRoot, moveCanvases, moveDesignSystem, acceptProposal, addNote, approve, flow, restoreRev, dsReport, patchBoard, proposeTokens, readHistory, undoBoard, createBoard, editBoard, ensureGitignore, readBoard, readCanvas, stamp, tokensCss } from "./store.js";
+import { fileEvent, startServer } from "./server.js";
+import { RAW_BOARD, RAW_STATE, freeRoot, addNote, approve, flow, restoreRev, patchBoard, readHistory, undoBoard, createBoard, editBoard, readBoard, readCanvas, stamp, patchHtml } from "./store.js";
+import { RAW_TOKENS, acceptProposal, dsReport, proposeTokens, tokensCss, writeTokensCss } from "./tokens.js";
+import { compareBoard, designPack, readCompares, setDifferenceState, diffFacts, keepDecisions, boardFacts } from "./compare.js";
+import { canvasMoves, gitignoreMissing, moveCanvases, moveDesignSystem, ensureGitignore } from "./project.js";
 
 const html = `<html><head><title>x</title></head><body><button>Pay</button><a href="b.html">Next</a></body></html>`;
 const setup = async () => {
@@ -25,8 +28,8 @@ describe("store", () => {
     await createBoard(root, { canvas: "c1", board: "cart", title: "Cart", w: 390, h: 844, html });
     const b = await readBoard(root, "c1", "cart");
     expect(b.rev).toBe(1);
-    const r = await editBoard(root, { canvas: "c1", board: "cart", baseRev: 1, edits: [{ find: "Pay", replace: "Pay now" }] });
-    expect(r.rev).toBe(2);
+    await editBoard(root, { canvas: "c1", board: "cart", baseRev: 1, edits: [{ find: "Pay", replace: "Pay now" }] });
+    expect((await readBoard(root, "c1", "cart")).rev).toBe(2);
     await expect(editBoard(root, { canvas: "c1", board: "cart", baseRev: 1, html })).rejects.toThrow(/changed by pi at rev 2/);
     await editBoard(root, { canvas: "c1", board: "cart", baseRev: 2, html: "<p>you</p>", by: "you" });
     await expect(editBoard(root, { canvas: "c1", board: "cart", baseRev: 2, html })).rejects.toThrow(/changed by you at rev 3/);
@@ -46,15 +49,22 @@ describe("store", () => {
   it("keeps notes, tokens and gitignore", async () => {
     const { proj, root } = await setup();
     await createBoard(root, { canvas: "c1", board: "cart", title: "Cart", w: 390, h: 844, html });
-    const id = await addNote(root, "c1", { board: "cart", target: { tid: "2", text: "Pay", box: [1, 2, 3, 4] }, text: "bigger" });
-    expect((await readCanvas(root, "c1")).notes[id].state).toBe("open");
+    await addNote(root, "c1", { id: "n1", board: "cart", target: { tid: "2", text: "Pay", box: [1, 2, 3, 4] }, text: "bigger" });
+    expect((await readCanvas(root, "c1")).notes.n1.state).toBe("open");
+    await expect(addNote(root, "c1", { id: "n1", board: "cart", target: { tid: "2", text: "Pay", box: [1, 2, 3, 4] }, text: "again" })).rejects.toThrow(/exists/);
+    await expect(addNote(root, "c1", { id: "../x", board: "cart", target: { tid: "2", text: "Pay", box: [1, 2, 3, 4] }, text: "x" })).rejects.toThrow(/Bad note id/);
     const ds = join(proj, ".tenon", "design-system");
     await mkdir(ds, { recursive: true });
     await writeFile(join(ds, "tokens.json"), JSON.stringify({ color: { tokens: [{ name: "link", value: "#4e6f94" }] } }));
     expect(await tokensCss(ds)).toContain("--link: #4e6f94;");
+    await writeTokensCss(ds);
+    expect(await readFile(join(ds, "tokens.css"), "utf8")).toContain("--link: #4e6f94;");
     await mkdir(join(proj, ".git"));
-    expect(await ensureGitignore(proj)).toBe(true);
-    expect(await ensureGitignore(proj)).toBe(false);
+    expect(await gitignoreMissing(proj)).toBe(true);
+    await ensureGitignore(proj);
+    expect(await gitignoreMissing(proj)).toBe(false);
+    await ensureGitignore(proj);
+    expect((await readFile(join(proj, ".gitignore"), "utf8")).split("\n").filter(Boolean)).toHaveLength(1); // the line is there once
   });
 });
 
@@ -77,7 +87,7 @@ describe("server", () => {
       const base = url.replace("/c/c1", "");
       const res = await fetch(`${base}/api/note`, {
         method: "POST",
-        body: JSON.stringify({ canvas: "c1", send: true, note: { board: "cart", target: { tid: "2", text: "Pay", box: [0, 0, 1, 1] }, text: "bigger" } }),
+        body: JSON.stringify({ canvas: "c1", send: true, note: { id: "n1", board: "cart", target: { tid: "2", text: "Pay", box: [0, 0, 1, 1] }, text: "bigger" } }),
       });
       expect(res.status).toBe(200);
       expect(sent).toEqual(["On board Cart, element “Pay” (tid 2): bigger"]);
@@ -132,35 +142,36 @@ describe("edit mode", () => {
     await createBoard(root, { canvas: "c1", board: "cart", title: "Cart", w: 1, h: 1, html: page });
     const tid = (await readBoard(root, "c1", "cart")).html.match(/<h1[^>]*data-tid="(\d+)"/)![1];
 
-    await patchBoard(root, { canvas: "c1", board: "cart", tid, text: "Total <to> pay" });
+    await patchBoard(root, { canvas: "c1", board: "cart", id: "e1", tid, text: "Total <to> pay" });
     let b = await readBoard(root, "c1", "cart");
     expect(b.rev).toBe(2);
     expect(b.by).toBe("you");
     expect(b.html).toContain("Total &lt;to&gt; pay</h1>");
 
-    await patchBoard(root, { canvas: "c1", board: "cart", tid, style: { color: "var(--ink)", "margin-top": "var(--space-2)" } });
+    await patchBoard(root, { canvas: "c1", board: "cart", id: "e2", tid, style: { color: "var(--ink)", "margin-top": "var(--space-2)" } });
     b = await readBoard(root, "c1", "cart");
     expect(b.html).toContain('style="color: var(--ink); margin-top: var(--space-2)"');
 
-    await expect(patchBoard(root, { canvas: "c1", board: "cart", tid, style: { color: "#ff0000" } })).rejects.toThrow(/Only design-system values/);
-    await expect(patchBoard(root, { canvas: "c1", board: "cart", tid, style: { "background-image": "var(--x)" } })).rejects.toThrow(/Only design-system values/);
-    await expect(patchBoard(root, { canvas: "c1", board: "cart", tid: "999", text: "x" })).rejects.toThrow(/not found/);
+    await expect(patchBoard(root, { canvas: "c1", board: "cart", id: "x", tid, style: { color: "#ff0000" } })).rejects.toThrow(/Only design-system values/);
+    await expect(patchBoard(root, { canvas: "c1", board: "cart", id: "x", tid, style: { "background-image": "var(--x)" } })).rejects.toThrow(/Only design-system values/);
+    await expect(patchBoard(root, { canvas: "c1", board: "cart", id: "x", tid: "999", text: "x" })).rejects.toThrow(/not found/);
     const img = b.html.match(/<img[^>]*data-tid="(\d+)"/)![1];
-    await expect(patchBoard(root, { canvas: "c1", board: "cart", tid: img, text: "x" })).rejects.toThrow(/no text/);
+    await expect(patchBoard(root, { canvas: "c1", board: "cart", id: "x", tid: img, text: "x" })).rejects.toThrow(/no text/);
 
     // undo brings back the content before your last edit, as a new rev
-    const r = await undoBoard(root, "c1", "cart", 3);
-    expect(r.rev).toBe(4);
+    await undoBoard(root, "c1", "cart", "e2"); // the edit that made rev 3
+    expect((await readBoard(root, "c1", "cart")).rev).toBe(4);
     expect((await readBoard(root, "c1", "cart")).html).toContain("color: red");
     // not when someone else changed the board since
-    await expect(undoBoard(root, "c1", "cart", 3)).rejects.toThrow(/nothing to undo/);
+    await expect(undoBoard(root, "c1", "cart", "e2")).rejects.toThrow(/nothing to undo/);
+    await expect(undoBoard(root, "c1", "cart", "e1")).rejects.toThrow(/nothing to undo/); // an older edit
 
     const h = await readHistory(root, "c1", "cart");
     expect(h.map((e) => `${e.rev}:${e.by}`)).toEqual(["4:you", "3:you", "2:you", "1:pi"]);
     expect(h[0].quiet).toBeUndefined(); // the edit was reported to pi, so its undo is too
     // a quiet edit is undone quietly
-    await patchBoard(root, { canvas: "c1", board: "cart", tid, text: "Quiet", tell: false });
-    await undoBoard(root, "c1", "cart", 5);
+    await patchBoard(root, { canvas: "c1", board: "cart", id: "e3", tid, text: "Quiet", tell: false });
+    await undoBoard(root, "c1", "cart", "e3");
     expect((await readHistory(root, "c1", "cart"))[0].quiet).toBe(true);
   });
 });
@@ -177,8 +188,8 @@ describe("play, restore, approve", () => {
     ]);
 
     await editBoard(root, { canvas: "c1", board: "cart", baseRev: 1, html: "<p>v2</p>" });
-    const r = await restoreRev(root, "c1", "cart", 1);
-    expect(r.rev).toBe(3); // restore adds a rev, it deletes nothing
+    await restoreRev(root, "c1", "cart", 1);
+    expect((await readBoard(root, "c1", "cart")).rev).toBe(3); // restore adds a rev, it deletes nothing
     expect((await readBoard(root, "c1", "cart")).html).toContain('href="pay.html"');
     await expect(restoreRev(root, "c1", "cart", 9)).rejects.toThrow(/not found/);
 
@@ -205,20 +216,23 @@ describe("free session canvases", () => {
     const free = freeRoot(join(proj, "free"), "abc123");
     await createBoard(free, { canvas: "landing", board: "hero", title: "Hero", w: 1, h: 1, html });
     await createBoard(root, { canvas: "landing", board: "old", title: "Old", w: 1, h: 1, html });
-    expect(await moveCanvases(free, root)).toEqual(["landing-2"]);
+    const moves = await canvasMoves(free, root);
+    expect(moves).toEqual([{ from: "landing", to: "landing-2" }]);
+    await moveCanvases({ fromRoot: free, toRoot: root, moves });
     expect(Object.keys((await readCanvas(root, "landing-2")).boards)).toEqual(["boards/hero.html"]);
     expect(Object.keys((await readCanvas(root, "landing")).boards)).toEqual(["boards/old.html"]); // the project's own canvas is untouched
     expect(await readdir(free)).toEqual([]); // nothing is left behind
-    expect(await moveCanvases(free, root)).toEqual([]);
+    expect(await canvasMoves(free, root)).toEqual([]);
 
     // the session's design system comes too, but never over the project's own
     const fromDs = join(free, "..", "design-system"), toDs = join(proj, ".tenon", "design-system");
     await mkdir(fromDs, { recursive: true });
     await writeFile(join(fromDs, "tokens.json"), "{}");
     await mkdir(toDs, { recursive: true });
-    expect(await moveDesignSystem(fromDs, toDs)).toBe(false);
+    await moveDesignSystem(fromDs, toDs);
+    expect(await readdir(toDs)).toEqual([]); // the project's own one stays
     await rm(toDs, { recursive: true });
-    expect(await moveDesignSystem(fromDs, toDs)).toBe(true);
+    await moveDesignSystem(fromDs, toDs);
     expect(await readFile(join(toDs, "tokens.json"), "utf8")).toBe("{}");
 
     const guarded = "/h/.tenon/sessions/abc123/canvases/landing/boards/hero.html";
@@ -238,7 +252,7 @@ describe("sending notes", () => {
       const base = s.url("c1").replace("/c/c1", "");
       const res = await fetch(`${base}/api/note`, {
         method: "POST",
-        body: JSON.stringify({ canvas: "c1", send: true, note: { board: "cart", target: { tid: "2", text: "Pay", box: [0, 0, 1, 1] }, text: "bigger" } }),
+        body: JSON.stringify({ canvas: "c1", send: true, note: { id: "n1", board: "cart", target: { tid: "2", text: "Pay", box: [0, 0, 1, 1] }, text: "bigger" } }),
       });
       expect(res.status).toBe(400);
       expect(await res.text()).toContain("Open a session");
@@ -264,8 +278,8 @@ describe("build pack and compare with the app", () => {
     await approve(root, "c1", "cart");
     await expect(designPack(root, "c1", ds)).rejects.toThrow("Approve Payment first");
 
-    const id = await addNote(root, "c1", { board: "cart", target: { tid: "2", text: "Total", box: [0, 0, 1, 1] }, text: "Make it bold" });
-    await (await import("./store.js")).setNoteState(root, "c1", [id], "done");
+    await addNote(root, "c1", { id: "n1", board: "cart", target: { tid: "2", text: "Total", box: [0, 0, 1, 1] }, text: "Make it bold" });
+    await (await import("./store.js")).setNoteState(root, "c1", ["n1"], "done");
     await approve(root, "c1", "pay");
     const pack = await designPack(root, "c1", ds);
     expect(pack.title).toBe("c1");
@@ -290,7 +304,7 @@ describe("build pack and compare with the app", () => {
     const shot = join(proj, "app.png");
     await writeFile(shot, "png");
 
-    const r = await compareBoard(root, "c1", ds, {
+    await compareBoard(root, "c1", ds, {
       board: "cart",
       screenshot: shot,
       app: [
@@ -299,6 +313,7 @@ describe("build pack and compare with the app", () => {
         { text: "Extra text" },
       ],
     });
+    const r = (await readCompares(root, "c1"))["boards/cart.html"];
     expect(r.rev).toBe(1);
     expect(r.differences.map((d) => d.title)).toEqual(["Total: font-weight differs", "“Extra text” is not on the board"]);
     expect(r.differences[0].detail).toBe("The board uses label-strong-font-weight (650). The app uses 400.");
@@ -324,14 +339,18 @@ describe("build pack and compare with the app", () => {
       { text: "Pay", styles: { fontWeight: 700 } },   // the button: differs from 400
       { text: "Pay now" },
     ];
-    let r = await compareBoard(root, "c1", ds, { board: "cart", app });
+    const compared = async (a: typeof app) => {
+      await compareBoard(root, "c1", ds, { board: "cart", app: a });
+      return (await readCompares(root, "c1"))["boards/cart.html"];
+    };
+    let r = await compared(app);
     expect(r.differences.map((d) => d.title)).toEqual(["Pay: font-weight differs"]);
     expect(r.differences[0].detail).toBe("The board uses 400. The app uses 700.");
 
     await setDifferenceState(root, "c1", "cart", "d1", "wrong");
-    r = await compareBoard(root, "c1", ds, { board: "cart", app });
+    r = await compared(app);
     expect(r.differences[0].state).toBe("wrong"); // a decision survives a new run
-    r = await compareBoard(root, "c1", ds, { board: "cart", app: [{ text: "Pay", styles: { fontWeight: 650 } }, { text: "Pay", styles: { fontWeight: 500 } }, { text: "Pay now" }] });
+    r = await compared([{ text: "Pay", styles: { fontWeight: 650 } }, { text: "Pay", styles: { fontWeight: 500 } }, { text: "Pay now" }]);
     expect(r.differences[0].state).toBe("open"); // a new difference starts open
   });
 });
@@ -363,3 +382,35 @@ describe("server: ask and compare decisions", () => {
   });
 });
 const tokens0 = { name: "app", color: { tokens: [{ name: "ink", value: "#111" }] } };
+
+describe("pure helpers (no disk)", () => {
+  it("patchHtml changes the own text or merges the style of one element", () => {
+    const html = `<h1 data-tid="1" style="color: red">Total</h1><p data-tid="2">Pay <b data-tid="3">now</b></p>`;
+    expect(patchHtml(html, { tid: "1", text: "Sum" })).toEqual({ html: `<h1 data-tid="1" style="color: red">Sum</h1><p data-tid="2">Pay <b data-tid="3">now</b></p>`, why: "text “Total” → “Sum”" });
+    expect(patchHtml(html, { tid: "1", style: { color: "var(--ink)" } }).html).toContain(`style="color: var(--ink)"`);
+    expect(patchHtml(html, { tid: "2", style: { padding: "var(--s)" } }).why).toBe("padding of element 2");
+    expect(() => patchHtml(html, { tid: "9", text: "x" })).toThrow(/not found/);
+  });
+
+  it("diffFacts pairs repeated text in order, and keepDecisions keeps a person's decision", () => {
+    const facts = boardFacts(`<h2 style="font-weight: 650">Pay</h2><button style="font-weight: 400">Pay</button>`, new Map());
+    const found = diffFacts(facts, [{ text: "Pay", styles: { fontWeight: 650 } }, { text: "Pay", styles: { fontWeight: 700 } }, { text: "Extra" }]);
+    expect(found.map((d) => d.title)).toEqual(["Pay: font-weight differs", "“Extra” is not on the board"]);
+    const first = keepDecisions(found);
+    expect(first.map((d) => [d.id, d.state])).toEqual([["d1", "open"], ["d2", "open"]]);
+    const before = { board: "boards/x.html", rev: 1, at: "", differences: [{ ...first[0], state: "wrong" as const }] };
+    expect(keepDecisions(found, before)[0].state).toBe("wrong");
+  });
+});
+
+describe("fileEvent", () => {
+  it("maps a changed file to the page event, and ignores the rest", () => {
+    expect(fileEvent(["canvases", "c1", "boards", "cart.html"])).toEqual({ type: "board-changed", canvas: "c1", board: "boards/cart.html" });
+    expect(fileEvent(["canvases", "c1", "canvas.json"])).toEqual({ type: "canvas-changed", canvas: "c1" });
+    expect(fileEvent(["canvases", "c1", "compare", "cart.json"])).toEqual({ type: "canvas-changed", canvas: "c1" });
+    expect(fileEvent(["design-system", "tokens.json"])).toEqual({ type: "tokens-changed" });
+    expect(fileEvent(["design-system", "tokens.proposed.json"])).toEqual({ type: "ds-changed" });
+    expect(fileEvent(["canvases", "c1", "history", "cart.r2.html"])).toBeUndefined();
+    expect(fileEvent(["design-system", "tokens.css"])).toBeUndefined();
+  });
+});

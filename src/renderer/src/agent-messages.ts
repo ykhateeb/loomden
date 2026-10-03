@@ -31,12 +31,18 @@ function receive(msg: AgentMessageOut) {
         const { [msg.key]: __, ...messages } = s.messages;
         return { live, messages, dialogs: s.dialogs.filter((d) => d.key !== msg.key), active: s.active === msg.key ? undefined : s.active };
       });
+    case "import.result":
+      return set((s) => ({ importResults: [...s.importResults.filter((r) => r.id !== msg.result.id), msg.result] })); // a retry replaces its item
+    case "draft":
+      return set((s) => ({ drafts: { ...s.drafts, [msg.key]: msg.text } }));
     case "canvas.build": {
       // The pack starts a new session in the same folder, so this chat stays as it was.
       const cwd = msg.cwd ?? (msg.key && getState().live[msg.key]?.cwd);
       if (!cwd) return;
-      void sessionActions.open(cwd).then(async (key) => {
-        if (!key) return;
+      const key = crypto.randomUUID();
+      void sessionActions.open(cwd, undefined, key).then(async () => {
+        const opened = key in getState().live;
+        if (!opened) return; // the trust dialog was cancelled
         notice(`Build session started from “${msg.title}”`, "info");
         await call({ type: "session.prompt", key, text: msg.text });
       }).catch(report);
