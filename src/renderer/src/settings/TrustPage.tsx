@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { homePath } from "#renderer/chat/format";
 import { actions } from "#renderer/actions";
 import { useStore } from "#renderer/store";
 import { Segmented } from "#renderer/ui/controls";
@@ -23,9 +24,9 @@ export function TrustPage() {
             {trust?.map((t) => (
               <Tr key={t.cwd}>
                 <Td><span className="flex items-center gap-2 font-medium text-fg"><Icon name="folder" size={13} />{t.name}</span></Td>
-                <Td className="font-mono text-xs">{t.cwd.replace(/^\/Users\/[^/]+/, "~")}</Td>
+                <Td className="font-mono text-xs">{homePath(t.cwd)}</Td>
                 <Td right>
-                  {t.from && <span className="mr-3 text-xs text-muted" title={t.from}>from {t.from.replace(/^\/Users\/[^/]+/, "~")}</span>}
+                  {t.from && <span className="mr-3 text-xs text-muted" title={t.from}>from {homePath(t.from)}</span>}
                   <Segmented
                     label={`Trust for ${t.name}`}
                     value={t.trusted === true ? "yes" : t.trusted === false ? "no" : "ask"}

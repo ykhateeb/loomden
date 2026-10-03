@@ -1,9 +1,19 @@
-/** "app" from "/Users/me/code/app": how the UI names a project folder. */
+/** "app" from "/Users/me/code/app": how the UI names a project folder, or a file. */
 export const folderName = (cwd: string) => cwd.split("/").pop() ?? cwd;
 
 /** "model" for 1, "models" for any other count. */
 export function plural(n: number, word: string, many = `${word}s`) {
   return n === 1 ? word : many;
+}
+
+/** "~/code/app" from "/Users/me/code/app": a macOS home folder becomes "~". */
+export function homePath(path: string) {
+  return path.replace(/^\/Users\/[^/]+/, "~");
+}
+
+/** "12.3k" from 12345: how the UI shows a token count. */
+export function formatTokens(n: number) {
+  return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
 }
 
 export const time = (ts: number) => new Date(ts).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });

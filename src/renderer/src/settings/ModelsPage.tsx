@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { ModelChoice, ProviderRow } from "#protocol";
-import { folderName, plural } from "#renderer/chat/format";
+import { folderName, homePath, plural } from "#renderer/chat/format";
 import { agoText } from "#renderer/sessions/time";
 import { actions } from "#renderer/actions";
 import { useStore } from "#renderer/store";
@@ -12,7 +12,6 @@ import { Bar, Card, CardBody, CardHeader, ListItem, Table, Td, Th, Tr } from "#r
 
 const MAIN = ["anthropic", "openai", "google", "openrouter"];
 const LEVELS = ["off", "low", "medium", "high"];
-const home = (p: string) => p.replace(/^\/Users\/[^/]+/, "~");
 
 function detail(p: ProviderRow) {
   const how = p.subscription ? "subscription" : p.source === "environment" ? "key from the environment" : p.source === "stored" ? "api key" : p.custom ? "custom provider" : p.configured ? "configured" : undefined;
@@ -214,7 +213,7 @@ export function ModelsPage() {
           <CardHeader>Saved to</CardHeader>
           <CardBody className="flex flex-col gap-3 text-sm">
             <div className="flex flex-col">
-              <span className="font-mono text-xs text-fg">{home(page.file)}</span>
+              <span className="font-mono text-xs text-fg">{homePath(page.file)}</span>
               <span className="text-xs text-muted">{scope === "global" ? "Global · every project" : "This project"}</span>
             </div>
             {scope === "global" && (

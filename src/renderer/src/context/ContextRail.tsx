@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { LiveState, SessionTree } from "#protocol";
+import { formatTokens } from "#renderer/chat/format";
 import { actions } from "#renderer/actions";
 import { useStore } from "#renderer/store";
 import { cx, LinkButton, Pill, type PillTone, Spinner } from "#renderer/ui/base";
@@ -7,7 +8,6 @@ import { Switch } from "#renderer/ui/controls";
 import { Icon, type IconName } from "#renderer/ui/Icon";
 import { Card, CardBody, CardHeader } from "#renderer/ui/surfaces";
 
-const k = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n));
 const kinds: Record<LiveState["resources"][number]["kind"], { icon: IconName; tone: PillTone; label: string }> = {
   file: { icon: "doc", tone: "dim", label: "file" },
   system: { icon: "doc", tone: "dim", label: "system" },
@@ -46,8 +46,8 @@ export function ContextRail({ state }: { state: LiveState }) {
           {ctx && (
             <>
               <div className="flex items-baseline gap-2">
-                <b className="text-[20px] font-[650]">{ctx.tokens === null ? "—" : k(ctx.tokens)}</b>
-                <span className="text-muted">/ {k(ctx.contextWindow)} tokens</span>
+                <b className="text-[20px] font-[650]">{ctx.tokens === null ? "—" : formatTokens(ctx.tokens)}</b>
+                <span className="text-muted">/ {formatTokens(ctx.contextWindow)} tokens</span>
               </div>
               <div className="relative h-1.5 rounded-[3px] bg-raised" role="meter" aria-label="Context used" aria-valuenow={Math.round(ctx.percent ?? 0)} aria-valuemin={0} aria-valuemax={100}>
                 <b className="absolute inset-y-0 left-0 rounded-[3px] bg-accent" style={{ width: `${Math.min(ctx.percent ?? 0, 100)}%` }} />
@@ -56,8 +56,8 @@ export function ContextRail({ state }: { state: LiveState }) {
             </>
           )}
           <div className="flex items-center text-xs text-muted">
-            <span>in {k(state.tokensIn)} · out {k(state.tokensOut)}</span>
-            <span className="ml-auto">{state.compactAt ? `auto-compact ~${k(state.compactAt)}` : "auto-compact off"}</span>
+            <span>in {formatTokens(state.tokensIn)} · out {formatTokens(state.tokensOut)}</span>
+            <span className="ml-auto">{state.compactAt ? `auto-compact ~${formatTokens(state.compactAt)}` : "auto-compact off"}</span>
           </div>
           {state.compacting ? (
             <span className="flex items-center gap-2 text-xs text-sub"><Spinner size={10} />Compacting…</span>
