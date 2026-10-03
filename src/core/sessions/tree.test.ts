@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { buildTree } from "./tree";
+import { buildTree, firstRow } from "./tree";
 
 let t = 0;
 const at = () => new Date(Date.UTC(2026, 8, 29, 3, 12 + t++)).toISOString();
@@ -89,4 +89,11 @@ test("a split on a hidden entry (a model change) shows its cards under the row b
   expect(tree.last).toBe("m1");
   expect(tree.rows.map((r) => [r.id, r.branchPoint])).toEqual([["m1", true]]);
   expect(tree.branchesAt.m1.map((c) => [c.id, c.current])).toEqual([["m2", false], ["m3", true]]);
+});
+
+test("firstRow: who wrote the first row and its text on one line, cut with …", () => {
+  expect(firstRow(undefined)).toBe("");
+  expect(firstRow({ type: "message", id: "u", message: { role: "user", content: "fix\n  the test" } })).toBe("you: fix the test");
+  expect(firstRow({ type: "compaction", id: "c" })).toBe("pi: compacted");
+  expect(firstRow({ type: "message", id: "p", message: { role: "assistant", content: "x".repeat(100) } })).toBe(`pi: ${"x".repeat(79)}…`);
 });
