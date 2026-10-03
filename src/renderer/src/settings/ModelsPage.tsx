@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import type { ModelChoice, ProviderRow } from "#protocol";
 import { folderName, homePath, plural } from "#renderer/chat/format";
 import { agoText } from "#renderer/sessions/time";
@@ -9,14 +9,37 @@ import { Segmented } from "#renderer/ui/controls";
 import { Icon } from "#renderer/ui/Icon";
 import { Menu, type MenuItem } from "#renderer/ui/Menu";
 import { Bar, Card, CardBody, CardHeader, ListItem, Table, Td, Th, Tr } from "#renderer/ui/surfaces";
+import { effectiveSettings, splitProviders } from "./models";
 
-const MAIN = ["anthropic", "openai", "google", "openrouter"];
 const LEVELS = ["off", "low", "medium", "high"];
 
 function detail(p: ProviderRow) {
   const how = p.subscription ? "subscription" : p.source === "environment" ? "key from the environment" : p.source === "stored" ? "api key" : p.custom ? "custom provider" : p.configured ? "configured" : undefined;
   if (!how) return `${p.models} ${plural(p.models, "model")} · ${p.canLogin && p.canKey ? "subscription or api key" : p.canLogin ? "subscription" : "api key"}`;
   return `${how} · ${p.available} ${plural(p.available, "model")}`;
+}
+
+/** The button of a provider row: a menu when there is more than one choice, else one direct action. */
+function ProviderAction({ p, onMenu }: { p: ProviderRow; onMenu: (e: React.MouseEvent, items: MenuItem[]) => void }) {
+  const menuButton = (label: ReactNode, items: MenuItem[]) => (
+    <Button small variant="ghost" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => onMenu(e, items)}>{label}</Button>
+  );
+  if (p.configured)
+    return menuButton("Manage", [
+      ...(p.canKey ? [{ label: "Replace key…", icon: <Icon name="key" />, onSelect: () => actions.login(p.id, "api_key") }] : []),
+      ...(p.canLogin ? [{ label: "Log in again…", icon: <Icon name="external" />, onSelect: () => actions.login(p.id, "oauth") }] : []),
+      "sep",
+      { label: "Log out", icon: <Icon name="x" />, danger: true, disabled: p.source !== "stored", onSelect: () => actions.logout(p.id) },
+      ...(p.source === "environment" ? [{ note: "This key comes from an environment variable: remove it there." }] : []),
+    ]);
+  if (p.canLogin && p.canKey)
+    return menuButton(<>Connect<Icon name="chevronDown" size={12} /></>, [
+      { label: "Log in with a subscription", icon: <Icon name="external" />, onSelect: () => actions.login(p.id, "oauth") },
+      { label: "Add an api key", icon: <Icon name="key" />, onSelect: () => actions.login(p.id, "api_key") },
+    ]);
+  if (p.canLogin) return <Button small variant="ghost" onClick={() => actions.login(p.id, "oauth")}>Log in</Button>;
+  if (p.canKey) return <Button small variant="ghost" onClick={() => actions.login(p.id, "api_key")}>Add key</Button>;
+  return null;
 }
 
 /** Board 5: the model new sessions start with, the providers pi can call, and the ⌃P favorites. */
@@ -45,10 +68,8 @@ export function ModelsPage() {
     );
 
   const s = page.settings;
-  const effective = { ...page.global, ...Object.fromEntries(Object.entries(s).filter(([, v]) => v !== undefined)) };
-  const providers = page.providers;
-  const shown = providers.filter((p) => more || p.configured || MAIN.includes(p.id) || p.custom);
-  const rest = providers.filter((p) => !shown.includes(p));
+  const effective = effectiveSettings(page.global, s);
+  const { shown, rest } = splitProviders(page.providers, more);
   const ready = shown.filter((p) => p.configured).length;
   const favorites = s.enabledModels ?? [];
   const at = (e: React.MouseEvent) => {
@@ -60,26 +81,6 @@ export function ModelsPage() {
       ? page.models.map((m) => ({ id: `${m.provider}/${m.id}`, label: m.id, meta: m.provider, icon: `${m.provider}/${m.id}` === current ? <Icon name="check" size={13} /> : <span className="w-[13px]" />, onSelect: () => pick(m) }))
       : [{ label: "No models yet: add a provider key below", disabled: true, onSelect: () => {} }];
   const go = (id: string) => main.current?.querySelector(`#${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
-
-  const action = (p: ProviderRow) =>
-    p.configured ? (
-      <Button small variant="ghost" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => setMenu({ at: at(e), label: p.name, items: [
-        ...(p.canKey ? [{ label: "Replace key…", icon: <Icon name="key" />, onSelect: () => actions.login(p.id, "api_key") }] : []),
-        ...(p.canLogin ? [{ label: "Log in again…", icon: <Icon name="external" />, onSelect: () => actions.login(p.id, "oauth") }] : []),
-        "sep",
-        { label: "Log out", icon: <Icon name="x" />, danger: true, disabled: p.source !== "stored", onSelect: () => actions.logout(p.id) },
-        ...(p.source === "environment" ? [{ note: "This key comes from an environment variable: remove it there." }] : []),
-      ] })}>Manage</Button>
-    ) : p.canLogin && p.canKey ? (
-      <Button small variant="ghost" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => setMenu({ at: at(e), label: p.name, items: [
-        { label: "Log in with a subscription", icon: <Icon name="external" />, onSelect: () => actions.login(p.id, "oauth") },
-        { label: "Add an api key", icon: <Icon name="key" />, onSelect: () => actions.login(p.id, "api_key") },
-      ] })}>Connect<Icon name="chevronDown" size={12} /></Button>
-    ) : p.canLogin ? (
-      <Button small variant="ghost" onClick={() => actions.login(p.id, "oauth")}>Log in</Button>
-    ) : p.canKey ? (
-      <Button small variant="ghost" onClick={() => actions.login(p.id, "api_key")}>Add key</Button>
-    ) : null;
 
   return (
     <div className="grid min-h-0 grid-cols-[minmax(0,1fr)_300px]">
@@ -153,7 +154,7 @@ export function ModelsPage() {
                         <span className={p.configured ? "text-ok" : "text-muted"}>{p.configured ? "Connected" : "Not connected"}</span>
                       </span>
                     </Td>
-                    <Td right>{action(p)}</Td>
+                    <Td right><ProviderAction p={p} onMenu={(e, items) => setMenu({ at: at(e), label: p.name, items })} /></Td>
                   </Tr>
                 ))}
               </tbody>
