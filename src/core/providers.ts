@@ -16,6 +16,7 @@ const MAX_KEY = 4000;
 /** Board 5's table: every provider pi knows, with how it is connected. */
 export function listProviders(rt: ModelRuntime): ProviderRow[] {
   const available = rt.getAvailableSnapshot();
+  const custom = customIds();
   return rt.getProviders().map((p) => {
     const status = rt.getProviderAuthStatus(p.id);
     return {
@@ -26,7 +27,7 @@ export function listProviders(rt: ModelRuntime): ProviderRow[] {
       subscription: rt.isUsingSubscription(p.id),
       canKey: !!p.auth.apiKey?.login,
       canLogin: !!p.auth.oauth,
-      custom: customIds().has(p.id) || !!rt.getRegisteredProviderConfig(p.id),
+      custom: custom.has(p.id) || !!rt.getRegisteredProviderConfig(p.id),
       baseUrl: p.baseUrl,
       models: p.getModels().length,
       available: available.filter((m) => m.provider === p.id).length,
@@ -109,8 +110,14 @@ export function literalKey(key: string) {
   return escaped.startsWith("!") ? `$${escaped}` : escaped;
 }
 
-/** Providers the user added in models.json. */
-const customIds = () => new Set(Object.keys(readModelsFile().providers ?? {}));
+/** Providers the user added in models.json. pi accepts comments there, so a file Tenon cannot parse still shows the table. */
+function customIds() {
+  try {
+    return new Set(Object.keys(readModelsFile().providers ?? {}));
+  } catch {
+    return new Set<string>();
+  }
+}
 
 /** Board 5a "Find models": ask the server which models it has (OpenAI- and Anthropic-style /models lists). */
 export async function findModels(baseUrl: string, api: string, apiKey?: string): Promise<FoundModel[]> {
