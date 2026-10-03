@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { DesignCanvas } from "#protocol";
-import { folderName } from "#renderer/chat/format";
+import { folderName, plural } from "#renderer/chat/format";
 import { ago } from "#renderer/sessions/time";
 import { actions } from "#renderer/actions";
 import { report, useStore } from "#renderer/store";
@@ -100,7 +100,7 @@ export function DesignPage({ cwd, canvas, tab }: { cwd: string; canvas?: string;
             {shown.map((c) => (
               <button key={c.slug} aria-pressed={selected?.slug === c.slug} onClick={() => actions.openDesign(cwd, c.slug)} className={`flex flex-col gap-1 rounded-xl border p-3.5 text-left ${selected?.slug === c.slug ? "border-accent-line bg-accent-bg" : "border-line bg-panel hover:border-line2"}`}>
                 <span className="flex items-center gap-2"><b className="font-[650]">{c.title}</b><Chip status={c.status} /></span>
-                <span className="text-sm text-muted">{c.boards.length} board{c.boards.length === 1 ? "" : "s"} · updated {c.updated ? ago(c.updated) : "never"}{c.openNotes ? ` · ${c.openNotes} open note${c.openNotes === 1 ? "" : "s"}` : ""}</span>
+                <span className="text-sm text-muted">{c.boards.length} {plural(c.boards.length, "board")} · updated {c.updated ? ago(c.updated) : "never"}{c.openNotes ? ` · ${c.openNotes} open ${plural(c.openNotes, "note")}` : ""}</span>
               </button>
             ))}
             <p className="text-xs text-muted">A canvas belongs to the project. Any session can open it.</p>
@@ -122,7 +122,7 @@ export function DesignPage({ cwd, canvas, tab }: { cwd: string; canvas?: string;
                 <Button variant="primary" onClick={() => setOpened(selected.slug)}>Open canvas</Button>
                 <div className="rounded-xl border border-line bg-panel p-3">
                   <b className="text-sm font-[650]">Where it is saved</b>
-                  <p className="mt-1.5 text-sm"><span className="text-ok">In git</span> · canvas.json · {selected.boards.length} board{selected.boards.length === 1 ? "" : "s"} · {selected.images} image{selected.images === 1 ? "" : "s"}</p>
+                  <p className="mt-1.5 text-sm"><span className="text-ok">In git</span> · canvas.json · {selected.boards.length} {plural(selected.boards.length, "board")} · {selected.images} {plural(selected.images, "image")}</p>
                   <p className="text-sm"><span className="text-warn">This computer only</span> · history · {selected.revs} revs</p>
                   <p className="mt-1.5 text-xs text-muted">A teammate who pulls gets the boards, notes and approvals, not every rev you saved while designing.</p>
                 </div>

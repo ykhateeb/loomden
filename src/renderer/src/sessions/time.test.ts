@@ -10,6 +10,14 @@ test("list times as in the design", () => {
   expect(ago(now - 30 * 86400_000, now)).not.toMatch(/^[a-z]{3}$/); // a date
 });
 
+import { agoText } from "./time";
+
+test("agoText reads as part of a sentence", () => {
+  const now = new Date(2026, 8, 29, 12, 0).getTime();
+  expect(agoText(now - 20_000, now)).toBe("just now");
+  expect(agoText(now - 14 * 60_000, now)).toBe("14m ago");
+});
+
 import { groupOf } from "./time";
 
 test("board 1 groups", () => {

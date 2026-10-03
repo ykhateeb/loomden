@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { SearchResult } from "#protocol";
-import { folderName } from "#renderer/chat/format";
+import { folderName, plural } from "#renderer/chat/format";
 import { actions } from "#renderer/actions";
 import { useStore } from "#renderer/store";
 import { cx, Kbd, pill, Spinner } from "#renderer/ui/base";
@@ -82,7 +82,7 @@ export function SearchDialog() {
             onChange={(e) => setQuery(e.target.value)}
             className="min-w-0 flex-1 bg-transparent text-xl text-fg outline-none"
           />
-          {loading ? <Spinner size={12} label="searching" /> : query.trim() && <span className="text-xs text-muted">{results.length} {results.length === 1 ? "session" : "sessions"} · {matches} {matches === 1 ? "match" : "matches"}</span>}
+          {loading ? <Spinner size={12} label="searching" /> : query.trim() && <span className="text-xs text-muted">{results.length} {plural(results.length, "session")} · {matches} {plural(matches, "match", "matches")}</span>}
           <Kbd>esc</Kbd>
         </div>
 
@@ -114,7 +114,7 @@ export function SearchDialog() {
                 <span className="ml-auto flex shrink-0 items-center gap-2.5 text-xs text-muted">
                   <span className="flex items-center gap-1"><Icon name="folder" size={12} />{folderName(r.cwd)}</span>
                   <span>{ago(r.modified)}</span>
-                  <span className={pill(i === active ? "accent" : "dim", "h-5 text-label")}>{r.total} {r.total === 1 ? "match" : "matches"}</span>
+                  <span className={pill(i === active ? "accent" : "dim", "h-5 text-label")}>{r.total} {plural(r.total, "match", "matches")}</span>
                 </span>
               </div>
               {r.lines.map((l, j) => (

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { ModelChoice, ProviderRow } from "#protocol";
-import { folderName } from "#renderer/chat/format";
-import { ago } from "#renderer/sessions/time";
+import { folderName, plural } from "#renderer/chat/format";
+import { agoText } from "#renderer/sessions/time";
 import { actions } from "#renderer/actions";
 import { useStore } from "#renderer/store";
 import { Button, cx, Dot, IconButton, Kbd, LinkButton, pill, Pill } from "#renderer/ui/base";
@@ -16,8 +16,8 @@ const home = (p: string) => p.replace(/^\/Users\/[^/]+/, "~");
 
 function detail(p: ProviderRow) {
   const how = p.subscription ? "subscription" : p.source === "environment" ? "key from the environment" : p.source === "stored" ? "api key" : p.custom ? "custom provider" : p.configured ? "configured" : undefined;
-  if (!how) return `${p.models} ${p.models === 1 ? "model" : "models"} · ${p.canLogin && p.canKey ? "subscription or api key" : p.canLogin ? "subscription" : "api key"}`;
-  return `${how} · ${p.available} ${p.available === 1 ? "model" : "models"}`;
+  if (!how) return `${p.models} ${plural(p.models, "model")} · ${p.canLogin && p.canKey ? "subscription or api key" : p.canLogin ? "subscription" : "api key"}`;
+  return `${how} · ${p.available} ${plural(p.available, "model")}`;
 }
 
 /** Board 5: the model new sessions start with, the providers pi can call, and the ⌃P favorites. */
@@ -228,7 +228,7 @@ export function ModelsPage() {
               <span className="font-mono text-xs text-fg">~/.pi/agent/auth.json</span>
               <span className="text-xs text-muted">Shared with terminal pi. Keep it private.</span>
             </div>
-            {savedAt && <span className={cx("flex items-center gap-1.5 text-xs text-ok")}><Icon name="check" size={12} />Saved {ago(savedAt) === "now" ? "just now" : `${ago(savedAt)} ago`}</span>}
+            {savedAt && <span className={cx("flex items-center gap-1.5 text-xs text-ok")}><Icon name="check" size={12} />Saved {agoText(savedAt)}</span>}
           </CardBody>
         </Card>
       </aside>

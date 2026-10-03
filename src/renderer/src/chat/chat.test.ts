@@ -28,7 +28,13 @@ test("a pick replaces the typed token", () => {
   expect(applyPick("fix @ref please", t, "src/refresh.ts")).toEqual({ text: "fix @src/refresh.ts please", caret: 20 });
 });
 
-import { parseDiff } from "./format";
+import { parseDiff, plural } from "./format";
+
+test("plural picks the word for the count", () => {
+  expect(plural(1, "model")).toBe("model");
+  expect(plural(0, "model")).toBe("models");
+  expect(plural(2, "match", "matches")).toBe("matches");
+});
 
 test("parseDiff: pi's exact diff-string format (sign, padded line number, one delimiter space, text)", () => {
   expect(parseDiff("+19 let inFlight: Promise<Token> | null = null;")).toEqual([{ kind: "add", n: 19, text: "let inFlight: Promise<Token> | null = null;" }]);

@@ -1,4 +1,5 @@
 import type { Command } from "#protocol";
+import { plural } from "#renderer/chat/format";
 import { call } from "#renderer/port";
 import { getState, notice, report, set } from "#renderer/store";
 
@@ -37,7 +38,7 @@ export const packageActions = {
   reloadPackages: () => {
     const n = Object.keys(getState().live).length; // the agent reloads each open session
     return call({ type: "packages.reload" })
-      .then(() => notice(n ? `Reloaded ${n} open ${n === 1 ? "session" : "sessions"}` : "No open session to reload", "info"))
+      .then(() => notice(n ? `Reloaded ${n} open ${plural(n, "session")}` : "No open session to reload", "info"))
       .catch(report);
   },
   setTrust: (cwd: string, trusted: boolean | null) =>

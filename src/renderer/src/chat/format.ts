@@ -1,6 +1,11 @@
 /** "app" from "/Users/me/code/app": how the UI names a project folder. */
 export const folderName = (cwd: string) => cwd.split("/").pop() ?? cwd;
 
+/** "model" for 1, "models" for any other count. */
+export function plural(n: number, word: string, many = `${word}s`) {
+  return n === 1 ? word : many;
+}
+
 export const time = (ts: number) => new Date(ts).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 
 /** "Today · 03:12", "Yesterday · 18:40", "Mon, Sep 21 · 09:05". */

@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { AgentMessage } from "#protocol";
 import { cx, Pill, Spinner } from "#renderer/ui/base";
 import { Icon } from "#renderer/ui/Icon";
-import { diffCounts, parseDiff } from "./format";
+import { diffCounts, parseDiff, plural } from "./format";
 
 type Assistant = Extract<AgentMessage, { role: "assistant" }>;
 export type ToolCall = Extract<Assistant["content"][number], { type: "toolCall" }>;
@@ -33,7 +33,7 @@ export function ToolCard({ call, result, running }: { call: ToolCall; result?: T
   ) : call.name === "bash" ? (
     <Pill tone="ok" className="h-[22px]"><Icon name="check" size={12} />done</Pill>
   ) : (
-    <span className="text-xs text-muted">{lines} {lines === 1 ? "line" : "lines"}</span>
+    <span className="text-xs text-muted">{lines} {plural(lines, "line")}</span>
   );
 
   return (
