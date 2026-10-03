@@ -359,9 +359,9 @@ addEventListener("message",e=>{
     return to?playTo(to):toast("No board for “"+name+"”")}
   if(d.type==="key"&&$("#pl")&&e.source===$("#pl").contentWindow)return playKey(d.key);
   const key=[...frames.keys()].find(k=>frames.get(k).iframe.contentWindow===e.source);if(!key)return;
-  if(d.type==="select"){selected={board:key,...d};return renderSide(curNotes)}
-  if(d.type==="text"){selected={style:"",tag:"",canText:true,board:key,...d,full:d.text};const id=newId("e");return void post("edit",{board:key,tid:d.tid,text:d.text,tell,id}).then(()=>{lastMine={board:key,edit:id}})}
-  if(d.type!=="pick")return;
+  if(d.type==="select"&&mode==="edit"){selected={board:key,...d};return renderSide(curNotes)}
+  if(d.type==="text"&&mode==="edit"){selected={style:"",tag:"",canText:true,board:key,...d,full:d.text};const id=newId("e");return void post("edit",{board:key,tid:d.tid,text:d.text,tell,id}).then(()=>{lastMine={board:key,edit:id}})}
+  if(d.type!=="pick"||mode!=="point")return; // a board is untrusted: take each message only in the mode that sends it
   const r=frames.get(key).iframe.getBoundingClientRect();
   pending={board:key,target:{tid:d.tid,text:d.text,box:d.box}};
   const pop=$("#pop");pop.replaceChildren();
