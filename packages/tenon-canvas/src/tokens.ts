@@ -14,7 +14,7 @@ export function dsItems(t: any): DsItem[] {
   for (const s of t?.type?.styles ?? [])
     out.push({
       group: "type", name: s.name, value: `${s.fontSize}/${s.lineHeight} ${s.fontWeight}`,
-      decls: [[`${s.name}-font-size`, s.fontSize], [`${s.name}-line-height`, s.lineHeight], [`${s.name}-font-weight`, String(s.fontWeight)]],
+      decls: [[`${s.name}-font-size`, String(s.fontSize)], [`${s.name}-line-height`, String(s.lineHeight)], [`${s.name}-font-weight`, String(s.fontWeight)]],
     });
   return out;
 }
