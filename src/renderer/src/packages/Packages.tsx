@@ -8,13 +8,13 @@ import { Button, Chip, cx, Kbd, Label, LinkButton, pill, Pill, type PillTone, Sp
 import { Segmented } from "#renderer/ui/controls";
 import { SearchInput } from "#renderer/ui/Field";
 import { Icon } from "#renderer/ui/Icon";
+import { isTypingTarget } from "#renderer/ui/keys";
 import { Menu, type MenuItem } from "#renderer/ui/Menu";
 import { Callout, Card, CardBody, CardHeader, ListItem } from "#renderer/ui/surfaces";
 
 type Show = "all" | "global" | "projects";
 const galleryTones: Record<GalleryItem["kind"], PillTone> = { skills: "violet", extension: "orange", theme: "accent", prompts: "ok" };
 const keyOf = (p: InstalledPackage) => `${p.cwd ?? ""}|${p.source}`;
-const typing = (e: React.KeyboardEvent) => e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
 
 /** Board 4: install extensions, skills, prompts and themes — for every project or for one. */
 export function Packages() {
@@ -55,7 +55,7 @@ export function Packages() {
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
-    if (typing(e) || e.metaKey || e.ctrlKey || e.altKey || !current || busy(current)) return;
+    if (isTypingTarget(e.target) || e.metaKey || e.ctrlKey || e.altKey || !current || busy(current)) return;
     const k = e.key.toLowerCase();
     if (k === "d") actions.changePackage({ action: "remove", source: current.source, cwd: current.cwd });
     if (k === "r") actions.reloadPackages();
