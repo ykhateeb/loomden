@@ -2,7 +2,16 @@ import { mkdtempSync, readFileSync, statSync, writeFileSync, mkdirSync } from "n
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vitest";
-import { readModelSettings, writeModelSettings, writePrivateJson } from "./settings";
+import { readJson, readModelSettings, writeModelSettings, writePrivateJson } from "./settings";
+
+test("a JSON file that holds no object reads as {}", () => {
+  const dir = mkdtempSync(join(tmpdir(), "tenon-settings-"));
+  for (const body of ["null", "[]", '"x"', "{broken"]) {
+    writeFileSync(join(dir, "s.json"), body);
+    expect(readJson(join(dir, "s.json"))).toEqual({});
+  }
+  expect(readJson(join(dir, "missing.json"))).toEqual({});
+});
 
 test("project settings: change only the model keys, keep the rest, null removes, bad values refused", () => {
   const cwd = mkdtempSync(join(tmpdir(), "tenon-settings-"));
