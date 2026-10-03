@@ -9,6 +9,16 @@ const GALLERY_TIMEOUT_MS = 8000;
 /** pi's package manager for Tenon's agent folder, working in `cwd`. */
 export const manager = (cwd: string) => new DefaultPackageManager({ cwd, agentDir: getAgentDir(), settingsManager: SettingsManager.create(cwd, getAgentDir()) });
 
+/** A package source that is not a local path: npm, git, or a URL. */
+export function isRemoteSource(source: string) {
+  return /^(npm:|git:|https?:\/\/)/.test(source);
+}
+
+/** The source of a settings `packages` entry: a string, or an object with filters. */
+export function packageSource(p: string | { source: string }) {
+  return typeof p === "string" ? p : p.source;
+}
+
 /** "npm:pi-prompts-review@1.4.2" → name and version; "git:github.com/me/pi-ext@main" → repo and ref; "./path" → local. */
 export function parseSource(source: string): { name: string; version?: string; kind: InstalledPackage["kind"]; where: string } {
   if (source.startsWith("npm:")) {
@@ -17,7 +27,8 @@ export function parseSource(source: string): { name: string; version?: string; k
     const [name, version] = at > 0 ? [spec.slice(0, at), spec.slice(at + 1)] : [spec, undefined];
     return { name, version, kind: "npm", where: `npm · ${name}` };
   }
-  if (source.startsWith("git:") || /^https?:\/\//.test(source)) {
+  // npm returned above, so a remote source here is git or a URL.
+  if (isRemoteSource(source)) {
     const spec = source.replace(/^git:/, "").replace(/^https?:\/\//, "");
     const at = spec.lastIndexOf("@");
     const [repo, ref] = at > 0 ? [spec.slice(0, at), spec.slice(at + 1)] : [spec, undefined];
@@ -103,8 +114,7 @@ export function settingsWithoutMissing(cwd: string) {
     return !!path && existsSync(path);
   };
   type Settings = ReturnType<typeof settingsManager.getGlobalSettings>;
-  const src = (p: NonNullable<Settings["packages"]>[number]) => (typeof p === "string" ? p : p.source);
-  const hide = (s: Settings, scope: "user" | "project"): Settings => (s.packages ? { ...s, packages: s.packages.filter((p) => installed(src(p), scope)) } : s);
+  const hide = (s: Settings, scope: "user" | "project"): Settings => (s.packages ? { ...s, packages: s.packages.filter((p) => installed(packageSource(p), scope)) } : s);
   const global = settingsManager.getGlobalSettings.bind(settingsManager);
   const project = settingsManager.getProjectSettings.bind(settingsManager);
   // ponytail: hides the packages where pi's package manager reads them (the two getters); a new pi reader would need this too.
@@ -113,8 +123,8 @@ export function settingsWithoutMissing(cwd: string) {
 
   const trusted = new ProjectTrustStore(agentDir).get(cwd) === true;
   const missing = [
-    ...(global().packages ?? []).map(src).filter((x) => !installed(x, "user")),
-    ...(trusted ? (project().packages ?? []).map(src).filter((x) => !installed(x, "project")) : []),
+    ...(global().packages ?? []).map(packageSource).filter((x) => !installed(x, "user")),
+    ...(trusted ? (project().packages ?? []).map(packageSource).filter((x) => !installed(x, "project")) : []),
   ];
   return { settingsManager, missing };
 }

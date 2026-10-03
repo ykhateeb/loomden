@@ -2,15 +2,13 @@ import { copyFileSync, type Dirent, existsSync, mkdirSync, readdirSync, realpath
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { getAgentDir, type ProgressEvent, ProjectTrustStore } from "@earendil-works/pi-coding-agent";
 import type { ImportItem, ImportResult, ImportScan } from "#protocol";
-import { manager } from "./packages";
+import { isRemoteSource, manager, packageSource } from "./packages";
 import { PI_AGENT_DIR } from "./paths";
 import { readModelsFile, writeModelsFile } from "./providers";
 import { MODEL_SETTING_KEYS, readJson, writeJson, writeModelSettings } from "./settings";
 
 const FOLDERS = ["extensions", "skills", "prompts", "themes"];
 const TOP_FILES = ["AGENTS.md", "SYSTEM.md", "APPEND_SYSTEM.md"];
-/** A package source that is not a local path. */
-const REMOTE_SOURCE = /^(npm:|git:|https?:\/\/)/;
 
 /** "1 file", "3 files". */
 const plural = (count: number, one: string, many = `${one}s`) => `${count} ${count === 1 ? one : many}`;
@@ -68,7 +66,7 @@ type PackageEntry = string | ({ source: string } & Record<string, unknown>);
 function piPackages(): PackageEntry[] {
   const list = readJson(join(PI_AGENT_DIR, "settings.json")).packages;
   if (!Array.isArray(list)) return [];
-  const local = (s: string) => !REMOTE_SOURCE.test(s) && !isAbsolute(s);
+  const local = (s: string) => !isRemoteSource(s) && !isAbsolute(s);
   const fix = (s: string) => (local(s) ? resolve(PI_AGENT_DIR, s) : s);
   return list.flatMap((p): PackageEntry[] => {
     if (typeof p === "string" && p) return [fix(p)];
@@ -81,7 +79,6 @@ function piPackages(): PackageEntry[] {
 function isSourceEntry(p: unknown): p is { source: string } & Record<string, unknown> {
   return !!p && typeof p === "object" && typeof (p as { source?: unknown }).source === "string";
 }
-const sourceOf = (p: PackageEntry) => (typeof p === "string" ? p : p.source);
 
 /** Board 5c: what terminal pi has that Tenon can take. Reads ~/.pi/agent; changes nothing there. */
 export function scanImport(): ImportScan {
@@ -202,7 +199,7 @@ async function importPackages(tenonAgentDir: string, onPackage: (e: ProgressEven
   const all = piPackages();
   const entriesWithFilters: Extract<PackageEntry, object>[] = [];
   for (const entry of all) {
-    const source = sourceOf(entry);
+    const source = packageSource(entry);
     try {
       await pm.installAndPersist(source);
       if (typeof entry !== "string") entriesWithFilters.push(entry);
@@ -222,7 +219,7 @@ async function importPackages(tenonAgentDir: string, onPackage: (e: ProgressEven
 
 /** Saved package entries with pi's filters back on them. pi saves a local path relative to Tenon's folder. */
 export function restoreFilters(saved: readonly unknown[], entriesWithFilters: readonly Extract<PackageEntry, object>[], tenonAgentDir: string): unknown[] {
-  const same = (savedSource: string, source: string) => savedSource === source || (!REMOTE_SOURCE.test(savedSource) && resolve(tenonAgentDir, savedSource) === resolve(source));
+  const same = (savedSource: string, source: string) => savedSource === source || (!isRemoteSource(savedSource) && resolve(tenonAgentDir, savedSource) === resolve(source));
   return saved.map((p) => {
     const hit = typeof p === "string" && entriesWithFilters.find((f) => same(p, f.source));
     return hit ? { ...hit, source: p } : p;
