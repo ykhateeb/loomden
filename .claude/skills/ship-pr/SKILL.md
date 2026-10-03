@@ -30,7 +30,7 @@ Run `git fetch origin` first, and look for changes that you did not pull (`git s
 
 ## 3. Run the checks
 
-The project has no CI, so these local checks are the only checks before review.
+CI (`.github/workflows/ci.yml`) runs the three commands below on each pull request, and a merge needs them to pass. Run them here first, so that CI does not find the failure after the push. CI does not run the e2e tests.
 
 ```sh
 npm run typecheck
