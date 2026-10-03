@@ -9,7 +9,7 @@ import { watch, mkdirSync } from "node:fs";
 import { dirname, extname, join, sep } from "node:path";
 import { addNote, approve, flow, restoreRev, boardKey, boardTitle, canvasDir, canvasTabs, designSystemDir, patchBoard, readCanvas, readHistory, undoBoard, setNoteState, slug, type NoteState, type Target } from "./store.js";
 import { acceptProposal, discardProposal, dsReport, tokensCss, writeTokensCss } from "./tokens.js";
-import { designPack, readCompares, setDifferenceState } from "./compare.js";
+import { designPack, readCompares, setDifferenceState, type Difference } from "./compare.js";
 import { POINT_SCRIPT, VIEWER } from "./web.js";
 
 const TYPES: Record<string, string> = {
@@ -32,6 +32,10 @@ const EVENT_DEBOUNCE_MS = 60;
 const MAX_ASK = 500;
 /** The largest POST body that the page can send. */
 const MAX_BODY_BYTES = 1_000_000;
+/** The longest board name, link text or property name from the page that goes into a message to pi. */
+const MAX_LABEL = 40;
+/** The longest element text from the page that goes into a message to pi. */
+const MAX_ELEMENT_TEXT = 60;
 
 export async function startServer({ root, onSend, onBuild }: ServerOptions): Promise<CanvasServer> {
   const token = randomBytes(16).toString("hex");
@@ -56,10 +60,10 @@ export async function startServer({ root, onSend, onBuild }: ServerOptions): Pro
     const c = await readCanvas(root, canvas);
     const lines = ids.filter((id) => c.notes[id]).map((id) => {
       const n = c.notes[id];
-      return `On board ${c.boards[n.board]?.title ?? n.board}, element “${n.target.text}” (tid ${n.target.tid}): ${n.text}`;
+      return noteLine(c.boards[n.board]?.title ?? n.board, n);
     });
     if (!lines.length) return;
-    await onSend(lines.length > 1 ? `Design notes on canvas "${canvas}":\n${lines.join("\n")}` : lines[0]); // if it fails, the notes stay as they are
+    await onSend(notesMessage(canvas, lines)); // if it fails, the notes stay as they are
     await setNoteState(root, canvas, ids, "sent");
   };
 
@@ -73,9 +77,7 @@ export async function startServer({ root, onSend, onBuild }: ServerOptions): Pro
     if (d.state !== "open") return; // already sent: a second click sends nothing
     await setDifferenceState(root, payload.canvas, payload.board, payload.id, state);
     try {
-      await onSend(state === "fix"
-        ? `Compare with the app, board ${title}: fix the code. ${d.title}. ${d.detail}`
-        : `Compare with the app, board ${title}: the board is wrong. ${d.title}. ${d.detail} Change the board with canvas_edit so it matches the app. A person approves it again.`);
+      await onSend(decisionMessage(title, state, d));
     } catch (e) {
       await setDifferenceState(root, payload.canvas, payload.board, payload.id, "open"); // pi did not get it: the buttons come back
       throw e;
@@ -163,18 +165,17 @@ export async function startServer({ root, onSend, onBuild }: ServerOptions): Pro
         break;
       case "undo": await undoBoard(root, canvas, f.get("board", isString), f.get("edit", isString)); break;
       case "addboard": {
-        const name = f.get("name", isString);
-        await onSend(`Add a board “${name.slice(0, 40)}” (${slug(name)}.html) to canvas "${canvas}": “${f.get("from", isString).slice(0, 40)}” links to it. Use canvas_create.`);
+        await onSend(addBoardMessage({ canvas, name: f.get("name", isString), from: f.get("from", isString) }));
         break;
       }
       case "custom": {
         const board = f.get("board", isString);
         const title = boardTitle(await readCanvas(root, canvas), board);
-        await onSend(`On board ${title}, element “${f.get("text", isString).slice(0, 60)}” (tid ${Number(f.get("tid", isString))}): I need a custom value for ${f.get("prop", isString).slice(0, 40)}. Add it to the design system as a token, then use it.`);
+        await onSend(customValueMessage({ title, text: f.get("text", isString), tid: f.get("tid", isString), prop: f.get("prop", isString) }));
         break;
       }
       case "ds/update":
-        await onSend("Update the design system from code. Read the theme file (for example src/theme.ts, or the paths in `source` of .tenon/design-system/tokens.json), then call design_system_propose with the full tokens.json. Do not write tokens.json yourself: I review your proposal first.");
+        await onSend(DS_UPDATE_MESSAGE);
         break;
       case "ds/accept": await acceptProposal(ds); break;
       case "ds/discard": await discardProposal(ds); break;
@@ -221,6 +222,34 @@ export async function startServer({ root, onSend, onBuild }: ServerOptions): Pro
       server.closeAllConnections?.();
     },
   };
+}
+
+// The text sent to pi. Pure, so a test can check it byte for byte.
+
+export const DS_UPDATE_MESSAGE = "Update the design system from code. Read the theme file (for example src/theme.ts, or the paths in `source` of .tenon/design-system/tokens.json), then call design_system_propose with the full tokens.json. Do not write tokens.json yourself: I review your proposal first.";
+
+export function noteLine(boardTitle: string, note: { target: Target; text: string }) {
+  return `On board ${boardTitle}, element “${note.target.text}” (tid ${note.target.tid}): ${note.text}`;
+}
+
+/** One note goes as its line. More notes go under a heading with the canvas name. */
+export function notesMessage(canvas: string, lines: string[]) {
+  return lines.length > 1 ? `Design notes on canvas "${canvas}":\n${lines.join("\n")}` : lines[0];
+}
+
+export function decisionMessage(boardTitle: string, action: "fix" | "wrong", d: Pick<Difference, "title" | "detail">) {
+  return action === "fix"
+    ? `Compare with the app, board ${boardTitle}: fix the code. ${d.title}. ${d.detail}`
+    : `Compare with the app, board ${boardTitle}: the board is wrong. ${d.title}. ${d.detail} Change the board with canvas_edit so it matches the app. A person approves it again.`;
+}
+
+export function addBoardMessage({ canvas, name, from }: { canvas: string; name: string; from: string }) {
+  return `Add a board “${name.slice(0, MAX_LABEL)}” (${slug(name)}.html) to canvas "${canvas}": “${from.slice(0, MAX_LABEL)}” links to it. Use canvas_create.`;
+}
+
+/** The tid goes through Number(), so page text cannot get into the message as a tid. */
+export function customValueMessage({ title, text, tid, prop }: { title: string; text: string; tid: string; prop: string }) {
+  return `On board ${title}, element “${text.slice(0, MAX_ELEMENT_TEXT)}” (tid ${Number(tid)}): I need a custom value for ${prop.slice(0, MAX_LABEL)}. Add it to the design system as a token, then use it.`;
 }
 
 /** Typed reads of a POST body from the page. A field of the wrong type throws an Error that names the action. */

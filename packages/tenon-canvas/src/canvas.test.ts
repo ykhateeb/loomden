@@ -2,7 +2,7 @@ import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promis
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { fileEvent, startServer } from "./server.js";
+import { DS_UPDATE_MESSAGE, addBoardMessage, customValueMessage, decisionMessage, fileEvent, noteLine, notesMessage, startServer } from "./server.js";
 import { RAW_BOARD, RAW_STATE, freeRoot, addNote, approve, flow, restoreRev, patchBoard, readHistory, undoBoard, createBoard, editBoard, readBoard, readCanvas, stamp, patchHtml, parseStyle } from "./store.js";
 import { RAW_TOKENS, acceptProposal, dsItems, dsReport, proposeTokens, tokensCss, writeTokensCss } from "./tokens.js";
 import { compareBoard, designPack, readCompares, setDifferenceState, diffFacts, keepDecisions, boardFacts } from "./compare.js";
@@ -411,6 +411,22 @@ describe("server: body checks", () => {
 });
 
 describe("pure helpers (no disk)", () => {
+  it("builds the text sent to pi byte for byte, with the page text cut to its limit", () => {
+    const line = noteLine("Cart", { target: { tid: "2", text: "Pay", box: [] }, text: "bigger" });
+    expect(line).toBe("On board Cart, element “Pay” (tid 2): bigger");
+    expect(notesMessage("c1", [line])).toBe(line);
+    expect(notesMessage("c1", [line, "x"])).toBe(`Design notes on canvas "c1":\n${line}\nx`);
+    const d = { title: "Pay: font-weight differs", detail: "Board 400, app 700." };
+    expect(decisionMessage("Cart", "fix", d)).toBe("Compare with the app, board Cart: fix the code. Pay: font-weight differs. Board 400, app 700.");
+    expect(decisionMessage("Cart", "wrong", d)).toBe("Compare with the app, board Cart: the board is wrong. Pay: font-weight differs. Board 400, app 700. Change the board with canvas_edit so it matches the app. A person approves it again.");
+    expect(addBoardMessage({ canvas: "c1", name: "pay", from: "Go to pay" })).toBe("Add a board “pay” (pay.html) to canvas \"c1\": “Go to pay” links to it. Use canvas_create.");
+    expect(addBoardMessage({ canvas: "c1", name: "pay", from: "y".repeat(50) })).toContain(`“${"y".repeat(40)}” links`);
+    expect(() => addBoardMessage({ canvas: "c1", name: "a b", from: "x" })).toThrow(/Bad name/);
+    expect(customValueMessage({ title: "Cart", text: "t".repeat(70), tid: "2x", prop: "p".repeat(50) }))
+      .toBe(`On board Cart, element “${"t".repeat(60)}” (tid NaN): I need a custom value for ${"p".repeat(40)}. Add it to the design system as a token, then use it.`);
+    expect(DS_UPDATE_MESSAGE).toMatch(/^Update the design system from code\. .*I review your proposal first\.$/);
+  });
+
   it("parseStyle trims each declaration, skips one with no property, and a later one wins", () => {
     expect([...parseStyle(" color : var(--ink) ;;:x; padding: 4px; color: red ")]).toEqual([["color", "red"], ["padding", "4px"]]);
     expect([...parseStyle("background: url(a:b)")]).toEqual([["background", "url(a:b)"]]);
