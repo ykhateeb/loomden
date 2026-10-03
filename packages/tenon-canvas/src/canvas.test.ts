@@ -383,6 +383,33 @@ describe("server: ask and compare decisions", () => {
 });
 const tokens0 = { name: "app", color: { tokens: [{ name: "ink", value: "#111" }] } };
 
+describe("server: body checks", () => {
+  it("refuses a body of the wrong shape or size, and accepts a good one", async () => {
+    const { root } = await setup();
+    await createBoard(root, { canvas: "c1", board: "cart", title: "Cart", w: 1, h: 1, html: "<p>Pay</p>" });
+    const sent: string[] = [];
+    const s = await startServer({ root, onSend: (t) => void sent.push(t) });
+    try {
+      const base = s.url("c1").replace("/c/c1", "");
+      const post = (path: string, body: string) => fetch(`${base}/api/${path}`, { method: "POST", body });
+      const bad = async (path: string, body: object) => {
+        const res = await post(path, JSON.stringify({ canvas: "c1", ...body }));
+        return [res.status, await res.text()];
+      };
+      expect(await bad("addboard", { name: 5, from: "Cart" })).toEqual([400, expect.stringContaining("addboard")]);
+      expect(await bad("custom", { board: "cart", tid: "2", text: "Pay", prop: 7 })).toEqual([400, expect.stringContaining("custom")]);
+      expect(await bad("note", { send: "yes", note: { id: "n1", board: "cart", target: { tid: "2", text: "Pay", box: [] }, text: "x" } })).toEqual([400, expect.stringContaining("note")]);
+      expect((await post("build", "null")).status).toBe(400);
+      expect((await post("ask", JSON.stringify({ canvas: "c1", text: "x".repeat(2_000_000) }))).status).toBe(400);
+      expect(sent).toEqual([]);
+      expect((await post("addboard", JSON.stringify({ canvas: "c1", name: "Pay", from: "Cart" }))).status).toBe(200);
+      expect(sent).toHaveLength(1);
+    } finally {
+      s.close();
+    }
+  });
+});
+
 describe("pure helpers (no disk)", () => {
   it("patchHtml changes the own text or merges the style of one element", () => {
     const html = `<h1 data-tid="1" style="color: red">Total</h1><p data-tid="2">Pay <b data-tid="3">now</b></p>`;
