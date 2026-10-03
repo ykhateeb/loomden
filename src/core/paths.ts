@@ -1,3 +1,4 @@
+import { statSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import { isUuid } from "./ids";
@@ -15,6 +16,16 @@ export function sessionFile(path: unknown): string {
   const full = typeof path === "string" ? resolve(path) : "";
   if (!full.startsWith(resolve(TENON_AGENT_DIR, "sessions") + sep) || !full.endsWith(".jsonl")) throw new Error("Not a Tenon session file");
   return full;
+}
+
+/**
+ * A path the window may show in Finder: a Tenon session file, or a folder (a project).
+ * The project list is in the agent, not in main. A folder reveal reads and runs nothing, so any folder is safe.
+ */
+export function revealPath(path: unknown): string {
+  const full = typeof path === "string" && path ? resolve(path) : "";
+  if (full && statSync(full, { throwIfNoEntry: false })?.isDirectory()) return full;
+  return sessionFile(path);
 }
 
 /**

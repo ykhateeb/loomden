@@ -1,8 +1,8 @@
 import { copyFile, rm } from "node:fs/promises";
-import { resolve } from "node:path";
+import { basename } from "node:path";
 import { BrowserWindow, dialog, ipcMain, shell } from "electron";
 import { type GrantKind, importCodeItems, importGrant, packageGrant } from "#core/grants";
-import { exportFile, sessionFile } from "#core/paths";
+import { exportFile, revealPath, sessionFile } from "#core/paths";
 import { isUuid } from "#core/ids";
 import { DIALOG_CANCELLED } from "#protocol";
 
@@ -25,12 +25,12 @@ export function registerHostIpc(grant: (kind: GrantKind, path: string) => void) 
 
   ipcMain.handle("host:pick-folder", (e, id: unknown) => pickPaths({ e, id, kind: "folder", options: { properties: ["openDirectory", "createDirectory"] } }));
   ipcMain.handle("host:pick-files", (e, id: unknown) => pickPaths({ e, id, kind: "file", options: { properties: ["openFile", "multiSelections"] } }));
-  ipcMain.handle("host:picked", (_e, id: unknown) => picks.get(String(id)) ?? []);
+  ipcMain.handle("host:picked", (_e, id: unknown) => (isUuid(id) && picks.get(id)) || []);
 
   // The dialog and the copy stay in one call: a path from the window could name any file.
   ipcMain.handle("host:save-html", async (e, id: unknown, name: unknown) => {
     const from = exportFile(id);
-    const options: Electron.SaveDialogOptions = { defaultPath: `${String(name).replace(/[/\\:]/g, "-")}.html`, filters: [{ name: "HTML", extensions: ["html"] }] };
+    const options: Electron.SaveDialogOptions = { defaultPath: `${(typeof name === "string" ? name : "session").replace(/[/\\:]/g, "-")}.html`, filters: [{ name: "HTML", extensions: ["html"] }] };
     const win = parent(e);
     const result = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options);
     try {
@@ -47,7 +47,7 @@ export function registerHostIpc(grant: (kind: GrantKind, path: string) => void) 
   // Installing a package runs its code. The window only asks; the user confirms here, in a dialog the page cannot draw.
   ipcMain.handle("host:confirm-install", async (e, action: unknown, source: unknown, cwd: unknown) => {
     if ((action !== "install" && action !== "update") || typeof source !== "string" || !source.trim()) throw new Error("Not a package to confirm");
-    const where = typeof cwd === "string" && cwd ? `the project ${cwd.split("/").pop()}` : "every project (global)";
+    const where = typeof cwd === "string" && cwd ? `the project ${basename(cwd)}` : "every project (global)";
     const verb = action === "install" ? "Install" : "Update";
     const options: Electron.MessageBoxOptions = {
       type: "warning",
@@ -86,9 +86,7 @@ export function registerHostIpc(grant: (kind: GrantKind, path: string) => void) 
     if (typeof url === "string" && /^https:\/\//.test(url)) return shell.openExternal(url);
   });
 
-  ipcMain.handle("host:show-in-folder", (_e, path: unknown) => {
-    if (typeof path === "string") shell.showItemInFolder(resolve(path));
-  });
+  ipcMain.handle("host:show-in-folder", (_e, path: unknown) => shell.showItemInFolder(revealPath(path)));
 
   // The window shows model output, so it is not trusted: only a Tenon session file may go to the Trash.
   ipcMain.handle("host:trash-session", (_e, path: unknown) => shell.trashItem(sessionFile(path)));
